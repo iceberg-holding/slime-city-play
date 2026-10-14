@@ -1,0 +1,526 @@
+import {
+  CHASE_START,
+  CHASE_STOP,
+  CREATURE_CHASE_SPEED,
+  CREATURE_HEIGHT,
+  CREATURE_RADIUS,
+  CREATURE_WANDER_SPEED,
+  DONUT_COUNT,
+  FIRE_COOLDOWN,
+  JUMP_VEL,
+  KNOCKBACK,
+  MAX_BLOCKS,
+  MAX_PADS,
+  PAD_LAUNCH,
+  PAD_LIFE,
+  PAD_RADIUS,
+  PLAYER_HEIGHT,
+  PLAYER_RADIUS,
+  PLAYER_SPEED,
+  STEP_UP,
+  STICKY_TIME,
+} from './constants';
+import { Collider, blockSolid, moveBody, topAt } from './physics';
+import { rand, randRange } from './rng';
+import type { Block, Body, Creature, GameEvent, GameState, InputCommand, Look, Player, ProjectileKind } from './types';
+import { CREATURE_SPAWNS, DONUT_SPOTS, PLAYER_SPAWN, createWorld } from './world';
+
+export function createGame(seed: number, look: Look): GameState {
+  const state: GameState = {
+    tick: 0,
+    time: 0,
+    rng: seed | 0,
+    nextId: 1,
+    world: createWorld(),
+    players: [],
+    creatures: [],
+    projectiles: [],
+    pads: [],
+    blocks: [],
+    donuts: [],
+    splats: [],
+    events: [],
+    status: 'playing',
+    winTime: 0,
+  };
+  addPlayer(state, look);
+  for (const sp of CREATURE_SPAWNS) {
+    const c: Creature = {
+      id: state.nextId++,
+      seed: Math.floor(rand(state) * 1e9),
+      pos: { x: sp.x, y: 0, z: sp.z },
+      vel: { x: 0, y: 0, z: 0 },
+      grounded: true,
+      radius: CREATURE_RADIUS,
+      height: CREATURE_HEIGHT,
+      padCd: 0,
+      yaw: rand(state) * Math.PI * 2,
+      home: { x: sp.x, z: sp.z },
+      target: { x: sp.x, z: sp.z },
+      mode: 'wander',
+      thinkTimer: 0,
+      stuck: 0,
+      hitCd: 0,
+      hopCd: 0,
+    };
+    state.creatures.push(c);
+  }
+  for (const d of DONUT_SPOTS) {
+    state.donuts.push({ id: state.nextId++, pos: { ...d }, collected: false });
+  }
+  return state;
+}
+
+export function addPlayer(state: GameState, look: Look): Player {
+  const p: Player = {
+    id: state.nextId++,
+    look,
+    pos: { ...PLAYER_SPAWN },
+    vel: { x: 0, y: 0, z: 0 },
+    grounded: true,
+    radius: PLAYER_RADIUS,
+    height: PLAYER_HEIGHT,
+    padCd: 0,
+    yaw: 0,
+    shape: 'cube',
+    fireCd: 0,
+    stun: 0,
+    jumpBuffer: 0,
+    donuts: 0,
+    walkPhase: 0,
+  };
+  state.players.push(p);
+  return p;
+}
+
+function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z: number, who?: number) {
+  state.events.push({ type, x, y, z, who });
+}
+
+export function makeCollider(state: GameState): Collider {
+  return new Collider(state.world.solids, state.blocks.map(blockSolid));
+}
+
+/** Advance the simulation by dt seconds. `inputs` is keyed by player id. */
+export function step(state: GameState, inputs: Record<number, InputCommand>, dt: number): void {
+  state.events = [];
+  state.tick++;
+  if (state.status !== 'playing') return;
+  state.time += dt;
+  const col = makeCollider(state);
+
+  for (const p of state.players) {
+    const inp = inputs[p.id];
+    if (inp) handlePlayerActions(state, p, inp, col);
+    updatePlayer(state, p, inp, dt, col);
+  }
+  for (const c of state.creatures) updateCreature(state, c, dt, col);
+  updateProjectiles(state, dt, col);
+  updatePads(state, dt);
+
+  for (const s of state.splats) s.life -= dt;
+  state.splats = state.splats.filter((s) => s.life > 0);
+
+  // Donut pickup
+  for (const p of state.players) {
+    for (const d of state.donuts) {
+      if (d.collected) continue;
+      const dx = d.pos.x - p.pos.x;
+      const dy = d.pos.y - (p.pos.y + 0.9);
+      const dz = d.pos.z - p.pos.z;
+      if (dx * dx + dy * dy + dz * dz < 1.4 * 1.4) {
+        d.collected = true;
+        p.donuts++;
+        emit(state, 'donut', d.pos.x, d.pos.y, d.pos.z, p.id);
+      }
+    }
+  }
+  if (state.donuts.filter((d) => d.collected).length >= DONUT_COUNT) {
+    state.status = 'won';
+    state.winTime = state.time;
+    emit(state, 'win', 0, 0, 0);
+  }
+}
+
+function forward(yaw: number): [number, number] {
+  return [-Math.sin(yaw), -Math.cos(yaw)];
+}
+
+function handlePlayerActions(state: GameState, p: Player, inp: InputCommand, col: Collider) {
+  if (inp.toggleShape) p.shape = p.shape === 'cube' ? 'ramp' : 'cube';
+  if (inp.jump) p.jumpBuffer = 0.15;
+  if (p.fireCd <= 0 && (inp.sticky || inp.bouncy)) {
+    fire(state, p, inp.sticky ? 'sticky' : 'bouncy', inp.aimYaw);
+  }
+  if (inp.place) placeBlock(state, p, inp.aimYaw, col);
+}
+
+export function fire(state: GameState, p: Player, kind: ProjectileKind, aimYaw: number) {
+  p.fireCd = FIRE_COOLDOWN;
+  p.yaw = aimYaw;
+  const [fx, fz] = forward(aimYaw);
+  const ox = p.pos.x + fx * 0.6 + -fz * 0.3;
+  const oy = p.pos.y + 1.1;
+  const oz = p.pos.z + fz * 0.6 + fx * 0.3;
+  let vx: number;
+  let vy: number;
+  let vz: number;
+  if (kind === 'sticky') {
+    // gentle aim assist: lock onto the closest creature in a forward cone
+    let best: Creature | null = null;
+    let bestD = 16;
+    for (const c of state.creatures) {
+      const dx = c.pos.x - p.pos.x;
+      const dz = c.pos.z - p.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.5 || d > bestD) continue;
+      const dot = (dx * fx + dz * fz) / d;
+      if (dot < 0.9) continue;
+      best = c;
+      bestD = d;
+    }
+    const speed = 22;
+    if (best) {
+      const tx = best.pos.x - ox;
+      const ty = best.pos.y + 0.6 - oy;
+      const tz = best.pos.z - oz;
+      const d = Math.hypot(tx, ty, tz);
+      const t = d / speed;
+      vx = (tx / d) * speed;
+      vy = (ty / d) * speed + 0.5 * STICKY_GRAVITY * t;
+      vz = (tz / d) * speed;
+    } else {
+      vx = fx * speed;
+      vy = 2.5;
+      vz = fz * speed;
+    }
+  } else {
+    const speed = 12;
+    vx = fx * speed;
+    vy = 5;
+    vz = fz * speed;
+  }
+  state.projectiles.push({
+    id: state.nextId++,
+    kind,
+    owner: p.id,
+    pos: { x: ox, y: oy, z: oz },
+    vel: { x: vx + p.vel.x * 0.3, y: vy, z: vz + p.vel.z * 0.3 },
+    life: 3,
+  });
+  emit(state, 'shoot', ox, oy, oz, p.id);
+}
+
+const STICKY_GRAVITY = 6;
+const BOUNCY_GRAVITY = 16;
+
+function dirFromYaw(yaw: number): 0 | 1 | 2 | 3 {
+  const [fx, fz] = forward(yaw);
+  if (Math.abs(fx) > Math.abs(fz)) return fx > 0 ? 0 : 2;
+  return fz > 0 ? 1 : 3;
+}
+
+export interface Placement {
+  x: number;
+  y: number;
+  z: number;
+  dir: 0 | 1 | 2 | 3;
+  ok: boolean;
+}
+
+/** Where a block placed by `p` would go (grid cell in front, on the surface below). */
+export function computePlacement(state: GameState, p: Player, aimYaw: number, col: Collider): Placement {
+  const dir = dirFromYaw(aimYaw);
+  const dx = dir === 0 ? 1 : dir === 2 ? -1 : 0;
+  const dz = dir === 1 ? 1 : dir === 3 ? -1 : 0;
+  const cx = Math.floor(p.pos.x + dx * 1.4);
+  const cz = Math.floor(p.pos.z + dz * 1.4);
+  const half = state.world.half;
+  const base = col.groundAt(cx + 0.5, cz + 0.5, p.pos.y + 1.2, 0.45);
+  const by = Math.round(base * 1000) / 1000;
+  const res: Placement = { x: cx, y: by, z: cz, dir, ok: false };
+  if (Math.abs(cx + 0.5) > half - 0.5 || Math.abs(cz + 0.5) > half - 0.5) return res;
+  // Anything occupying the cell's volume?
+  for (const list of [col.statics, col.dynamics]) {
+    for (const s of list) {
+      if (s.maxX <= cx + 0.01 || s.minX >= cx + 0.99 || s.maxZ <= cz + 0.01 || s.minZ >= cz + 0.99) continue;
+      if (s.minY >= by + 1 - 0.01) continue;
+      if (topAt(s, cx + 0.5, cz + 0.5) <= by + 0.01) continue;
+      return res;
+    }
+  }
+  // Don't trap bodies inside the new block.
+  const bodies: Body[] = [...state.players, ...state.creatures];
+  for (const b of bodies) {
+    if (b.pos.x + b.radius > cx && b.pos.x - b.radius < cx + 1 && b.pos.z + b.radius > cz && b.pos.z - b.radius < cz + 1) {
+      if (b.pos.y < by + 1 - 0.01 && b.pos.y + b.height > by) return res;
+    }
+  }
+  res.ok = true;
+  return res;
+}
+
+export function placeBlock(state: GameState, p: Player, aimYaw: number, col: Collider): boolean {
+  const pl = computePlacement(state, p, aimYaw, col);
+  p.yaw = aimYaw;
+  if (!pl.ok) {
+    emit(state, 'noroom', pl.x + 0.5, pl.y + 0.5, pl.z + 0.5, p.id);
+    return false;
+  }
+  if (state.blocks.length >= MAX_BLOCKS) state.blocks.shift(); // recycle the oldest block
+  const blk: Block = { id: state.nextId++, shape: p.shape, x: pl.x, y: pl.y, z: pl.z, dir: pl.dir };
+  state.blocks.push(blk);
+  col.dynamics = state.blocks.map(blockSolid);
+  emit(state, 'block', pl.x + 0.5, pl.y + 0.5, pl.z + 0.5, p.id);
+  return true;
+}
+
+function checkPad(state: GameState, b: Body, id: number) {
+  if (b.padCd > 0 || b.vel.y > 0.5) return;
+  for (const pad of state.pads) {
+    const dx = b.pos.x - pad.pos.x;
+    const dz = b.pos.z - pad.pos.z;
+    if (dx * dx + dz * dz > (PAD_RADIUS + b.radius * 0.5) ** 2) continue;
+    if (Math.abs(b.pos.y - pad.pos.y) > 0.35) continue;
+    b.vel.y = PAD_LAUNCH;
+    b.grounded = false;
+    b.padCd = 0.4;
+    pad.squish = 1;
+    emit(state, 'bounce', pad.pos.x, pad.pos.y, pad.pos.z, id);
+    return;
+  }
+}
+
+function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined, dt: number, col: Collider) {
+  p.fireCd -= dt;
+  p.padCd -= dt;
+  p.jumpBuffer -= dt;
+  p.stun -= dt;
+  let mx = inp ? inp.mx : 0;
+  let mz = inp ? inp.mz : 0;
+  const len = Math.hypot(mx, mz);
+  if (len > 1) {
+    mx /= len;
+    mz /= len;
+  }
+  const control = p.stun > 0 ? 0 : 1;
+  const accel = (p.grounded ? 40 : 12) * control;
+  const tvx = mx * PLAYER_SPEED;
+  const tvz = mz * PLAYER_SPEED;
+  p.vel.x += clampMag(tvx - p.vel.x, accel * dt);
+  p.vel.z += clampMag(tvz - p.vel.z, accel * dt);
+  if (control === 0 && p.grounded) {
+    p.vel.x *= 0.92;
+    p.vel.z *= 0.92;
+  }
+  if (len > 0.1 && control) {
+    p.yaw = turnToward(p.yaw, Math.atan2(-mx, -mz), dt * 12);
+  }
+  if (p.jumpBuffer > 0 && p.grounded && p.stun <= 0) {
+    p.vel.y = JUMP_VEL;
+    p.grounded = false;
+    p.jumpBuffer = 0;
+    emit(state, 'jump', p.pos.x, p.pos.y, p.pos.z, p.id);
+  }
+  moveBody(p, dt, col, state.world.half);
+  checkPad(state, p, p.id);
+  if (p.grounded) p.walkPhase += Math.hypot(p.vel.x, p.vel.z) * dt * 1.6;
+  if (p.pos.y < -5) {
+    p.pos = { x: 0, y: 0, z: 14 };
+    p.vel = { x: 0, y: 0, z: 0 };
+  }
+}
+
+function clampMag(v: number, m: number) {
+  return v > m ? m : v < -m ? -m : v;
+}
+
+function turnToward(a: number, b: number, maxStep: number) {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + clampMag(d, maxStep);
+}
+
+function updateCreature(state: GameState, c: Creature, dt: number, col: Collider) {
+  c.padCd -= dt;
+  c.hitCd -= dt;
+  c.hopCd -= dt;
+  c.thinkTimer -= dt;
+  const wasStuck = c.stuck > 0;
+  c.stuck -= dt;
+
+  // nearest player
+  let target: Player | null = null;
+  let td = Infinity;
+  for (const p of state.players) {
+    const d = Math.hypot(p.pos.x - c.pos.x, p.pos.z - c.pos.z);
+    if (d < td) {
+      td = d;
+      target = p;
+    }
+  }
+
+  let speed = 0;
+  let dirX = 0;
+  let dirZ = 0;
+  if (c.stuck > 0) {
+    c.vel.x = 0;
+    c.vel.z = 0;
+  } else {
+    if (wasStuck) c.thinkTimer = 0;
+    if (target) {
+      const dy = Math.abs(target.pos.y - c.pos.y);
+      if (c.mode === 'wander' && td < CHASE_START && dy < 2.5) c.mode = 'chase';
+      else if (c.mode === 'chase' && (td > CHASE_STOP || dy > 4)) {
+        c.mode = 'wander';
+        c.thinkTimer = 0;
+      }
+    }
+    if (c.mode === 'chase' && target) {
+      dirX = target.pos.x - c.pos.x;
+      dirZ = target.pos.z - c.pos.z;
+      speed = c.hitCd > 0 ? CREATURE_WANDER_SPEED : CREATURE_CHASE_SPEED;
+    } else {
+      if (c.thinkTimer <= 0 || Math.hypot(c.target.x - c.pos.x, c.target.z - c.pos.z) < 0.6) {
+        const a = rand(state) * Math.PI * 2;
+        const r = randRange(state, 2, 7);
+        c.target = { x: c.home.x + Math.cos(a) * r, z: c.home.z + Math.sin(a) * r };
+        c.thinkTimer = randRange(state, 2.5, 5);
+      }
+      dirX = c.target.x - c.pos.x;
+      dirZ = c.target.z - c.pos.z;
+      speed = CREATURE_WANDER_SPEED;
+    }
+    const d = Math.hypot(dirX, dirZ);
+    if (d > 0.01) {
+      dirX /= d;
+      dirZ /= d;
+      c.yaw = turnToward(c.yaw, Math.atan2(-dirX, -dirZ), dt * 6);
+    }
+    const accel = c.grounded ? 20 : 5;
+    c.vel.x += clampMag(dirX * speed - c.vel.x, accel * dt);
+    c.vel.z += clampMag(dirZ * speed - c.vel.z, accel * dt);
+  }
+  const bumped = moveBody(c, dt, col, state.world.half);
+  if (bumped && c.grounded && c.hopCd <= 0 && c.stuck <= 0) {
+    c.vel.y = c.mode === 'chase' ? 7.5 : 6;
+    c.grounded = false;
+    c.hopCd = 1.2;
+    if (c.mode === 'wander') c.thinkTimer = 0;
+  }
+  checkPad(state, c, c.id);
+  if (c.pos.y < -5) {
+    c.pos = { x: c.home.x, y: 0, z: c.home.z };
+    c.vel = { x: 0, y: 0, z: 0 };
+  }
+
+  // Contact with players: harmless knockback
+  if (c.stuck <= 0 && c.hitCd <= 0) {
+    for (const p of state.players) {
+      const dx = p.pos.x - c.pos.x;
+      const dz = p.pos.z - c.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d > p.radius + c.radius + 0.15) continue;
+      if (p.pos.y > c.pos.y + c.height || p.pos.y + p.height < c.pos.y) continue;
+      const nx = d > 0.01 ? dx / d : 1;
+      const nz = d > 0.01 ? dz / d : 0;
+      p.vel.x = nx * KNOCKBACK;
+      p.vel.z = nz * KNOCKBACK;
+      p.vel.y = 6;
+      p.grounded = false;
+      p.stun = 0.45;
+      c.vel.x = -nx * 3;
+      c.vel.z = -nz * 3;
+      c.hitCd = 1.2;
+      emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
+    }
+  }
+}
+
+function updateProjectiles(state: GameState, dt: number, col: Collider) {
+  const keep = [];
+  for (const pr of state.projectiles) {
+    pr.life -= dt;
+    const g = pr.kind === 'sticky' ? STICKY_GRAVITY : BOUNCY_GRAVITY;
+    pr.vel.y -= g * dt;
+    const px = pr.pos.x;
+    const py = pr.pos.y;
+    const pz = pr.pos.z;
+    pr.pos.x += pr.vel.x * dt;
+    pr.pos.y += pr.vel.y * dt;
+    pr.pos.z += pr.vel.z * dt;
+    let alive = pr.life > 0;
+
+    // creature hits
+    if (alive) {
+      for (const c of state.creatures) {
+        const dx = pr.pos.x - c.pos.x;
+        const dy = pr.pos.y - (c.pos.y + 0.6);
+        const dz = pr.pos.z - c.pos.z;
+        if (dx * dx + dy * dy + dz * dz > 0.85 * 0.85) continue;
+        if (pr.kind === 'sticky') {
+          c.stuck = STICKY_TIME;
+          c.mode = 'wander';
+          emit(state, 'glue', c.pos.x, c.pos.y + 0.6, c.pos.z, c.id);
+        } else {
+          c.vel.y = 11;
+          c.grounded = false;
+          emit(state, 'bounce', c.pos.x, c.pos.y, c.pos.z, c.id);
+        }
+        alive = false;
+        break;
+      }
+    }
+
+    if (alive) {
+      const ground = pr.pos.y <= 0;
+      const s = ground ? null : col.pointInside(pr.pos.x, pr.pos.y, pr.pos.z);
+      if (ground || s) {
+        let surfaceY = 0;
+        let onTop = ground;
+        if (s) {
+          const top = topAt(s, pr.pos.x, pr.pos.z);
+          if (py >= top - 0.05 || top - pr.pos.y < 0.25) {
+            onTop = true;
+            surfaceY = top;
+          }
+        }
+        if (pr.kind === 'sticky') {
+          state.splats.push({ id: state.nextId++, pos: { x: pr.pos.x, y: onTop ? surfaceY + 0.02 : pr.pos.y, z: pr.pos.z }, life: 2.5 });
+          emit(state, 'splat', pr.pos.x, pr.pos.y, pr.pos.z);
+          alive = false;
+        } else if (onTop) {
+          makePad(state, pr.pos.x, surfaceY, pr.pos.z, col);
+          alive = false;
+        } else {
+          // hit a wall: drop straight down along it
+          pr.pos.x = px;
+          pr.pos.z = pz;
+          pr.pos.y = py;
+          pr.vel.x = 0;
+          pr.vel.z = 0;
+        }
+      }
+    }
+    if (Math.abs(pr.pos.x) > state.world.half + 5 || Math.abs(pr.pos.z) > state.world.half + 5) alive = false;
+    if (alive) keep.push(pr);
+  }
+  state.projectiles = keep;
+}
+
+function makePad(state: GameState, x: number, y: number, z: number, col: Collider) {
+  // settle the pad onto the highest surface under it
+  const gy = col.groundAt(x, z, y + STEP_UP, 0.05);
+  if (state.pads.length >= MAX_PADS) state.pads.shift();
+  state.pads.push({ id: state.nextId++, pos: { x, y: Math.max(gy, y), z }, life: PAD_LIFE, squish: 1 });
+  emit(state, 'pad', x, y, z);
+}
+
+function updatePads(state: GameState, dt: number) {
+  for (const p of state.pads) {
+    p.life -= dt;
+    p.squish = Math.max(0, p.squish - dt * 3);
+  }
+  state.pads = state.pads.filter((p) => p.life > 0);
+}
