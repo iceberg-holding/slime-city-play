@@ -249,6 +249,10 @@ export function buildCharacter(look: Look): CharacterRig {
   head.position.y = 1.3;
   inner.add(head);
 
+  // tiny face/detail pieces don't need to cast shadows
+  root.traverse((c) => {
+    if (c instanceof THREE.Mesh && c.scale.x * c.scale.y * c.scale.z < 0.004) c.castShadow = false;
+  });
   return { root, inner, legL, legR, armL, armR, head };
 }
 

@@ -120,7 +120,10 @@ export class GameView {
     this.parts = new Pool(geo.box(), new THREE.MeshBasicMaterial({ color: 0xffffff }), 160);
     for (const p of [this.projectiles, this.pads, this.cubes, this.ramps, this.splats, this.parts]) this.scene.add(p.mesh);
 
-    this.ghost = new THREE.Mesh(geo.box(), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthWrite: false }));
+    this.ghost = new THREE.Mesh(
+      geo.box(),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthWrite: false }),
+    );
     this.ghost.visible = false;
     this.scene.add(this.ghost);
 
@@ -137,14 +140,19 @@ export class GameView {
       halo.position.y = -0.55;
       const beam = makeBeam(0xffe066);
       holder.add(spinner, halo, beam);
+      noShadows(holder);
       this.scene.add(holder);
       this.pickups.set(pk.id, holder);
     }
     for (const g of state.garages) {
       this.scene.add(buildGarageProps(g.x, g.z, g.radius));
-      const model = buildVehicle(g.vehicle, VEHICLES[g.vehicle].parts.map((p) => p.id));
+      const model = buildVehicle(
+        g.vehicle,
+        VEHICLES[g.vehicle].parts.map((p) => p.id),
+      );
       model.root.position.set(g.x, 0.12, g.z);
       model.root.rotation.y = 0.6;
+      noShadows(model.root);
       this.scene.add(model.root);
       const beam = makeBeam(0x4cc9f0);
       beam.position.set(g.x, 0, g.z);
@@ -226,6 +234,15 @@ export class GameView {
     }
   }
 
+  /** Free GPU buffers (shared geometries are re-uploaded automatically if reused). */
+  dispose() {
+    this.scene.traverse((o) => {
+      if (o instanceof THREE.InstancedMesh) o.dispose();
+      if (o instanceof THREE.Mesh) o.geometry.dispose();
+    });
+    this.scene.clear();
+  }
+
   /** Render-side sync. `playerId` is the local player the camera follows. */
   sync(state: GameState, camYaw: number, camPitch: number, dt: number, playerId?: number, ghostOn = false) {
     this.time += dt;
@@ -288,7 +305,10 @@ export class GameView {
     for (const v of state.vehicles) {
       let m = this.vehicles.get(v.id);
       if (!m) {
-        m = buildVehicle(v.kind, VEHICLES[v.kind].parts.map((p) => p.id));
+        m = buildVehicle(
+          v.kind,
+          VEHICLES[v.kind].parts.map((p) => p.id),
+        );
         this.scene.add(m.root);
         this.vehicles.set(v.id, m);
       }
@@ -443,4 +463,8 @@ function buildGarageProps(x: number, z: number, r: number): THREE.Group {
   sign.add(handle, head);
   g.add(sign);
   return g;
+}
+
+function noShadows(o: THREE.Object3D) {
+  o.traverse((c) => (c.castShadow = false));
 }

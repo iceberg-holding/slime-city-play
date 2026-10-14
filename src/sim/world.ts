@@ -11,11 +11,11 @@ function box(minX: number, minY: number, minZ: number, maxX: number, maxY: numbe
 export const PLAYER_SPAWN: Vec3 = { x: 0, y: 0, z: 14 };
 
 export const CREATURE_SPAWNS: { x: number; z: number }[] = [
-  { x: 8, z: 8 },
-  { x: -8, z: 10 },
-  { x: 14, z: -12 },
-  { x: -14, z: -6 },
-  { x: 4, z: -15 },
+  { x: 12, z: -3 },
+  { x: -12, z: -1 },
+  { x: 14, z: -13 },
+  { x: -13, z: -11 },
+  { x: 3, z: -15 },
 ];
 
 export function createWorld(): World {

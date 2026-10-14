@@ -65,6 +65,7 @@ export function buildCreature(seed: number): CreatureView {
     } else {
       eye.position.set(ex, 0.8, -0.48);
     }
+    eye.traverse((c) => (c.castShadow = false));
     blob.add(eye);
     eyes.push(eye);
   }

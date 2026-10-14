@@ -42,10 +42,7 @@ preview.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.8));
 const pSun = new THREE.DirectionalLight(0xffffff, 1.6);
 pSun.position.set(3, 6, 4);
 preview.add(pSun);
-const pedestal = new THREE.Mesh(
-  new THREE.CylinderGeometry(1.1, 1.25, 0.3, 24),
-  new THREE.MeshLambertMaterial({ color: 0xff70a6 }),
-);
+const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, 0.3, 24), new THREE.MeshLambertMaterial({ color: 0xff70a6 }));
 pedestal.position.y = -0.15;
 preview.add(pedestal);
 const turntable = new THREE.Group();
@@ -80,6 +77,7 @@ function startGame(look: Look) {
   unlockAudio();
   state = createGame((Date.now() & 0xffff) ^ 0x5eed, look);
   playerId = state.players[0].id;
+  view?.dispose();
   view = new GameView(state, window.innerWidth / window.innerHeight);
   input.camYaw = 0;
   input.camPitch = 0.4;
@@ -169,6 +167,7 @@ function frame(now: number) {
     if (winDelay <= 0 && mode === 'won' && state) {
       input.enabled = false;
       input.reset();
+      hud.show(false);
       win.open(state.winTime);
     }
   }
@@ -202,6 +201,9 @@ const api = {
     startGame(look);
   },
   showCreator,
+  renderInfo() {
+    return { ...renderer.info.render, geometries: renderer.info.memory.geometries };
+  },
   setPaused(v: boolean) {
     paused = v;
   },

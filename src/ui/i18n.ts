@@ -23,7 +23,10 @@ const STRINGS = {
     cube: 'Cube',
     ramp: 'Ramp',
     blocks: 'Blocks',
-    partNames: { frontWheel: 'Front wheel', rearWheel: 'Rear wheel', frame: 'Frame', handlebar: 'Handlebar', engine: 'Engine' } as Record<string, string>,
+    partNames: { frontWheel: 'Front wheel', rearWheel: 'Rear wheel', frame: 'Frame', handlebar: 'Handlebar', engine: 'Engine' } as Record<
+      string,
+      string
+    >,
     got: 'Got it:',
     delivered: 'Bike parts',
     built: 'Pit bike ready!',
@@ -58,7 +61,8 @@ const STRINGS = {
     random: 'Случайно',
     play: 'Играть',
     mission: 'Найди 5 деталей питбайка, собери его и катайся!',
-    desktopHelp: 'WASD — ходить · тяни мышью — смотреть · Пробел — прыжок · Клик/J — липкая · ПКМ/K — прыгучая · E — блок · Q — куб/рампа · F — сесть',
+    desktopHelp:
+      'WASD — ходить · тяни мышью — смотреть · Пробел — прыжок · Клик/J — липкая · ПКМ/K — прыгучая · E — блок · Q — куб/рампа · F — сесть',
     sticky: 'Липкая',
     bouncy: 'Прыгучая',
     jump: 'Прыжок',
@@ -66,7 +70,10 @@ const STRINGS = {
     cube: 'Куб',
     ramp: 'Рампа',
     blocks: 'Блоки',
-    partNames: { frontWheel: 'Переднее колесо', rearWheel: 'Заднее колесо', frame: 'Рама', handlebar: 'Руль', engine: 'Мотор' } as Record<string, string>,
+    partNames: { frontWheel: 'Переднее колесо', rearWheel: 'Заднее колесо', frame: 'Рама', handlebar: 'Руль', engine: 'Мотор' } as Record<
+      string,
+      string
+    >,
     got: 'Есть:',
     delivered: 'Детали',
     built: 'Питбайк готов!',

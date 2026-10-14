@@ -38,16 +38,7 @@ export const geo = {
 };
 
 /** Mesh helper: unit primitive scaled + positioned. */
-export function part(
-  g: THREE.BufferGeometry,
-  color: number,
-  sx: number,
-  sy: number,
-  sz: number,
-  x = 0,
-  y = 0,
-  z = 0,
-): THREE.Mesh {
+export function part(g: THREE.BufferGeometry, color: number, sx: number, sy: number, sz: number, x = 0, y = 0, z = 0): THREE.Mesh {
   const m = new THREE.Mesh(g, mat(color));
   m.scale.set(sx, sy, sz);
   m.position.set(x, y, z);

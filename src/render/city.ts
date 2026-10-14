@@ -47,9 +47,12 @@ export function wedgeGeometry(): THREE.BufferGeometry {
   const E = [0.5, 1, -0.5];
   const F = [0.5, 1, 0.5];
   const tris = [
-    [A, C, B], [A, D, C], // bottom
-    [B, C, F], [B, F, E], // back (tall side)
-    [A, E, F], [A, F, D], // slope
+    [A, C, B],
+    [A, D, C], // bottom
+    [B, C, F],
+    [B, F, E], // back (tall side)
+    [A, E, F],
+    [A, F, D], // slope
     [A, B, E], // side -z
     [D, F, C], // side +z
   ];
@@ -186,7 +189,18 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
           const ax0 = px(t, 0.45) - ax / 2;
           const az0 = pz(t, 0.45) - az / 2;
           cameraBlockers.push({ minX: ax0, minY: 1.7, minZ: az0, maxX: ax0 + ax, maxY: 2.35, maxZ: az0 + az });
-          awnings.add(px(t, 0.45), 2.0, pz(t, 0.45), ax, 0.08, az, AWNING[Math.floor(rnd() * AWNING.length)], f.alongX ? tilt : 0, 0, f.alongX ? 0 : -tilt);
+          awnings.add(
+            px(t, 0.45),
+            2.0,
+            pz(t, 0.45),
+            ax,
+            0.08,
+            az,
+            AWNING[Math.floor(rnd() * AWNING.length)],
+            f.alongX ? tilt : 0,
+            0,
+            f.alongX ? 0 : -tilt,
+          );
         }
       }
     }
@@ -202,7 +216,15 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   }
   const platBatch = new InstanceBatch(box);
   for (const p of world.platforms) {
-    platBatch.add((p.minX + p.maxX) / 2, (p.minY + p.maxY) / 2, (p.minZ + p.maxZ) / 2, p.maxX - p.minX, p.maxY - p.minY, p.maxZ - p.minZ, 0xb5a58a);
+    platBatch.add(
+      (p.minX + p.maxX) / 2,
+      (p.minY + p.maxY) / 2,
+      (p.minZ + p.maxZ) / 2,
+      p.maxX - p.minX,
+      p.maxY - p.minY,
+      p.maxZ - p.minZ,
+      0xb5a58a,
+    );
   }
   root.add(rampBatch.build(), platBatch.build());
 

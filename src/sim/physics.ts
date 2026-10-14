@@ -48,10 +48,10 @@ export class Collider {
   blocked(x: number, z: number, y: number, r: number, h: number): boolean {
     for (const list of this.lists)
       for (const s of list) {
-      if (!overlapsXZ(s, x, z, r)) continue;
-      if (s.minY >= y + h) continue;
-      if (topAt(s, x, z) > y + STEP_UP) return true;
-    }
+        if (!overlapsXZ(s, x, z, r)) continue;
+        if (s.minY >= y + h) continue;
+        if (topAt(s, x, z) > y + STEP_UP) return true;
+      }
     return false;
   }
 
@@ -60,10 +60,10 @@ export class Collider {
     let g = 0;
     for (const list of this.lists)
       for (const s of list) {
-      if (!overlapsXZ(s, x, z, r)) continue;
-      const t = topAt(s, x, z);
-      if (t <= maxY && t > g) g = t;
-    }
+        if (!overlapsXZ(s, x, z, r)) continue;
+        const t = topAt(s, x, z);
+        if (t <= maxY && t > g) g = t;
+      }
     return g;
   }
 
@@ -71,8 +71,8 @@ export class Collider {
   pointInside(x: number, y: number, z: number): Solid | null {
     for (const list of this.lists)
       for (const s of list) {
-      if (x > s.minX && x < s.maxX && z > s.minZ && z < s.maxZ && y > s.minY && y < topAt(s, x, z)) return s;
-    }
+        if (x > s.minX && x < s.maxX && z > s.minZ && z < s.maxZ && y > s.minY && y < topAt(s, x, z)) return s;
+      }
     return null;
   }
 
