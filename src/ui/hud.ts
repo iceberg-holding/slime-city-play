@@ -1,6 +1,8 @@
 import type { InputController, ActionName } from '../input/input';
-import { DONUT_COUNT, MAX_BLOCKS } from '../sim/constants';
+import { MAX_BLOCKS } from '../sim/constants';
+import { mountable } from '../sim/mission';
 import type { GameEvent, GameState } from '../sim/types';
+import { VEHICLES } from '../sim/vehicles';
 import { onLangChange, t } from './i18n';
 
 export function formatTime(s: number): string {
@@ -11,12 +13,17 @@ export function formatTime(s: number): string {
 
 export class Hud {
   el: HTMLDivElement;
-  private donutsEl: HTMLDivElement;
+  private partsEl: HTMLDivElement;
+  private carryEl: HTMLDivElement;
   private timeEl: HTMLDivElement;
+  private hintEl: HTMLDivElement;
   private blocksEl: HTMLDivElement;
   private shapeBtn: HTMLButtonElement;
+  private rideBtn: HTMLButtonElement;
   private toastEl: HTMLDivElement;
+  private trickEl: HTMLDivElement;
   private toastTimer = 0;
+  private trickTimer = 0;
   private labels: { el: HTMLElement; key: 'sticky' | 'bouncy' | 'jump' | 'block' }[] = [];
   private shape: 'cube' | 'ramp' = 'cube';
   private lastShown = '';
@@ -26,10 +33,15 @@ export class Hud {
     this.el.className = 'screen hud';
     this.el.innerHTML = `
       <div class="hud-top">
-        <div class="pill donuts"><span class="donut-icon"></span><span class="v"></span></div>
+        <div class="hud-left">
+          <div class="pill parts"><span class="wrench-icon">🔧</span><span class="v"></span><span class="carry"></span></div>
+          <div class="hint"></div>
+        </div>
         <div class="pill time"></div>
       </div>
       <div class="toast"></div>
+      <div class="trick"></div>
+      <button class="ride-btn" data-a="interact"></button>
       <div class="buttons">
         <button class="act act-sticky" data-a="sticky"><span class="ic"></span><span class="lb"></span></button>
         <button class="act act-bouncy" data-a="bouncy"><span class="ic"></span><span class="lb"></span></button>
@@ -41,11 +53,15 @@ export class Hud {
       </div>`;
     document.body.appendChild(this.el);
     const q = <T extends HTMLElement>(s: string) => this.el.querySelector(s) as T;
-    this.donutsEl = q('.donuts .v');
+    this.partsEl = q('.parts .v');
+    this.carryEl = q('.parts .carry');
     this.timeEl = q('.time');
+    this.hintEl = q('.hint');
     this.blocksEl = q('.act-block .count');
     this.shapeBtn = q('.shape-btn');
+    this.rideBtn = q('.ride-btn');
     this.toastEl = q('.toast');
+    this.trickEl = q('.trick');
     this.labels = [
       { el: q('.act-sticky .lb'), key: 'sticky' },
       { el: q('.act-bouncy .lb'), key: 'bouncy' },
@@ -69,7 +85,10 @@ export class Hud {
       b.addEventListener('pointercancel', up);
       b.addEventListener('contextmenu', (e) => e.preventDefault());
     });
-    onLangChange(() => this.refreshText());
+    onLangChange(() => {
+      this.lastShown = '';
+      this.refreshText();
+    });
     this.refreshText();
   }
 
@@ -81,17 +100,33 @@ export class Hud {
 
   show(v: boolean) {
     this.el.style.display = v ? '' : 'none';
+    if (v) this.lastShown = '';
   }
 
   update(state: GameState, playerId: number, dt: number) {
     const p = state.players.find((x) => x.id === playerId);
     if (!p) return;
-    const shown = `${p.donuts}|${formatTime(state.time)}|${state.blocks.length}|${p.shape}`;
+    const s = t();
+    const garage = state.garages[0];
+    const total = garage ? VEHICLES[garage.vehicle].parts.length : 0;
+    const delivered = garage ? garage.delivered.length : 0;
+    const carrying = state.pickups.filter((pk) => pk.status === 'carried' && pk.carrier === p.id).length;
+    const canMount = mountable(state, p) !== null;
+    const riding = p.riding !== null;
+    let hint = s.hintFind;
+    if (carrying > 0) hint = s.hintBring;
+    else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
+    const shown = [delivered, carrying, formatTime(state.time), state.blocks.length, p.shape, hint, canMount, riding].join('|');
     if (shown !== this.lastShown) {
       this.lastShown = shown;
-      this.donutsEl.textContent = `${p.donuts}/${DONUT_COUNT}`;
+      this.partsEl.textContent = `${delivered}/${total}`;
+      this.carryEl.textContent = carrying ? `+${carrying}` : '';
       this.timeEl.textContent = formatTime(state.time);
+      this.hintEl.textContent = hint;
       this.blocksEl.textContent = `${MAX_BLOCKS - state.blocks.length}`;
+      this.rideBtn.style.display = canMount || riding ? '' : 'none';
+      this.rideBtn.textContent = riding ? `${s.exit}` : `🏍 ${s.ride}`;
+      this.el.classList.toggle('riding', riding);
       if (p.shape !== this.shape) {
         this.shape = p.shape;
         this.refreshText();
@@ -100,6 +135,10 @@ export class Hud {
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toastEl.classList.remove('on');
+    }
+    if (this.trickTimer > 0) {
+      this.trickTimer -= dt;
+      if (this.trickTimer <= 0) this.trickEl.classList.remove('on');
     }
   }
 
@@ -111,15 +150,34 @@ export class Hud {
     this.toastTimer = time;
   }
 
+  private trick(name: string) {
+    const s = t();
+    this.trickEl.innerHTML = '';
+    const big = document.createElement('div');
+    big.textContent = s.trick;
+    const small = document.createElement('div');
+    small.className = 'trick-name';
+    small.textContent = s.tricks[name] ?? name;
+    this.trickEl.append(big, small);
+    this.trickEl.classList.remove('on');
+    void this.trickEl.offsetWidth;
+    this.trickEl.classList.add('on');
+    this.trickTimer = 1.6;
+  }
+
   onEvents(events: GameEvent[], state: GameState, playerId: number) {
     const s = t();
     for (const e of events) {
-      if (e.type === 'donut' && e.who === playerId) {
-        const p = state.players.find((x) => x.id === playerId)!;
-        this.toast(`${s.donut} ${p.donuts}/${DONUT_COUNT}`, 1.6);
-      } else if (e.type === 'glue') this.toast(s.glued, 0.9);
-      else if (e.type === 'bonk' && e.who === playerId) this.toast(s.bonk, 0.7);
-      else if (e.type === 'noroom' && e.who === playerId) this.toast(s.noRoom, 0.9);
+      const mine = e.who === playerId;
+      if (e.type === 'pickup' && mine) this.toast(`${s.got} ${s.partNames[e.info ?? ''] ?? e.info}`, 1.6);
+      else if (e.type === 'deliver' && mine) {
+        const g = state.garages[0];
+        this.toast(`${s.delivered} ${g.delivered.length}/${VEHICLES[g.vehicle].parts.length}`, 1.4);
+      } else if (e.type === 'built') this.toast(s.built, 2.2);
+      else if (e.type === 'trick' && mine) this.trick(e.info ?? '');
+      else if (e.type === 'glue') this.toast(s.glued, 0.9);
+      else if (e.type === 'bonk' && mine) this.toast(s.bonk, 0.7);
+      else if (e.type === 'noroom' && mine) this.toast(s.noRoom, 0.9);
     }
   }
 }

@@ -28,6 +28,7 @@ let playerId = 0;
 let acc = 0;
 let ghostTimer = 0;
 let paused = false;
+let winDelay = 0;
 
 const input = new InputController(canvas);
 const hud = new Hud(input);
@@ -86,6 +87,7 @@ function startGame(look: Look) {
   input.enabled = true;
   acc = 0;
   mode = 'play';
+  winDelay = 0;
   creator.show(false);
   win.show(false);
   hud.show(true);
@@ -122,10 +124,21 @@ function simStep(cmd: InputCommand) {
   hud.onEvents(state.events, state, playerId);
   if (state.status === 'won' && mode === 'play') {
     mode = 'won';
-    input.enabled = false;
-    input.reset();
-    win.open(state.winTime);
+    winDelay = 2.2; // let the trick popup play first
   }
+}
+
+/** While riding, swing the camera behind the vehicle unless the player is steering the camera. */
+function followVehicle(dt: number) {
+  const p = state?.players.find((x) => x.id === playerId);
+  if (!state || !p || p.riding === null) return;
+  const v = state.vehicles.find((x) => x.id === p.riding);
+  if (!v || !v.grounded || performance.now() - input.lastLook < 1200) return;
+  let d = v.yaw - input.camYaw;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  input.camYaw += d * Math.min(1, dt * 2.5 * Math.min(1, Math.abs(v.speed) / 3));
+  input.camPitch += (0.3 - input.camPitch) * Math.min(1, dt * 2);
 }
 
 let last = performance.now();
@@ -151,6 +164,15 @@ function frame(now: number) {
     if (n === 6) acc = 0;
   }
   ghostTimer -= dt;
+  if (winDelay > 0) {
+    winDelay -= dt;
+    if (winDelay <= 0 && mode === 'won' && state) {
+      input.enabled = false;
+      input.reset();
+      win.open(state.winTime);
+    }
+  }
+  followVehicle(dt);
   view.sync(state, input.camYaw, input.camPitch, dt, playerId, ghostTimer > 0 && mode === 'play');
   hud.update(state, playerId, dt);
   renderer.render(view.scene, view.camera);
@@ -206,14 +228,20 @@ const api = {
   tick(n = 1, cmd: Partial<InputCommand> = {}) {
     for (let i = 0; i < n; i++) simStep({ ...emptyInput(input.camYaw), ...cmd });
   },
+  /** grab every bike part and bring it to the garage */
   collectAll() {
-    const p = state?.players[0];
-    if (!state || !p) return;
-    for (const d of state.donuts) {
-      if (d.collected) continue;
-      api.teleport(d.pos.x, d.pos.y - 0.9, d.pos.z);
+    if (!state) return;
+    for (const pk of state.pickups) {
+      if (pk.status !== 'world') continue;
+      api.teleport(pk.pos.x, pk.pos.y - 0.9, pk.pos.z);
       api.tick(1);
     }
+    const g = state.garages[0];
+    api.teleport(g.x, 0, g.z);
+    api.tick(2);
+  },
+  interact() {
+    api.tick(1, { interact: true });
   },
 };
 window.__game = api;

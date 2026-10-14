@@ -10,7 +10,7 @@ export class WinScreen {
     this.el.className = 'screen win';
     this.el.innerHTML = `
       <div class="win-card">
-        <div class="win-donuts"><span class="donut-icon big"></span><span class="donut-icon big"></span><span class="donut-icon big"></span></div>
+        <div class="win-icon">🏍️</div>
         <div class="win-title"></div>
         <div class="win-sub"></div>
         <div class="win-time"></div>

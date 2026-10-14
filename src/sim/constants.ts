@@ -13,7 +13,6 @@ export const MAX_PADS = 4;
 export const MAX_BLOCKS = 10;
 export const STICKY_TIME = 5;
 export const FIRE_COOLDOWN = 0.28;
-export const DONUT_COUNT = 5;
 export const CREATURE_RADIUS = 0.5;
 export const CREATURE_HEIGHT = 1.2;
 export const CREATURE_WANDER_SPEED = 1.6;

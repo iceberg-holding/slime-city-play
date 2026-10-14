@@ -5,7 +5,6 @@ import {
   CREATURE_HEIGHT,
   CREATURE_RADIUS,
   CREATURE_WANDER_SPEED,
-  DONUT_COUNT,
   FIRE_COOLDOWN,
   JUMP_VEL,
   KNOCKBACK,
@@ -23,7 +22,8 @@ import {
 import { Collider, blockSolid, moveBody, topAt } from './physics';
 import { rand, randRange } from './rng';
 import type { Block, Body, Creature, GameEvent, GameState, InputCommand, Look, Player, ProjectileKind } from './types';
-import { CREATURE_SPAWNS, DONUT_SPOTS, PLAYER_SPAWN, createWorld } from './world';
+import { CREATURE_SPAWNS, PLAYER_SPAWN, createWorld } from './world';
+import { interact, missionComplete, setupMission, syncRider, updatePickups, updateVehicle } from './mission';
 
 export function createGame(seed: number, look: Look): GameState {
   const state: GameState = {
@@ -37,7 +37,11 @@ export function createGame(seed: number, look: Look): GameState {
     projectiles: [],
     pads: [],
     blocks: [],
-    donuts: [],
+    pickups: [],
+    garages: [],
+    vehicles: [],
+    rideTime: 0,
+    tricks: 0,
     splats: [],
     events: [],
     status: 'playing',
@@ -65,9 +69,7 @@ export function createGame(seed: number, look: Look): GameState {
     };
     state.creatures.push(c);
   }
-  for (const d of DONUT_SPOTS) {
-    state.donuts.push({ id: state.nextId++, pos: { ...d }, collected: false });
-  }
+  setupMission(state);
   return state;
 }
 
@@ -86,8 +88,8 @@ export function addPlayer(state: GameState, look: Look): Player {
     fireCd: 0,
     stun: 0,
     jumpBuffer: 0,
-    donuts: 0,
     walkPhase: 0,
+    riding: null,
   };
   state.players.push(p);
   return p;
@@ -105,37 +107,34 @@ export function makeCollider(state: GameState): Collider {
 export function step(state: GameState, inputs: Record<number, InputCommand>, dt: number): void {
   state.events = [];
   state.tick++;
-  if (state.status !== 'playing') return;
-  state.time += dt;
+  // after winning the world keeps running (so the trick can land), but the clock stops
+  if (state.status === 'playing') state.time += dt;
   const col = makeCollider(state);
 
   for (const p of state.players) {
     const inp = inputs[p.id];
     if (inp) handlePlayerActions(state, p, inp, col);
-    updatePlayer(state, p, inp, dt, col);
+  }
+  for (const v of state.vehicles) {
+    const rider = v.rider !== null ? state.players.find((p) => p.id === v.rider) : undefined;
+    updateVehicle(state, v, rider ? inputs[rider.id] : undefined, dt, col);
+  }
+  for (const p of state.players) {
+    if (p.riding !== null) {
+      p.fireCd -= dt;
+      p.stun = 0;
+      syncRider(state, p);
+    } else updatePlayer(state, p, inputs[p.id], dt, col);
   }
   for (const c of state.creatures) updateCreature(state, c, dt, col);
   updateProjectiles(state, dt, col);
   updatePads(state, dt);
+  updatePickups(state);
 
   for (const s of state.splats) s.life -= dt;
   state.splats = state.splats.filter((s) => s.life > 0);
 
-  // Donut pickup
-  for (const p of state.players) {
-    for (const d of state.donuts) {
-      if (d.collected) continue;
-      const dx = d.pos.x - p.pos.x;
-      const dy = d.pos.y - (p.pos.y + 0.9);
-      const dz = d.pos.z - p.pos.z;
-      if (dx * dx + dy * dy + dz * dz < 1.4 * 1.4) {
-        d.collected = true;
-        p.donuts++;
-        emit(state, 'donut', d.pos.x, d.pos.y, d.pos.z, p.id);
-      }
-    }
-  }
-  if (state.donuts.filter((d) => d.collected).length >= DONUT_COUNT) {
+  if (state.status === 'playing' && missionComplete(state)) {
     state.status = 'won';
     state.winTime = state.time;
     emit(state, 'win', 0, 0, 0);
@@ -147,12 +146,13 @@ function forward(yaw: number): [number, number] {
 }
 
 function handlePlayerActions(state: GameState, p: Player, inp: InputCommand, col: Collider) {
+  if (inp.interact) interact(state, p, col);
   if (inp.toggleShape) p.shape = p.shape === 'cube' ? 'ramp' : 'cube';
-  if (inp.jump) p.jumpBuffer = 0.15;
+  if (inp.jump && p.riding === null) p.jumpBuffer = 0.15;
   if (p.fireCd <= 0 && (inp.sticky || inp.bouncy)) {
     fire(state, p, inp.sticky ? 'sticky' : 'bouncy', inp.aimYaw);
   }
-  if (inp.place) placeBlock(state, p, inp.aimYaw, col);
+  if (inp.place && p.riding === null) placeBlock(state, p, inp.aimYaw, col);
 }
 
 export function fire(state: GameState, p: Player, kind: ProjectileKind, aimYaw: number) {
@@ -425,15 +425,23 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       if (p.pos.y > c.pos.y + c.height || p.pos.y + p.height < c.pos.y) continue;
       const nx = d > 0.01 ? dx / d : 1;
       const nz = d > 0.01 ? dz / d : 0;
+      c.hitCd = 1.2;
+      c.vel.x = -nx * 3;
+      c.vel.z = -nz * 3;
+      emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
+      const ride = p.riding !== null ? state.vehicles.find((v) => v.id === p.riding) : undefined;
+      if (ride) {
+        // knock the bike back along its heading
+        ride.speed = (nx * -Math.sin(ride.yaw) + nz * -Math.cos(ride.yaw)) * KNOCKBACK;
+        ride.vel.y = 5;
+        ride.grounded = false;
+        continue;
+      }
       p.vel.x = nx * KNOCKBACK;
       p.vel.z = nz * KNOCKBACK;
       p.vel.y = 6;
       p.grounded = false;
       p.stun = 0.45;
-      c.vel.x = -nx * 3;
-      c.vel.z = -nz * 3;
-      c.hitCd = 1.2;
-      emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
     }
   }
 }

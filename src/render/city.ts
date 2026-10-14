@@ -80,8 +80,10 @@ export function wedgeTransform(s: Solid): { x: number; y: number; z: number; sx:
 
 const AWNING = [0xe63946, 0x2a9d8f, 0x264653, 0xf4a261, 0x6a4c93];
 
-export function buildCity(world: World): THREE.Group {
+/** Builds static city meshes. Also returns decoration boxes the camera should not pass through. */
+export function buildCity(world: World): { root: THREE.Group; cameraBlockers: Solid[] } {
   const root = new THREE.Group();
+  const cameraBlockers: Solid[] = [];
   const box = geo.box();
 
   // Ground, sidewalks, plaza
@@ -181,6 +183,9 @@ export function buildCity(world: World): THREE.Group {
           shops.add(px(t, 0.03), 1.0, pz(t, 0.03), sx, 1.4, sz, 0x9ad1d4);
           const [ax, az] = sxz(spacing * 0.85, 0.9);
           const tilt = 0.35 * f.n;
+          const ax0 = px(t, 0.45) - ax / 2;
+          const az0 = pz(t, 0.45) - az / 2;
+          cameraBlockers.push({ minX: ax0, minY: 1.7, minZ: az0, maxX: ax0 + ax, maxY: 2.35, maxZ: az0 + az });
           awnings.add(px(t, 0.45), 2.0, pz(t, 0.45), ax, 0.08, az, AWNING[Math.floor(rnd() * AWNING.length)], f.alongX ? tilt : 0, 0, f.alongX ? 0 : -tilt);
         }
       }
@@ -195,7 +200,11 @@ export function buildCity(world: World): THREE.Group {
     const t = wedgeTransform(r);
     rampBatch.add(t.x, t.y, t.z, t.sx, t.sy, t.sz, 0xc9b79c, 0, t.ry, 0);
   }
-  root.add(rampBatch.build());
+  const platBatch = new InstanceBatch(box);
+  for (const p of world.platforms) {
+    platBatch.add((p.minX + p.maxX) / 2, (p.minY + p.maxY) / 2, (p.minZ + p.maxZ) / 2, p.maxX - p.minX, p.maxY - p.minY, p.maxZ - p.minZ, 0xb5a58a);
+  }
+  root.add(rampBatch.build(), platBatch.build());
 
   // Cars
   const carBody = new InstanceBatch(box);
@@ -264,5 +273,5 @@ export function buildCity(world: World): THREE.Group {
   bowl.position.set(f.x, f.pillarH - 0.15, f.z);
   root.add(basin, water, pillar, bowl);
 
-  return root;
+  return { root, cameraBlockers };
 }

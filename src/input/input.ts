@@ -1,6 +1,6 @@
 import type { InputCommand } from '../sim/types';
 
-export type ActionName = 'sticky' | 'bouncy' | 'jump' | 'place' | 'toggleShape';
+export type ActionName = 'sticky' | 'bouncy' | 'jump' | 'place' | 'toggleShape' | 'interact';
 
 /**
  * Turns keyboard / mouse / touch into InputCommands.
@@ -80,6 +80,8 @@ export class InputController {
       KeyK: 'bouncy',
       KeyE: 'place',
       KeyQ: 'toggleShape',
+      KeyF: 'interact',
+      Enter: 'interact',
     };
     const a = map[k];
     if (!a) return;
@@ -159,7 +161,11 @@ export class InputController {
     this.joyBase.style.display = 'none';
   }
 
+  /** performance.now() of the last manual camera move */
+  lastLook = 0;
+
   rotate(dYaw: number, dPitch: number) {
+    this.lastLook = performance.now();
     this.camYaw -= dYaw;
     this.camPitch = Math.max(-0.15, Math.min(1.2, this.camPitch + dPitch));
   }
@@ -173,8 +179,8 @@ export class InputController {
     if (k.has('KeyS') || k.has('ArrowDown')) sy -= 1;
     if (k.has('KeyD')) sx += 1;
     if (k.has('KeyA')) sx -= 1;
-    if (k.has('ArrowLeft')) this.camYaw += dt * 2.2;
-    if (k.has('ArrowRight')) this.camYaw -= dt * 2.2;
+    if (k.has('ArrowLeft')) this.rotate(-dt * 2.2, 0);
+    if (k.has('ArrowRight')) this.rotate(dt * 2.2, 0);
     const len = Math.hypot(sx, sy);
     if (len > 1) {
       sx /= len;
@@ -196,6 +202,7 @@ export class InputController {
       bouncy: has('bouncy') || this.held.has('bouncy'),
       place: has('place'),
       toggleShape: has('toggleShape'),
+      interact: has('interact'),
     };
     this.edges.clear();
     return cmd;

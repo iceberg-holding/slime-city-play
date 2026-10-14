@@ -1,3 +1,5 @@
+import type { VehicleKind } from './vehicles';
+
 // Pure game-state types. No three.js imports anywhere in src/sim.
 
 export interface Vec3 {
@@ -40,8 +42,8 @@ export interface Player extends Body {
   fireCd: number;
   stun: number;
   jumpBuffer: number;
-  donuts: number;
   walkPhase: number;
+  riding: number | null;
 }
 
 export interface Creature extends Body {
@@ -85,10 +87,40 @@ export interface Block {
   dir: 0 | 1 | 2 | 3;
 }
 
-export interface Donut {
+/** A vehicle part lying around the city (or carried / delivered). */
+export interface Pickup {
   id: number;
+  vehicle: VehicleKind;
+  part: string;
   pos: Vec3;
-  collected: boolean;
+  status: 'world' | 'carried' | 'delivered';
+  carrier: number | null;
+}
+
+export interface Garage {
+  id: number;
+  vehicle: VehicleKind;
+  x: number;
+  z: number;
+  radius: number;
+  delivered: string[];
+  built: boolean;
+}
+
+export interface Vehicle extends Body {
+  id: number;
+  kind: VehicleKind;
+  yaw: number;
+  speed: number;
+  rider: number | null;
+  airTime: number;
+  /** visual trick rotations (radians) */
+  spin: number;
+  flip: number;
+  flipVel: number;
+  spinDone: number;
+  flipDone: number;
+  lastClimb: number;
 }
 
 export interface Splat {
@@ -130,6 +162,7 @@ export interface World {
   solids: Solid[];
   buildings: Building[];
   ramps: Solid[];
+  platforms: Solid[];
   cars: Car[];
   props: Prop[];
   fountain: { x: number; z: number; basinHalf: number; basinH: number; pillarHalf: number; pillarH: number };
@@ -137,7 +170,12 @@ export interface World {
 }
 
 export type GameEventType =
-  | 'donut'
+  | 'pickup'
+  | 'deliver'
+  | 'built'
+  | 'mount'
+  | 'dismount'
+  | 'trick'
   | 'shoot'
   | 'glue'
   | 'pad'
@@ -155,6 +193,8 @@ export interface GameEvent {
   y: number;
   z: number;
   who?: number;
+  /** extra info: part id, trick name… */
+  info?: string;
 }
 
 export interface GameState {
@@ -168,7 +208,11 @@ export interface GameState {
   projectiles: Projectile[];
   pads: Pad[];
   blocks: Block[];
-  donuts: Donut[];
+  pickups: Pickup[];
+  garages: Garage[];
+  vehicles: Vehicle[];
+  rideTime: number;
+  tricks: number;
   splats: Splat[];
   events: GameEvent[];
   status: 'playing' | 'won';
@@ -187,8 +231,9 @@ export interface InputCommand {
   bouncy: boolean;
   place: boolean;
   toggleShape: boolean;
+  interact: boolean;
 }
 
 export function emptyInput(aimYaw = 0): InputCommand {
-  return { mx: 0, mz: 0, aimYaw, jump: false, sticky: false, bouncy: false, place: false, toggleShape: false };
+  return { mx: 0, mz: 0, aimYaw, jump: false, sticky: false, bouncy: false, place: false, toggleShape: false, interact: false };
 }

@@ -7,6 +7,8 @@ import { buildCity, wedgeGeometry, wedgeTransform } from './city';
 import { buildCreature, type CreatureView } from './creature';
 import { geo, mat } from './materials';
 import { blockSolid } from '../sim/physics';
+import { VEHICLES } from '../sim/vehicles';
+import { buildPart, buildVehicle, type VehicleModel } from './vehicleModels';
 import { computePlacement, makeCollider } from '../sim/step';
 
 /** Instanced pool for dynamic, short-lived things. */
@@ -67,7 +69,10 @@ export class GameView {
   private sun: THREE.DirectionalLight;
   private players = new Map<number, CharacterRig>();
   private creatures = new Map<number, CreatureView>();
-  private donuts = new Map<number, THREE.Group>();
+  private pickups = new Map<number, THREE.Group>();
+  private vehicles = new Map<number, VehicleModel>();
+  private garages = new Map<number, { model: VehicleModel; beam: THREE.Mesh }>();
+  private lastYaw = new Map<number, number>();
   private projectiles: Pool;
   private pads: Pool;
   private cubes: Pool;
@@ -99,8 +104,9 @@ export class GameView {
     this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.sun, this.sun.target);
 
-    this.scene.add(buildCity(state.world));
-    this.col = new Collider(state.world.solids);
+    const city = buildCity(state.world);
+    this.scene.add(city.root);
+    this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
 
     const basic = (c: number, o = 1) =>
       new THREE.MeshLambertMaterial({ color: c, transparent: o < 1, opacity: o, depthWrite: o >= 1, flatShading: true });
@@ -118,32 +124,32 @@ export class GameView {
     this.ghost.visible = false;
     this.scene.add(this.ghost);
 
-    for (const d of state.donuts) {
-      const g = new THREE.Group();
-      const ring = new THREE.Mesh(geo.torus(), mat(0xf4b942, { emissive: 0x6b4a00 }));
-      ring.castShadow = true;
-      const icing = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.12, 6, 16, Math.PI * 2), mat(0xff7eb6, { emissive: 0x401020 }));
-      icing.position.z = -0.06;
-      icing.scale.set(1.02, 1.02, 0.8);
-      g.add(ring, icing);
-      for (let k = 0; k < 8; k++) {
-        const a = (k / 8) * Math.PI * 2;
-        const sp = new THREE.Mesh(geo.box(), mat([0xffffff, 0x4cc9f0, 0xffe600, 0x7ae582][k % 4]));
-        sp.scale.set(0.06, 0.06, 0.06);
-        sp.position.set(Math.cos(a) * 0.35, Math.sin(a) * 0.35, -0.2);
-        g.add(sp);
-      }
-      const beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.25, 0.25, 40, 8, 1, true),
-        new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }),
-      );
-      beam.position.y = 20.5;
+    for (const pk of state.pickups) {
       const holder = new THREE.Group();
-      holder.add(g, beam);
-      holder.position.set(d.pos.x, d.pos.y, d.pos.z);
-      g.scale.setScalar(1.4);
+      const model = buildPart(pk.vehicle, pk.part);
+      const spinner = new THREE.Group();
+      model.position.y = -0.5;
+      spinner.add(model);
+      spinner.scale.setScalar(1.3);
+      // glowing ring so parts read as collectibles
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.06, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffe066 }));
+      halo.rotation.x = Math.PI / 2;
+      halo.position.y = -0.55;
+      const beam = makeBeam(0xffe066);
+      holder.add(spinner, halo, beam);
       this.scene.add(holder);
-      this.donuts.set(d.id, holder);
+      this.pickups.set(pk.id, holder);
+    }
+    for (const g of state.garages) {
+      this.scene.add(buildGarageProps(g.x, g.z, g.radius));
+      const model = buildVehicle(g.vehicle, VEHICLES[g.vehicle].parts.map((p) => p.id));
+      model.root.position.set(g.x, 0.12, g.z);
+      model.root.rotation.y = 0.6;
+      this.scene.add(model.root);
+      const beam = makeBeam(0x4cc9f0);
+      beam.position.set(g.x, 0, g.z);
+      this.scene.add(beam);
+      this.garages.set(g.id, { model, beam });
     }
     this.sync(state, 0, 0.6, 0);
   }
@@ -169,8 +175,13 @@ export class GameView {
     for (const e of events) {
       playEvent(e);
       switch (e.type) {
-        case 'donut':
-          this.burst(e.x, e.y, e.z, 30, [0xffd60a, 0xff7eb6, 0xffffff], 6, 0.18);
+        case 'pickup':
+        case 'deliver':
+          this.burst(e.x, e.y, e.z, 24, [0xffd60a, 0xff6b00, 0xffffff], 6, 0.18);
+          break;
+        case 'built':
+        case 'trick':
+          this.burst(e.x, e.y, e.z, 40, [0xffd60a, 0xff70a6, 0x4cc9f0, 0x7ae582], 8, 0.2);
           break;
         case 'glue':
           this.burst(e.x, e.y, e.z, 16, [0x6dff4a, 0x38b000], 4, 0.15);
@@ -250,12 +261,61 @@ export class GameView {
       for (const e of v.eyes) e.scale.y = Math.sin(t * 0.8 + c.id * 3) > 0.985 ? 0.15 : 1; // blink
     }
 
-    for (const d of state.donuts) {
-      const h = this.donuts.get(d.id)!;
-      h.visible = !d.collected;
-      const g = h.children[0];
-      g.rotation.y = t * 2.2;
-      g.position.y = Math.sin(t * 2 + d.id) * 0.12;
+    const me = state.players.find((p) => p.id === playerId) ?? state.players[0];
+    const carrying = state.pickups.some((pk) => pk.status === 'carried' && pk.carrier === me?.id);
+    for (const pk of state.pickups) {
+      const h = this.pickups.get(pk.id)!;
+      h.visible = pk.status !== 'delivered';
+      h.position.set(pk.pos.x, pk.pos.y, pk.pos.z);
+      const spinner = h.children[0];
+      spinner.rotation.y = t * 2;
+      const carried = pk.status === 'carried';
+      spinner.position.y = carried ? 0 : Math.sin(t * 2 + pk.id) * 0.12;
+      spinner.scale.setScalar(carried ? 0.6 : 1.3);
+      h.children[1].visible = !carried;
+      h.children[2].visible = !carried;
+    }
+
+    for (const g of state.garages) {
+      const gv = this.garages.get(g.id)!;
+      gv.model.root.visible = !g.built;
+      for (const [id, obj] of gv.model.parts) obj.visible = g.delivered.includes(id);
+      gv.model.root.rotation.y = 0.6 + Math.sin(t * 0.7) * 0.25;
+      const anyFree = state.vehicles.some((v) => v.rider === null);
+      gv.beam.visible = carrying || (g.built && anyFree && me?.riding === null);
+    }
+
+    for (const v of state.vehicles) {
+      let m = this.vehicles.get(v.id);
+      if (!m) {
+        m = buildVehicle(v.kind, VEHICLES[v.kind].parts.map((p) => p.id));
+        this.scene.add(m.root);
+        this.vehicles.set(v.id, m);
+      }
+      m.root.position.set(v.pos.x, v.pos.y, v.pos.z);
+      const prev = this.lastYaw.get(v.id) ?? v.yaw;
+      this.lastYaw.set(v.id, v.yaw);
+      const turn = dt > 0 ? (v.yaw - prev) / dt : 0;
+      m.root.rotation.y = v.yaw;
+      const lean = v.grounded ? Math.max(-0.45, Math.min(0.45, turn * 0.12 * Math.min(1, Math.abs(v.speed) / 5))) : 0;
+      m.pivot.rotation.z += (lean - m.pivot.rotation.z) * Math.min(1, dt * 10);
+      m.pivot.rotation.x = v.flip;
+      for (const w of m.wheels) w.rotation.x -= (v.speed * dt) / 0.4;
+    }
+
+    for (const p of state.players) {
+      const rig = this.players.get(p.id)!;
+      const vm = p.riding !== null ? this.vehicles.get(p.riding) : undefined;
+      if (vm) {
+        if (rig.root.parent !== vm.seat) vm.seat.add(rig.root);
+        rig.root.position.set(0, 0, 0);
+        rig.root.rotation.set(0, 0, 0);
+        rig.legL.rotation.x = rig.legR.rotation.x = 1.1;
+        rig.armL.rotation.x = 1.3;
+        rig.inner.position.y = 0;
+      } else if (rig.root.parent !== this.scene) {
+        this.scene.add(rig.root);
+      }
     }
 
     this.projectiles.begin();
@@ -308,7 +368,6 @@ export class GameView {
     this.parts.end();
 
     // Camera follow
-    const me = state.players.find((p) => p.id === playerId) ?? state.players[0];
     if (me) {
       const tx = me.pos.x;
       const ty = me.pos.y + 1.6;
@@ -337,4 +396,51 @@ export class GameView {
     this.ghost.position.set(pl.x + 0.5, pl.y + 0.5, pl.z + 0.5);
     (this.ghost.material as THREE.MeshBasicMaterial).color.set(pl.ok ? 0xffffff : 0xff3333);
   }
+}
+
+function makeBeam(color: number): THREE.Mesh {
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.3, 40, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  beam.geometry.translate(0, 20, 0);
+  return beam;
+}
+
+function buildGarageProps(x: number, z: number, r: number): THREE.Group {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  const floor = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.1, 6), mat(0x4361ee));
+  floor.position.y = 0.05;
+  floor.receiveShadow = true;
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(r - 0.3, r - 0.3, 0.12, 6), mat(0xffd166));
+  inner.position.y = 0.06;
+  inner.receiveShadow = true;
+  g.add(floor, inner);
+  for (const x of [-r + 0.1, r - 0.1]) {
+    const post = new THREE.Mesh(geo.cyl(6), mat(0xffffff));
+    post.scale.set(0.14, 3.6, 0.14);
+    post.position.set(x, 1.8, -r + 0.1);
+    post.castShadow = true;
+    g.add(post);
+  }
+  // arch with a banner over the garage pad
+  const banner = new THREE.Mesh(geo.box(), mat(0xe63946));
+  banner.scale.set(r * 2, 0.6, 0.15);
+  banner.position.set(0, 3.3, -r + 0.1);
+  banner.castShadow = true;
+  g.add(banner);
+  // wrench sign
+  const sign = new THREE.Group();
+  sign.position.set(0, 4.1, -r + 0.1);
+  sign.add(new THREE.Mesh(geo.box(), mat(0xffffff)));
+  sign.children[0].scale.set(1.2, 0.8, 0.1);
+  const handle = new THREE.Mesh(geo.box(), mat(0x555566));
+  handle.scale.set(0.15, 0.55, 0.12);
+  handle.rotation.z = 0.7;
+  const head = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.06, 4, 8, Math.PI * 1.5), mat(0x555566));
+  head.position.set(-0.2, 0.2, 0);
+  sign.add(handle, head);
+  g.add(sign);
+  return g;
 }

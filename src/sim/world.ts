@@ -10,14 +10,6 @@ function box(minX: number, minY: number, minZ: number, maxX: number, maxY: numbe
 
 export const PLAYER_SPAWN: Vec3 = { x: 0, y: 0, z: 14 };
 
-export const DONUT_SPOTS: Vec3[] = [
-  { x: 0, y: 2.65, z: 0 }, // on top of the fountain
-  { x: -13.5, y: 5.9, z: -22.2 }, // roof reached by the ramp
-  { x: -11.5, y: 3.9, z: 22.4 }, // low café roof: needs blocks or a bounce pad
-  { x: -15.5, y: 2.45, z: 4 }, // on a car roof
-  { x: 13, y: 4.6, z: -3 }, // floating above the street: bounce pad or tall block stack
-];
-
 export const CREATURE_SPAWNS: { x: number; z: number }[] = [
   { x: 8, z: 8 },
   { x: -8, z: 10 },
@@ -62,11 +54,13 @@ export function createWorld(): World {
 
   const ramps: Solid[] = [
     // Up to the 5m roof on the north row, rising toward -x
-    { minX: -19, minY: 0, minZ: -21, maxX: -8, maxY: 5, maxZ: -18.6, ramp: 2 },
+    { minX: -17.5, minY: 0, minZ: -21, maxX: -6, maxY: 5, maxZ: -18.6, ramp: 2 },
     // Up to the 6m roof on the east side, rising toward -z
-    { minX: 18.6, minY: 0, minZ: -20, maxX: 21, maxY: 6, maxZ: -6, ramp: 3 },
+    { minX: 18.6, minY: 0, minZ: -18.5, maxX: 21, maxY: 6, maxZ: -4, ramp: 3 },
   ];
-  solids.push(...ramps);
+  // flat landings at the top of each ramp, flush with the roof
+  const platforms: Solid[] = [box(-20, 0, -21, -17.5, 5, -18.6), box(18.6, 0, -21, 21, 6, -18.5)];
+  solids.push(...ramps, ...platforms);
 
   const props: Prop[] = [];
   // Crate staircase up to the 5m south-east roof
@@ -98,7 +92,7 @@ export function createWorld(): World {
     [-19, 19],
     [19, 19],
     [0, -19.5],
-    [0, 19.5],
+    [-3, 19.5],
   ]) {
     props.push({ kind: 'lamp', x, z });
     solids.push(box(x - 0.15, 0, z - 0.15, x + 0.15, 3.6, z + 0.15));
@@ -133,7 +127,7 @@ export function createWorld(): World {
   solids.push(box(-fountain.basinHalf, 0, -fountain.basinHalf, fountain.basinHalf, fountain.basinH, fountain.basinHalf));
   solids.push(box(-fountain.pillarHalf, 0, -fountain.pillarHalf, fountain.pillarHalf, fountain.pillarH, fountain.pillarHalf));
 
-  return { half, solids, buildings, ramps, cars, props, fountain, plazaRadius };
+  return { half, solids, buildings, ramps, platforms, cars, props, fountain, plazaRadius };
 }
 
 export function mansardBox(bd: Building): Solid {

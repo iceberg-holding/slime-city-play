@@ -58,9 +58,20 @@ export function playEvent(e: GameEvent) {
     case 'noroom':
       blip(110, 100, 0.12, 'square', 0.05);
       break;
-    case 'donut':
+    case 'pickup':
+    case 'deliver':
       blip(660, 1320, 0.15, 'triangle', 0.12);
       setTimeout(() => blip(880, 1760, 0.2, 'triangle', 0.12), 120);
+      break;
+    case 'built':
+    case 'trick':
+      [392, 523, 659, 784].forEach((f, i) => setTimeout(() => blip(f, f * 1.5, 0.18, 'triangle', 0.12), i * 90));
+      break;
+    case 'mount':
+      blip(80, 160, 0.4, 'sawtooth', 0.07);
+      break;
+    case 'dismount':
+      blip(300, 200, 0.1, 'sine', 0.06);
       break;
     case 'win':
       [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => blip(f, f, 0.25, 'triangle', 0.12), i * 150));

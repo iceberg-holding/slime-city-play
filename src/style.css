@@ -227,10 +227,22 @@ button {
     display: none;
   }
 }
+@media (orientation: landscape) and (min-aspect-ratio: 5/4) {
+  .lock-panel {
+    left: auto;
+    right: max(3vw, env(safe-area-inset-right));
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-46%);
+    width: min(520px, 52vw);
+  }
+}
 @media (max-height: 520px) and (orientation: landscape) {
   .lock-panel {
     left: auto;
     right: 10px;
+    top: auto;
+    bottom: 8px;
     transform: none;
     width: min(440px, 58vw);
     padding: 6px 10px;
@@ -281,22 +293,88 @@ button {
   gap: 8px;
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
 }
-.donut-icon {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: radial-gradient(circle, transparent 0 27%, #ff7eb6 28% 55%, #f4b942 56% 100%);
+.hud-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
-.donut-icon.big {
-  width: 54px;
-  height: 54px;
-  margin: 0 4px;
-  animation: spin 2s linear infinite;
+.pill .carry {
+  color: #ff6b00;
 }
-@keyframes spin {
+.hint {
+  background: rgba(29, 53, 87, 0.75);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  max-width: 60vw;
+}
+.ride-btn {
+  position: absolute;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  border: 4px solid #fff;
+  border-radius: 999px;
+  background: #ff6b00;
+  color: #fff;
+  font-weight: 900;
+  font-size: 22px;
+  padding: 10px 26px;
+  box-shadow: 0 5px 0 #a34500;
+  touch-action: none;
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+.ride-btn.down {
+  transform: translateX(-50%) scale(0.94);
+}
+@keyframes pulse {
   to {
-    transform: rotate(360deg);
+    box-shadow: 0 5px 0 #a34500, 0 0 24px #ffd166;
+  }
+}
+.riding .block-group {
+  display: none;
+}
+.trick {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.3) rotate(-12deg);
+  font-size: 64px;
+  font-weight: 900;
+  color: #ffd166;
+  text-align: center;
+  text-shadow: 0 4px 0 #ff5fa2, 0 8px 0 #6a4c93, 0 0 20px rgba(0, 0, 0, 0.3);
+  -webkit-text-stroke: 2px #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.3s cubic-bezier(0.3, 1.8, 0.5, 1);
+  white-space: nowrap;
+}
+.trick.on {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1) rotate(-6deg);
+}
+.trick-name {
+  font-size: 30px;
+  color: #fff;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 3px 0 #6a4c93;
+}
+.win-icon {
+  font-size: 64px;
+  display: inline-block;
+  animation: wheelie 1.2s ease-in-out infinite alternate;
+}
+@keyframes wheelie {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-20deg);
   }
 }
 .toast {
