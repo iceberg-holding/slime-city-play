@@ -1,24 +1,26 @@
 import {
-  CHASE_START,
-  CHASE_STOP,
-  CREATURE_CHASE_SPEED,
+  BUBBLE_TIME,
+  CREATURE_CROWD_SPEED,
   CREATURE_HEIGHT,
   CREATURE_RADIUS,
   CREATURE_WANDER_SPEED,
-  FIRE_COOLDOWN,
+  CROWD_RADIUS,
+  CROWD_START,
+  CROWD_STOP,
   JUMP_VEL,
   KNOCKBACK,
-  MAX_BLOCKS,
   MAX_PADS,
   PAD_LAUNCH,
   PAD_LIFE,
   PAD_RADIUS,
+  PHRASE_COUNT,
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
   PLAYER_SPEED,
+  SHOVE,
   STEP_UP,
-  STICKY_TIME,
 } from './constants';
+import { heroStats } from './hero';
 import { Collider, blockSolid, moveBody, topAt } from './physics';
 import { rand, randRange } from './rng';
 import type { Block, Body, Creature, GameEvent, GameState, InputCommand, Look, Player, ProjectileKind } from './types';
@@ -66,6 +68,13 @@ export function createGame(seed: number, look: Look): GameState {
       stuck: 0,
       hitCd: 0,
       hopCd: 0,
+      orbit: rand(state) * Math.PI * 2,
+      orbitDir: rand(state) < 0.5 ? 1 : -1,
+      blocker: state.creatures.length % 2 === 1,
+      talk: 0,
+      phrase: 0,
+      talkCd: randRange(state, 0.5, 3),
+      twirl: 0,
     };
     state.creatures.push(c);
   }
@@ -90,6 +99,7 @@ export function addPlayer(state: GameState, look: Look): Player {
     jumpBuffer: 0,
     walkPhase: 0,
     riding: null,
+    stats: heroStats(look),
   };
   state.players.push(p);
   return p;

@@ -56,12 +56,13 @@ export interface MissionDef {
 export const MISSION: MissionDef = {
   vehicle: 'pitbike',
   garage: { x: 5.5, z: 15.5, radius: 2.6 },
+  // Every spot is reachable on foot (ground, steps or ramps) — no blocks, pads or jumps needed. See tests/reach.test.mjs.
   partSpots: [
-    { x: 0, y: 2.65, z: 0 }, // front wheel: on top of the fountain
-    { x: -13.5, y: 5.9, z: -22.2 }, // rear wheel: roof reached by the ramp
-    { x: -11.5, y: 3.9, z: 22.4 }, // frame: low café roof, needs blocks or a bounce pad
-    { x: -15.5, y: 2.45, z: 4 }, // handlebar: on a car roof
-    { x: 13, y: 4.6, z: -3 }, // engine: floating above the street, bounce pad or block stack
+    { x: 0, y: 1.35, z: -1.9 }, // front wheel: on the fountain rim (step ring)
+    { x: -13.5, y: 5.9, z: -22.2 }, // rear wheel: north roof, up the long ramp
+    { x: -11.5, y: 3.9, z: 22.4 }, // frame: low café roof, up the café ramp
+    { x: -15.5, y: 1.5, z: 2.45 }, // handlebar: on the red car's hood
+    { x: 19.8, y: 6.9, z: -19.8 }, // engine: east rooftop landing, up the east ramp
   ],
   rideGoal: 10,
 };

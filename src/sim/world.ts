@@ -16,6 +16,8 @@ export const CREATURE_SPAWNS: { x: number; z: number }[] = [
   { x: 14, z: -13 },
   { x: -13, z: -11 },
   { x: 3, z: -15 },
+  { x: -14, z: 12 },
+  { x: 9, z: 3 },
 ];
 
 export function createWorld(): World {
@@ -57,9 +59,15 @@ export function createWorld(): World {
     { minX: -17.5, minY: 0, minZ: -21, maxX: -6, maxY: 5, maxZ: -18.6, ramp: 2 },
     // Up to the 6m roof on the east side, rising toward -z
     { minX: 18.6, minY: 0, minZ: -18.5, maxX: 21, maxY: 6, maxZ: -4, ramp: 3 },
+    // Up to the low café roof (3m) on the south row, rising toward -x
+    { minX: -16, minY: 0, minZ: 19.1, maxX: -8, maxY: 3, maxZ: 21, ramp: 2 },
   ];
   // flat landings at the top of each ramp, flush with the roof
-  const platforms: Solid[] = [box(-20, 0, -21, -17.5, 5, -18.6), box(18.6, 0, -21, 21, 6, -18.5)];
+  const platforms: Solid[] = [
+    box(-20, 0, -21, -17.5, 5, -18.6),
+    box(18.6, 0, -21, 21, 6, -18.5),
+    box(-18, 0, 19.1, -16, 3, 21),
+  ];
   solids.push(...ramps, ...platforms);
 
   const props: Prop[] = [];
@@ -123,7 +131,9 @@ export function createWorld(): World {
     solids.push(box(c.x - cl, 1.1, c.z - cw, c.x + cl, 1.75, c.z + cw));
   }
 
-  const fountain = { x: 0, z: 0, basinHalf: 2.6, basinH: 0.7, pillarHalf: 0.6, pillarH: 2.0 };
+  // a low step ring lets you walk up onto the basin rim without jumping
+  const fountain = { x: 0, z: 0, stepHalf: 3.2, stepH: 0.35, basinHalf: 2.6, basinH: 0.7, pillarHalf: 0.6, pillarH: 2.0 };
+  solids.push(box(-fountain.stepHalf, 0, -fountain.stepHalf, fountain.stepHalf, fountain.stepH, fountain.stepHalf));
   solids.push(box(-fountain.basinHalf, 0, -fountain.basinHalf, fountain.basinHalf, fountain.basinH, fountain.basinHalf));
   solids.push(box(-fountain.pillarHalf, 0, -fountain.pillarHalf, fountain.pillarHalf, fountain.pillarH, fountain.pillarHalf));
 

@@ -1,3 +1,4 @@
+import type { HeroStats } from './hero';
 import type { VehicleKind } from './vehicles';
 
 // Pure game-state types. No three.js imports anywhere in src/sim.
@@ -44,6 +45,8 @@ export interface Player extends Body {
   jumpBuffer: number;
   walkPhase: number;
   riding: number | null;
+  /** derived from `look` by the hero builder (pure data) */
+  stats: HeroStats;
 }
 
 export interface Creature extends Body {
@@ -52,11 +55,24 @@ export interface Creature extends Body {
   yaw: number;
   home: { x: number; z: number };
   target: { x: number; z: number };
-  mode: 'wander' | 'chase';
+  /** 'crowd' = gathering around a player like grannies at a market stall */
+  mode: 'wander' | 'crowd';
   thinkTimer: number;
   stuck: number;
   hitCd: number;
   hopCd: number;
+  /** angle of this pyshka's spot in the crowd ring */
+  orbit: number;
+  orbitDir: 1 | -1;
+  /** tries to stand right in the player's way */
+  blocker: boolean;
+  /** seconds left of the current speech bubble (0 = quiet) */
+  talk: number;
+  /** phrase index (0..PHRASE_COUNT-1), localized by the UI */
+  phrase: number;
+  talkCd: number;
+  /** seconds left of a happy little twirl */
+  twirl: number;
 }
 
 export type ProjectileKind = 'sticky' | 'bouncy';
@@ -68,6 +84,8 @@ export interface Projectile {
   pos: Vec3;
   vel: Vec3;
   life: number;
+  /** blob size multiplier (hit radius + visual) */
+  scale: number;
 }
 
 export interface Pad {
@@ -75,6 +93,8 @@ export interface Pad {
   pos: Vec3;
   life: number;
   squish: number;
+  /** size multiplier */
+  scale: number;
 }
 
 export interface Block {
@@ -165,7 +185,7 @@ export interface World {
   platforms: Solid[];
   cars: Car[];
   props: Prop[];
-  fountain: { x: number; z: number; basinHalf: number; basinH: number; pillarHalf: number; pillarH: number };
+  fountain: { x: number; z: number; stepHalf: number; stepH: number; basinHalf: number; basinH: number; pillarHalf: number; pillarH: number };
   plazaRadius: number;
 }
 
@@ -185,7 +205,8 @@ export type GameEventType =
   | 'noroom'
   | 'jump'
   | 'win'
-  | 'splat';
+  | 'splat'
+  | 'babble';
 
 export interface GameEvent {
   type: GameEventType;
