@@ -1,5 +1,4 @@
 import type { InputController, ActionName } from '../input/input';
-import { MAX_BLOCKS } from '../sim/constants';
 import { mountable } from '../sim/mission';
 import type { GameEvent, GameState } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
@@ -123,7 +122,7 @@ export class Hud {
       this.carryEl.textContent = carrying ? `+${carrying}` : '';
       this.timeEl.textContent = formatTime(state.time);
       this.hintEl.textContent = hint;
-      this.blocksEl.textContent = `${MAX_BLOCKS - state.blocks.length}`;
+      this.blocksEl.textContent = `${p.stats.maxBlocks - state.blocks.length}`;
       this.rideBtn.style.display = canMount || riding ? '' : 'none';
       this.rideBtn.textContent = riding ? `${s.exit}` : `🏍 ${s.ride}`;
       this.el.classList.toggle('riding', riding);

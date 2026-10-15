@@ -166,9 +166,18 @@ function handlePlayerActions(state: GameState, p: Player, inp: InputCommand, col
 }
 
 export function fire(state: GameState, p: Player, kind: ProjectileKind, aimYaw: number) {
-  p.fireCd = FIRE_COOLDOWN;
+  const st = p.stats;
+  p.fireCd = st.fireCooldown;
   p.yaw = aimYaw;
-  const [fx, fz] = forward(aimYaw);
+  for (let i = 0; i < st.multishot; i++) {
+    const yaw = aimYaw + (i - (st.multishot - 1) / 2) * 0.12;
+    shoot(state, p, kind, yaw);
+  }
+}
+
+function shoot(state: GameState, p: Player, kind: ProjectileKind, yaw: number) {
+  const st = p.stats;
+  const [fx, fz] = forward(yaw);
   const ox = p.pos.x + fx * 0.6 + -fz * 0.3;
   const oy = p.pos.y + 1.1;
   const oz = p.pos.z + fz * 0.6 + fx * 0.3;
@@ -176,23 +185,24 @@ export function fire(state: GameState, p: Player, kind: ProjectileKind, aimYaw: 
   let vy: number;
   let vz: number;
   if (kind === 'sticky') {
-    // gentle aim assist: lock onto the closest creature in a forward cone
+    // gentle aim assist: lock onto the closest awake pyshka in a forward cone
     let best: Creature | null = null;
-    let bestD = 16;
+    let bestD = st.aimRange;
     for (const c of state.creatures) {
+      if (c.stuck > 0) continue;
       const dx = c.pos.x - p.pos.x;
       const dz = c.pos.z - p.pos.z;
       const d = Math.hypot(dx, dz);
       if (d < 0.5 || d > bestD) continue;
       const dot = (dx * fx + dz * fz) / d;
-      if (dot < 0.9) continue;
+      if (dot < st.aimCone) continue;
       best = c;
       bestD = d;
     }
-    const speed = 22;
+    const speed = 22 * st.projSpeed;
     if (best) {
       const tx = best.pos.x - ox;
-      const ty = best.pos.y + 0.6 - oy;
+      const ty = best.pos.y + 0.5 - oy;
       const tz = best.pos.z - oz;
       const d = Math.hypot(tx, ty, tz);
       const t = d / speed;
@@ -205,7 +215,7 @@ export function fire(state: GameState, p: Player, kind: ProjectileKind, aimYaw: 
       vz = fz * speed;
     }
   } else {
-    const speed = 12;
+    const speed = 12 * st.projSpeed;
     vx = fx * speed;
     vy = 5;
     vz = fz * speed;
@@ -217,6 +227,7 @@ export function fire(state: GameState, p: Player, kind: ProjectileKind, aimYaw: 
     pos: { x: ox, y: oy, z: oz },
     vel: { x: vx + p.vel.x * 0.3, y: vy, z: vz + p.vel.z * 0.3 },
     life: 3,
+    scale: kind === 'sticky' ? st.blobScale : 1,
   });
   emit(state, 'shoot', ox, oy, oz, p.id);
 }
@@ -277,7 +288,7 @@ export function placeBlock(state: GameState, p: Player, aimYaw: number, col: Col
     emit(state, 'noroom', pl.x + 0.5, pl.y + 0.5, pl.z + 0.5, p.id);
     return false;
   }
-  if (state.blocks.length >= MAX_BLOCKS) state.blocks.shift(); // recycle the oldest block
+  if (state.blocks.length >= p.stats.maxBlocks) state.blocks.shift(); // recycle the oldest block
   const blk: Block = { id: state.nextId++, shape: p.shape, x: pl.x, y: pl.y, z: pl.z, dir: pl.dir };
   state.blocks.push(blk);
   col.dynamics = state.blocks.map(blockSolid);
@@ -285,14 +296,14 @@ export function placeBlock(state: GameState, p: Player, aimYaw: number, col: Col
   return true;
 }
 
-function checkPad(state: GameState, b: Body, id: number) {
+function checkPad(state: GameState, b: Body, id: number, launch = 1) {
   if (b.padCd > 0 || b.vel.y > 0.5) return;
   for (const pad of state.pads) {
     const dx = b.pos.x - pad.pos.x;
     const dz = b.pos.z - pad.pos.z;
-    if (dx * dx + dz * dz > (PAD_RADIUS + b.radius * 0.5) ** 2) continue;
+    if (dx * dx + dz * dz > (PAD_RADIUS * pad.scale + b.radius * 0.5) ** 2) continue;
     if (Math.abs(b.pos.y - pad.pos.y) > 0.35) continue;
-    b.vel.y = PAD_LAUNCH;
+    b.vel.y = PAD_LAUNCH * launch;
     b.grounded = false;
     b.padCd = 0.4;
     pad.squish = 1;
@@ -302,6 +313,7 @@ function checkPad(state: GameState, b: Body, id: number) {
 }
 
 function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined, dt: number, col: Collider) {
+  const st = p.stats;
   p.fireCd -= dt;
   p.padCd -= dt;
   p.jumpBuffer -= dt;
@@ -315,8 +327,8 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
   }
   const control = p.stun > 0 ? 0 : 1;
   const accel = (p.grounded ? 40 : 12) * control;
-  const tvx = mx * PLAYER_SPEED;
-  const tvz = mz * PLAYER_SPEED;
+  const tvx = mx * PLAYER_SPEED * st.speed;
+  const tvz = mz * PLAYER_SPEED * st.speed;
   p.vel.x += clampMag(tvx - p.vel.x, accel * dt);
   p.vel.z += clampMag(tvz - p.vel.z, accel * dt);
   if (control === 0 && p.grounded) {
@@ -327,16 +339,16 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
     p.yaw = turnToward(p.yaw, Math.atan2(-mx, -mz), dt * 12);
   }
   if (p.jumpBuffer > 0 && p.grounded && p.stun <= 0) {
-    p.vel.y = JUMP_VEL;
+    p.vel.y = JUMP_VEL * st.jump;
     p.grounded = false;
     p.jumpBuffer = 0;
     emit(state, 'jump', p.pos.x, p.pos.y, p.pos.z, p.id);
   }
   moveBody(p, dt, col, state.world.half);
-  checkPad(state, p, p.id);
+  checkPad(state, p, p.id, st.padLaunch);
   if (p.grounded) p.walkPhase += Math.hypot(p.vel.x, p.vel.z) * dt * 1.6;
   if (p.pos.y < -5) {
-    p.pos = { x: 0, y: 0, z: 14 };
+    p.pos = { ...PLAYER_SPAWN };
     p.vel = { x: 0, y: 0, z: 0 };
   }
 }
@@ -352,15 +364,7 @@ function turnToward(a: number, b: number, maxStep: number) {
   return a + clampMag(d, maxStep);
 }
 
-function updateCreature(state: GameState, c: Creature, dt: number, col: Collider) {
-  c.padCd -= dt;
-  c.hitCd -= dt;
-  c.hopCd -= dt;
-  c.thinkTimer -= dt;
-  const wasStuck = c.stuck > 0;
-  c.stuck -= dt;
-
-  // nearest player
+function nearestPlayer(state: GameState, c: Creature): [Player | null, number] {
   let target: Player | null = null;
   let td = Infinity;
   for (const p of state.players) {
@@ -370,27 +374,60 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       target = p;
     }
   }
+  return [target, td];
+}
+
+/** Pyshki: round slime buns that crowd around you like grannies at a market stall. Harmless. */
+function updateCreature(state: GameState, c: Creature, dt: number, col: Collider) {
+  c.padCd -= dt;
+  c.hitCd -= dt;
+  c.hopCd -= dt;
+  c.thinkTimer -= dt;
+  c.talk = Math.max(0, c.talk - dt);
+  c.twirl = Math.max(0, c.twirl - dt);
+  const wasStuck = c.stuck > 0;
+  c.stuck -= dt;
+  const [target, td] = nearestPlayer(state, c);
 
   let speed = 0;
   let dirX = 0;
   let dirZ = 0;
   if (c.stuck > 0) {
+    // glued: quiet and happy
     c.vel.x = 0;
     c.vel.z = 0;
+    c.talk = 0;
+    c.twirl = 0;
   } else {
     if (wasStuck) c.thinkTimer = 0;
     if (target) {
       const dy = Math.abs(target.pos.y - c.pos.y);
-      if (c.mode === 'wander' && td < CHASE_START && dy < 2.5) c.mode = 'chase';
-      else if (c.mode === 'chase' && (td > CHASE_STOP || dy > 4)) {
+      if (c.mode === 'wander' && td < CROWD_START && dy < 2.5) c.mode = 'crowd';
+      else if (c.mode === 'crowd' && (td > CROWD_STOP || dy > 4)) {
         c.mode = 'wander';
         c.thinkTimer = 0;
       }
     }
-    if (c.mode === 'chase' && target) {
-      dirX = target.pos.x - c.pos.x;
-      dirZ = target.pos.z - c.pos.z;
-      speed = c.hitCd > 0 ? CREATURE_WANDER_SPEED : CREATURE_CHASE_SPEED;
+    if (c.mode === 'crowd' && target) {
+      // pick a spot on a ring around the player; "blockers" prefer the spot right in the player's path
+      c.orbit += c.orbitDir * dt * 0.5;
+      let ang = c.orbit;
+      const pv = Math.hypot(target.vel.x, target.vel.z);
+      if (c.blocker && pv > 1) ang = Math.atan2(target.vel.z, target.vel.x) + c.orbitDir * 0.45;
+      const r = CROWD_RADIUS + target.stats.personalSpace;
+      dirX = target.pos.x + Math.cos(ang) * r - c.pos.x;
+      dirZ = target.pos.z + Math.sin(ang) * r - c.pos.z;
+      const d = Math.hypot(dirX, dirZ);
+      speed = Math.min(CREATURE_CROWD_SPEED, d * 2.5);
+      // babble
+      c.talkCd -= dt;
+      if (c.talkCd <= 0 && td < 5) {
+        c.phrase = Math.floor(rand(state) * PHRASE_COUNT);
+        c.talk = BUBBLE_TIME;
+        c.talkCd = randRange(state, 4, 10);
+        emit(state, 'babble', c.pos.x, c.pos.y + 1.4, c.pos.z, c.id);
+      }
+      if (c.twirl <= 0 && rand(state) < dt * 0.12) c.twirl = 0.8;
     } else {
       if (c.thinkTimer <= 0 || Math.hypot(c.target.x - c.pos.x, c.target.z - c.pos.z) < 0.6) {
         const a = rand(state) * Math.PI * 2;
@@ -402,19 +439,34 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       dirZ = c.target.z - c.pos.z;
       speed = CREATURE_WANDER_SPEED;
     }
+    // keep a little space from other pyshki
+    for (const o of state.creatures) {
+      if (o === c) continue;
+      const ox = c.pos.x - o.pos.x;
+      const oz = c.pos.z - o.pos.z;
+      const od = Math.hypot(ox, oz);
+      if (od > 1.15 || od < 0.001 || Math.abs(c.pos.y - o.pos.y) > 1) continue;
+      const push = (1.15 - od) * 3;
+      dirX += (ox / od) * push;
+      dirZ += (oz / od) * push;
+      speed = Math.max(speed, 1.5);
+    }
     const d = Math.hypot(dirX, dirZ);
     if (d > 0.01) {
       dirX /= d;
       dirZ /= d;
-      c.yaw = turnToward(c.yaw, Math.atan2(-dirX, -dirZ), dt * 6);
     }
+    if (c.twirl > 0) c.yaw += dt * 14;
+    else if (c.mode === 'crowd' && target && td < 3) {
+      c.yaw = turnToward(c.yaw, Math.atan2(-(target.pos.x - c.pos.x), -(target.pos.z - c.pos.z)), dt * 8); // look at you
+    } else if (d > 0.01) c.yaw = turnToward(c.yaw, Math.atan2(-dirX, -dirZ), dt * 6);
     const accel = c.grounded ? 20 : 5;
     c.vel.x += clampMag(dirX * speed - c.vel.x, accel * dt);
     c.vel.z += clampMag(dirZ * speed - c.vel.z, accel * dt);
   }
   const bumped = moveBody(c, dt, col, state.world.half);
   if (bumped && c.grounded && c.hopCd <= 0 && c.stuck <= 0) {
-    c.vel.y = c.mode === 'chase' ? 7.5 : 6;
+    c.vel.y = c.mode === 'crowd' ? 7.5 : 6;
     c.grounded = false;
     c.hopCd = 1.2;
     if (c.mode === 'wander') c.thinkTimer = 0;
@@ -425,34 +477,56 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
     c.vel = { x: 0, y: 0, z: 0 };
   }
 
-  // Contact with players: harmless knockback
-  if (c.stuck <= 0 && c.hitCd <= 0) {
-    for (const p of state.players) {
-      const dx = p.pos.x - c.pos.x;
-      const dz = p.pos.z - c.pos.z;
-      const d = Math.hypot(dx, dz);
-      if (d > p.radius + c.radius + 0.15) continue;
-      if (p.pos.y > c.pos.y + c.height || p.pos.y + p.height < c.pos.y) continue;
-      const nx = d > 0.01 ? dx / d : 1;
-      const nz = d > 0.01 ? dz / d : 0;
-      c.hitCd = 1.2;
-      c.vel.x = -nx * 3;
-      c.vel.z = -nz * 3;
-      emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
-      const ride = p.riding !== null ? state.vehicles.find((v) => v.id === p.riding) : undefined;
-      if (ride) {
-        // knock the bike back along its heading
-        ride.speed = (nx * -Math.sin(ride.yaw) + nz * -Math.cos(ride.yaw)) * KNOCKBACK;
-        ride.vel.y = 5;
-        ride.grounded = false;
-        continue;
-      }
-      p.vel.x = nx * KNOCKBACK;
-      p.vel.z = nz * KNOCKBACK;
-      p.vel.y = 6;
-      p.grounded = false;
-      p.stun = 0.45;
-    }
+  for (const p of state.players) pyshkaContact(state, c, p, col);
+}
+
+/** Pyshki are soft obstacles: they block your way and give a mild shove. Nobody gets hurt. */
+function pyshkaContact(state: GameState, c: Creature, p: Player, col: Collider) {
+  const dx = p.pos.x - c.pos.x;
+  const dz = p.pos.z - c.pos.z;
+  const d = Math.hypot(dx, dz);
+  const minD = p.radius + c.radius + 0.05;
+  if (d > minD) return;
+  if (p.pos.y > c.pos.y + c.height - 0.2 || p.pos.y + p.height < c.pos.y) return;
+  const nx = d > 0.01 ? dx / d : 1;
+  const nz = d > 0.01 ? dz / d : 0;
+  const ride = p.riding !== null ? state.vehicles.find((v) => v.id === p.riding) : undefined;
+  if (ride) {
+    if (c.hitCd > 0) return;
+    // knock the bike back along its heading
+    c.hitCd = 1.2;
+    ride.speed = (nx * -Math.sin(ride.yaw) + nz * -Math.cos(ride.yaw)) * KNOCKBACK * p.stats.knockback;
+    ride.vel.y = 4;
+    ride.grounded = false;
+    c.vel.x = -nx * 3;
+    c.vel.z = -nz * 3;
+    emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
+    return;
+  }
+  // push apart: the player gets most of it unless the pyshka is glued (then all of it)
+  const overlap = minD - d;
+  const share = c.stuck > 0 ? 1 : 0.6;
+  const px = p.pos.x + nx * overlap * share;
+  const pz = p.pos.z + nz * overlap * share;
+  if (!col.blocked(px, pz, p.pos.y, p.radius, p.height)) {
+    p.pos.x = px;
+    p.pos.z = pz;
+  }
+  if (c.stuck <= 0) {
+    c.pos.x -= nx * overlap * (1 - share);
+    c.pos.z -= nz * overlap * (1 - share);
+  }
+  // walking into an awake pyshka: a polite little shove
+  const into = -(p.vel.x * nx + p.vel.z * nz);
+  if (c.stuck <= 0 && c.hitCd <= 0 && into > 2) {
+    c.hitCd = 1.0;
+    const k = SHOVE * p.stats.knockback;
+    p.vel.x = nx * k;
+    p.vel.z = nz * k;
+    p.vel.y = 3;
+    p.grounded = false;
+    p.stun = 0.25 * p.stats.stun;
+    emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
   }
 }
 
@@ -476,9 +550,11 @@ function updateProjectiles(state: GameState, dt: number, col: Collider) {
         const dx = pr.pos.x - c.pos.x;
         const dy = pr.pos.y - (c.pos.y + 0.6);
         const dz = pr.pos.z - c.pos.z;
-        if (dx * dx + dy * dy + dz * dz > 0.85 * 0.85) continue;
+        const hr = 0.85 * pr.scale;
+        if (dx * dx + dy * dy + dz * dz > hr * hr) continue;
         if (pr.kind === 'sticky') {
-          c.stuck = STICKY_TIME;
+          const owner = state.players.find((p) => p.id === pr.owner);
+          c.stuck = owner ? owner.stats.glueTime : 5;
           c.mode = 'wander';
           emit(state, 'glue', c.pos.x, c.pos.y + 0.6, c.pos.z, c.id);
         } else {
@@ -509,7 +585,7 @@ function updateProjectiles(state: GameState, dt: number, col: Collider) {
           emit(state, 'splat', pr.pos.x, pr.pos.y, pr.pos.z);
           alive = false;
         } else if (onTop) {
-          makePad(state, pr.pos.x, surfaceY, pr.pos.z, col);
+          makePad(state, pr.pos.x, surfaceY, pr.pos.z, col, state.players.find((p) => p.id === pr.owner)?.stats.padScale ?? 1);
           alive = false;
         } else {
           // hit a wall: drop straight down along it
@@ -527,11 +603,11 @@ function updateProjectiles(state: GameState, dt: number, col: Collider) {
   state.projectiles = keep;
 }
 
-function makePad(state: GameState, x: number, y: number, z: number, col: Collider) {
+function makePad(state: GameState, x: number, y: number, z: number, col: Collider, scale: number) {
   // settle the pad onto the highest surface under it
   const gy = col.groundAt(x, z, y + STEP_UP, 0.05);
   if (state.pads.length >= MAX_PADS) state.pads.shift();
-  state.pads.push({ id: state.nextId++, pos: { x, y: Math.max(gy, y), z }, life: PAD_LIFE, squish: 1 });
+  state.pads.push({ id: state.nextId++, pos: { x, y: Math.max(gy, y), z }, life: PAD_LIFE, squish: 1, scale });
   emit(state, 'pad', x, y, z);
 }
 

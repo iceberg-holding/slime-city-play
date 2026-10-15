@@ -1,0 +1,89 @@
+// Pure-sim test (no browser): every pit bike part is reachable on foot from the spawn, a scripted walk
+// through step() actually collects them all, delivers them, and the finished bike rides.
+// Run: node tests/reach.test.mjs
+import { createServer } from 'vite';
+import assert from 'node:assert/strict';
+
+const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+const load = (p) => server.ssrLoadModule(p);
+let failed = false;
+try {
+  const { createGame, step, makeCollider } = await load('/src/sim/step.ts');
+  const { findWalkPaths } = await load('/src/sim/reach.ts');
+  const { emptyInput } = await load('/src/sim/types.ts');
+  const { MISSION } = await load('/src/sim/vehicles.ts');
+  const { PLAYER_SPAWN } = await load('/src/sim/world.ts');
+  const { DT } = await load('/src/sim/constants.ts');
+
+  // Try a few hero builds, including the slowest / lowest-jumping legs.
+  for (const look of [
+    [0, 0, 0, 0],
+    [3, 2, 5, 2],
+    [5, 2, 4, 1],
+  ]) {
+    const state = createGame(1234, look);
+    state.creatures = []; // isolate the walk from pyshki shoving
+    const player = state.players[0];
+    const pid = player.id;
+
+    // 1) Static path check from the spawn.
+    const paths = findWalkPaths(makeCollider(state), state.world.half, PLAYER_SPAWN, MISSION.partSpots);
+    paths.forEach((p, i) => assert.ok(p, `part ${i} (${JSON.stringify(MISSION.partSpots[i])}) is not reachable on foot`));
+
+    // 2) Scripted walk using the real simulation.
+    const walkTo = (goal, done, label) => {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const [path] = findWalkPaths(makeCollider(state), state.world.half, player.pos, [goal]);
+        assert.ok(path, `${label}: no path from ${JSON.stringify(player.pos)}`);
+        let wi = 0;
+        for (let t = 0; t < 60 * 60 && wi < path.length; t++) {
+          if (done()) return;
+          const w = path[wi];
+          const dx = w.x - player.pos.x;
+          const dz = w.z - player.pos.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 0.2) {
+            wi++;
+            continue;
+          }
+          if (player.grounded && player.pos.y < w.y - 0.6) break; // fell off: replan
+          const k = Math.min(0.6, d * 2) / d;
+          step(state, { [pid]: { ...emptyInput(0), mx: dx * k, mz: dz * k } }, DT);
+        }
+        // settle a moment at the end of the path
+        for (let t = 0; t < 30 && !done(); t++) step(state, { [pid]: emptyInput(0) }, DT);
+        if (done()) return;
+      }
+      assert.fail(`${label}: walked the path but did not get there (at ${JSON.stringify(player.pos)})`);
+    };
+
+    state.pickups.forEach((pk, i) => {
+      walkTo({ ...MISSION.partSpots[i] }, () => pk.status !== 'world', `look ${look} part ${pk.part}`);
+    });
+    const g = state.garages[0];
+    walkTo({ x: g.x, y: 0.9, z: g.z }, () => g.built, `look ${look} garage`);
+    assert.equal(g.delivered.length, 5, 'all 5 parts delivered');
+    assert.equal(state.vehicles.length, 1, 'bike spawned');
+
+    // 3) Mount and ride.
+    const bike = state.vehicles[0];
+    for (let t = 0; t < 60 && !(player.riding !== null); t++) {
+      const dx = bike.pos.x - player.pos.x;
+      const dz = bike.pos.z - player.pos.z;
+      const d = Math.hypot(dx, dz) || 1;
+      step(state, { [pid]: { ...emptyInput(0), mx: (dx / d) * 0.3, mz: (dz / d) * 0.3, interact: t % 10 === 0 } }, DT);
+    }
+    assert.equal(player.riding, bike.id, 'player is riding the bike');
+    const fx = -Math.sin(bike.yaw);
+    const fz = -Math.cos(bike.yaw);
+    for (let t = 0; t < 30; t++) step(state, { [pid]: { ...emptyInput(0), mx: fx, mz: fz } }, DT);
+    assert.ok(bike.speed > 0, `bike speed after throttle: ${bike.speed}`);
+    console.log(`ok look ${look.join('')}: 5/5 parts walked & delivered, bike speed ${bike.speed.toFixed(2)} m/s`);
+  }
+} catch (e) {
+  failed = true;
+  console.error(e);
+} finally {
+  await server.close();
+}
+process.exit(failed ? 1 : 0);

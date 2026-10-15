@@ -270,7 +270,7 @@ export class GameView {
         v.blob.position.y = 0;
       } else {
         const speed = Math.hypot(c.vel.x, c.vel.z);
-        const k = Math.sin(t * (c.mode === 'chase' ? 14 : 7) + c.id);
+        const k = Math.sin(t * (c.mode === 'crowd' ? 14 : 7) + c.id);
         const sq = 1 + k * 0.08 * Math.min(1, speed / 2 + 0.3);
         v.blob.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
         v.blob.position.y = c.grounded ? Math.max(0, k) * 0.12 * Math.min(1, speed) : 0;

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node tests/reach.test.mjs",
+    "test:reach": "node tests/reach.test.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

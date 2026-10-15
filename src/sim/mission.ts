@@ -176,7 +176,9 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
     else if (throttle < -0.05) v.speed += throttle * (v.speed > 0 ? def.brake : def.accel * 0.5) * dt;
     else v.speed -= v.speed * def.drag * 2 * dt;
     v.speed -= v.speed * def.drag * 0.2 * dt;
-    v.speed = Math.max(-def.reverseSpeed, Math.min(def.maxSpeed, v.speed));
+    const rider = v.rider !== null ? state.players.find((p) => p.id === v.rider) : undefined;
+    const maxSpeed = def.maxSpeed * (rider ? rider.stats.rideSpeed : 1);
+    v.speed = Math.max(-def.reverseSpeed, Math.min(maxSpeed, v.speed));
     const grip = Math.min(1, Math.abs(v.speed) / 3) * Math.sign(v.speed);
     v.yaw -= steer * def.turnRate * grip * dt;
   } else {
@@ -206,7 +208,7 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
   // slime pads
   if (v.padCd <= 0 && v.vel.y <= 0.5) {
     for (const pad of state.pads) {
-      if (Math.hypot(v.pos.x - pad.pos.x, v.pos.z - pad.pos.z) > 1.4 || Math.abs(v.pos.y - pad.pos.y) > 0.4) continue;
+      if (Math.hypot(v.pos.x - pad.pos.x, v.pos.z - pad.pos.z) > 1.4 * pad.scale || Math.abs(v.pos.y - pad.pos.y) > 0.4) continue;
       v.vel.y = PAD_LAUNCH;
       v.grounded = false;
       v.padCd = 0.4;
