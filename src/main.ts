@@ -1,3 +1,4 @@
+import { TOWER } from './sim/tower';
 import * as THREE from 'three';
 import './style.css';
 import { InputController } from './input/input';
@@ -327,6 +328,10 @@ const api = {
   },
   setClassic(v: boolean) {
     setClassic(v);
+  },
+  teleportTo(name: 'elevator' | 'pool' | 'spa' | 'garage') {
+    const spots = { elevator: [TOWER.liftX, state?.elevator.y ?? 0.26, -26], pool: [24.5, TOWER.roof, -28.1], spa: [27.755, TOWER.roof, -28.21], garage: [MISSION.garage.x, 0, MISSION.garage.z] };
+    const p = spots[name]; if (p) api.teleport(p[0], p[1], p[2]);
   },
   teleport(x: number, y: number, z: number) {
     const p = state?.players[0];

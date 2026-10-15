@@ -1,4 +1,4 @@
-import { liftSolid, updateLift } from './tower';
+import { TOWER, liftSolid, updateLift } from './tower';
 import {
   BUBBLE_TIME,
   CREATURE_CROWD_SPEED,
@@ -333,8 +333,10 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
   }
   const control = p.stun > 0 ? 0 : 1;
   const accel = (p.grounded ? 40 : 12) * control;
-  const tvx = mx * PLAYER_SPEED * st.speed;
-  const tvz = mz * PLAYER_SPEED * st.speed;
+  const water = p.pos.y >= TOWER.roof - 0.2 && p.pos.y < TOWER.roof + 0.5 && ((p.pos.x > 22.5 && p.pos.x < 26.5 && p.pos.z > -29.2 && p.pos.z < -27) || Math.hypot(p.pos.x - 27.755, p.pos.z + 28.21) < 0.8);
+  if (water && len > 0.1 && state.tick % 18 === 0) emit(state, 'splat', p.pos.x, p.pos.y + 0.2, p.pos.z);
+  const tvx = mx * PLAYER_SPEED * st.speed * (water ? 0.4 : 1);
+  const tvz = mz * PLAYER_SPEED * st.speed * (water ? 0.4 : 1);
   p.vel.x += clampMag(tvx - p.vel.x, accel * dt);
   p.vel.z += clampMag(tvz - p.vel.z, accel * dt);
   if (control === 0 && p.grounded) {

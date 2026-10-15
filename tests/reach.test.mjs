@@ -15,6 +15,20 @@ try {
   const { PLAYER_SPAWN } = await load('/src/sim/world.ts');
   const { DT } = await load('/src/sim/constants.ts');
 
+  // Elevator carries a standing rider to mid floor and roof without jumping.
+  const towerState = createGame(1234, [0, 0, 0, 0]);
+  towerState.creatures = [];
+  const rider = towerState.players[0];
+  rider.pos = { x: 30.9075, y: 0.26, z: -26 };
+  let reachedMid = false, reachedRoof = false;
+  for (let i = 0; i < 1100; i++) {
+    step(towerState, { [rider.id]: emptyInput() }, DT);
+    reachedMid ||= Math.abs(rider.pos.y - 11.57) < 0.05;
+    reachedRoof ||= Math.abs(rider.pos.y - 22.1325) < 0.05;
+  }
+  assert.ok(reachedMid && reachedRoof, 'standing elevator rider reaches both upper stops');
+  assert.equal(towerState.pickups.length, 5, 'tower retains all five reachable bike parts');
+
   // Try a few hero builds, including the slowest / lowest-jumping legs.
   for (const look of [
     [0, 0, 0, 0],

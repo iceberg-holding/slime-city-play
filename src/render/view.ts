@@ -1,3 +1,4 @@
+import { buildRooftop } from './rooftop';
 import { TOWER } from '../sim/tower';
 import * as THREE from 'three';
 import { Collider, blockSolid } from '../sim/physics';
@@ -106,7 +107,7 @@ export class GameView {
 
     const city = buildCity(state.world);
     this.scene.add(city.root);
-    this.scene.add(this.lift);
+    this.scene.add(this.lift, buildRooftop());
     const tower = new Kit();
     for (const y of [0.26, 11.57, 22.1325]) tower.add(geo.rbox(8.4, 0.2, 8.4, 0.1), 0xffffff, { p: [26, y - 0.1, -26] });
     for (let y = 3; y < 22; y += 2.2) {
