@@ -1,3 +1,4 @@
+import { tree as studioTree, bench as studioBench, lamp as studioLamp } from './art/studio';
 import * as THREE from 'three';
 import type { Solid, World } from '../sim/types';
 import { mansardBox } from '../sim/world';
@@ -205,27 +206,14 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   const props = new Kit();
   props.groundAO = 0.2;
   for (const p of world.props) {
-    if (p.kind === 'tree') {
-      props.add(geo.cyl(1.25, 1.25, 0.1, 40), 0x7ccf5b, { p: [p.x, 0.04, p.z], finish: 'matte', cast: false });
-      props.add(geo.capsule(0.17, 2.6), 0xb07a4f, { p: [p.x, 1.2, p.z], finish: 'soft' });
-      props.add(geo.sphere(1.25, 24, 16), 0x5cc45a, { p: [p.x, 3.0, p.z], s: [1, 0.9, 1], finish: 'soft' });
-      props.add(geo.sphere(0.85, 20, 14), 0x7fd96a, { p: [p.x + 0.55, 3.6, p.z - 0.25], finish: 'soft' });
-      props.add(geo.sphere(0.7, 20, 14), 0x4fb84f, { p: [p.x - 0.6, 3.35, p.z + 0.35], finish: 'soft' });
-      blobs.push({ x: p.x, z: p.z, sx: 2.6, sz: 2.6, y: 0.1 });
-    } else if (p.kind === 'lamp') {
-      props.add(lamppost(), 0x2f5d50, { p: [p.x, 0, p.z], finish: 'gloss' });
-      props.add(geo.sphere(0.24, 24, 16), 0xfff1b8, { p: [p.x, 3.45, p.z], s: [1, 1.15, 1], finish: 'glow', cast: false });
-      props.add(geo.cone(0.34, 0.26, 24), 0x2f5d50, { p: [p.x, 3.8, p.z], finish: 'gloss' });
-      blobs.push({ x: p.x, z: p.z, sx: 0.9, sz: 0.9 });
-    } else if (p.kind === 'bench') {
-      const alongX = Math.abs(p.z) > Math.abs(p.x);
-      const r: [number, number, number] = [0, alongX ? 0 : Math.PI / 2, 0];
-      const loc = (a: number, y: number, b: number): [number, number, number] => (alongX ? [p.x + a, y, p.z + b] : [p.x + b, y, p.z + a]);
-      for (const o of [-0.2, 0, 0.2]) props.add(geo.rbox(2, 0.08, 0.17, 0.035), 0xd99a5b, { p: loc(0, 0.46, o), r, finish: 'soft' });
-      props.add(geo.rbox(2, 0.3, 0.08, 0.035), 0xd99a5b, { p: loc(0, 0.75, 0.3), r: [-0.15, r[1], 0], finish: 'soft' });
-      for (const a of [-0.8, 0.8]) props.add(geo.rbox(0.1, 0.44, 0.6, 0.04), 0x3b4a6b, { p: loc(a, 0.22, 0.02), r, finish: 'metal' });
-      blobs.push(alongX ? { x: p.x, z: p.z, sx: 2.6, sz: 1.3 } : { x: p.x, z: p.z, sx: 1.3, sz: 2.6 });
-    } else if (p.kind === 'crate') {
+    if (p.kind !== 'crate') {
+      const model = p.kind === 'tree' ? studioTree(0.85) : p.kind === 'bench' ? studioBench() : studioLamp();
+      model.position.set(p.x, 0, p.z);
+      if (p.kind === 'bench' && Math.abs(p.x) > Math.abs(p.z)) model.rotation.y = Math.PI / 2;
+      root.add(model);
+      continue;
+    }
+    {
       const h = p.h ?? 1;
       const y = (p.y ?? 0) + h / 2;
       props.add(geo.rbox((p.w ?? 1) - 0.04, h - 0.04, (p.d ?? 1) - 0.04, 0.1), (p.y ?? 0) % 2 ? 0xe2a66b : 0xf0bd83, { p: [p.x, y, p.z], finish: 'soft' });
@@ -290,24 +278,6 @@ function taperedRoof(w: number, h: number, d: number): THREE.BufferGeometry {
     pos.setZ(i, pos.getZ(i) * k);
   }
   return g;
-}
-
-let lampGeo: THREE.BufferGeometry | null = null;
-function lamppost(): THREE.BufferGeometry {
-  return (lampGeo ??= lathe(
-    [
-      [0.001, 0],
-      [0.26, 0],
-      [0.26, 0.12],
-      [0.14, 0.25],
-      [0.08, 0.5],
-      [0.07, 3.1],
-      [0.13, 3.22],
-      [0.06, 3.3],
-      [0.001, 3.3],
-    ],
-    24,
-  ));
 }
 
 /** Contact shadows under static props, merged into one transparent mesh. */

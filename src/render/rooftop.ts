@@ -15,5 +15,11 @@ export function buildRooftop() {
     k.add(geo.rbox(0.7, 0.24, 1.5, 0.1), 0xffffff, { p: [x, y + 0.15, -23.5] });
     k.add(geo.rbox(0.62, 0.06, 1.3, 0.03), 0xff84b1, { p: [x, y + 0.3, -23.5] });
   }
+  // Two palms and folded towels around the spa.
+  for (const x of [28.7, 23]) {
+    k.add(geo.cyl(0.08, 0.13, 1.8), 0xc69262, { p: [x, y + 0.9, -29] });
+    for (let a = 0; a < 6; a++) k.add(geo.sphere(0.4, 16, 8), 0x42ba76, { p: [x + Math.cos(a) * 0.35, y + 1.8, -29 + Math.sin(a) * 0.35], s: [1.5, 0.15, 0.6], r: [0, -a, 0] });
+  }
+  k.add(geo.rbox(0.5, 0.12, 0.35, 0.05), 0xffe5f0, { p: [28.7, y + 0.1, -27.3] });
   return k.build();
 }

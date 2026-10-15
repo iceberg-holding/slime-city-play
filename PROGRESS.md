@@ -69,3 +69,5 @@ Tests:
 - C: Added teal rooftop water/deck, pergola and loungers, slower wading with splash events, four named teleport hooks; reach suite now also proves elevator travel to mid/roof. All five parts remain in their tested walking locations. Build and tests pass.
 
 - D1: Wired the existing Claude studio module into hero previews/game models, pyshki and skyscraper; rooftop retains Codex-inspired teal tiles/pergola. Studio animation hooks animate spa bubbles; no transmission materials. Build and tests pass.
+
+- D2: Integrated studio trees/benches/lamps; restored visible pyshka glue/speech expressions, hid the decorative elevator cabin, added spa palms/towels and blue rooftop splash particles. Build and tests pass.

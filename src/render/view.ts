@@ -114,7 +114,7 @@ export class GameView {
     tower.position.set(26, 0, -26);
     this.scene.add(tower);
     // Remove the showcase-only elevator cabin: the sim owns the real platform.
-    tower.traverse(o => { if (o.userData.tick && o.children.length === 4) o.visible = false; });
+    const cabin = tower.getObjectByName('showcase-cabin'); if (cabin) cabin.visible = false;
     this.scene.userData.studioTower = tower;
     this.spray = city.root.getObjectByName('spray');
     this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
@@ -208,7 +208,7 @@ export class GameView {
           this.burst(e.x, e.y, e.z, 16, [0x6dff4a, 0x38b000], 4, 0.15);
           break;
         case 'splat':
-          this.burst(e.x, e.y, e.z, 6, [0x6dff4a], 2.5, 0.1);
+          this.burst(e.x, e.y, e.z, 6, e.y > 20 ? [0x50dfff, 0xffffff] : [0x6dff4a], 2.5, 0.1);
           break;
         case 'pad':
         case 'bounce':
@@ -296,6 +296,10 @@ export class GameView {
       v.root.rotation.y = c.yaw;
       const stuck = c.stuck > 0;
       v.goo.visible = stuck;
+      v.blob.traverse(o => {
+        if (o.name === 'studio-eye') o.scale.y = stuck ? 0.12 : 1;
+        if (o.name === 'studio-mouth') o.scale.y = c.talk > 0 && !stuck ? 1.5 : 1;
+      });
       v.eyes.visible = !stuck;
       v.happy.visible = stuck;
       const talking = c.talk > 0 && !stuck;

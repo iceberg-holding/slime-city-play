@@ -790,6 +790,7 @@ export function buildPyshka(seed: number): THREE.Group {
     }
     eye.position.copy(pos).addScaledVector(n, -0.01);
     eye.quaternion.setFromUnitVectors(FWD, n);
+    eye.name = 'studio-eye';
     body.add(eye);
     const b = blush(0.075);
     const yawB = s * 0.55;
@@ -808,6 +809,7 @@ export function buildPyshka(seed: number): THREE.Group {
   }
   mouth.position.set(0, faceY - 0.12, surfR(faceY - 0.12) - 0.008);
   mouth.quaternion.setFromUnitVectors(FWD, v(0, -0.1, 1).normalize());
+  mouth.name = 'studio-mouth';
   body.add(mouth);
 
   // accessory
@@ -1269,6 +1271,7 @@ export function buildSkyscraper(): THREE.Group {
   mesh(cyl(0.77, 0.77, 0.9, 28), glow('#fff4d6', 0.9), 0, 0.15, 0, cabin).castShadow = false;
   mesh(cyl(0.8, 0.8, 0.1, 28), white, 0, 0.98, 0, cabin);
   mesh(cyl(0.8, 0.8, 0.1, 28), white, 0, -0.98, 0, cabin);
+  cabin.name = 'showcase-cabin';
   cabin.position.set(shaftX, 10, 0);
   g.add(cabin);
   const minY = plinthH + 1.1;
@@ -1480,7 +1483,7 @@ function car(color: Col): THREE.Group {
   return g;
 }
 
-function tree(scale = 1, hue = 0): THREE.Group {
+export function tree(scale = 1, hue = 0): THREE.Group {
   const g = new THREE.Group();
   g.name = 'tree';
   mesh(cyl(0.16, 0.24, 2.2, 16), gloss('#a7744f', 0.5), 0, 1.1, 0, g);
@@ -1501,7 +1504,7 @@ function tree(scale = 1, hue = 0): THREE.Group {
   return g;
 }
 
-function bench(): THREE.Group {
+export function bench(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'bench';
   const wood = gloss('#e0a46e', 0.45);
@@ -1523,7 +1526,7 @@ function bench(): THREE.Group {
   return g;
 }
 
-function lamp(): THREE.Group {
+export function lamp(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'lamp';
   const iron = gloss('#33405a', 0.28);
