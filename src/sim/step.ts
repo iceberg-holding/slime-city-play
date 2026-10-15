@@ -472,6 +472,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       if (partner) {
         c.yaw = turnToward(c.yaw, Math.atan2(c.pos.x - partner.pos.x, c.pos.z - partner.pos.z), dt * 8);
         const speaking = Math.floor((c.chatUntil - state.tick / 60) / 1.2) % 2 === (c.id < partner.id ? 0 : 1);
+        if (!speaking && c.phrase < 100) c.talk = 0;
         if (speaking && c.talk <= 0) { c.phrase = Math.floor(rand(state) * PHRASE_COUNT); c.talk = 1.1; emit(state, 'babble', c.pos.x, c.pos.y, c.pos.z, c.id); }
       }
     }
@@ -484,6 +485,10 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
     else if (c.mode === 'crowd' && target && td < 3) {
       c.yaw = turnToward(c.yaw, Math.atan2(-(target.pos.x - c.pos.x), -(target.pos.z - c.pos.z)), dt * 8); // look at you
     } else if (d > 0.01) c.yaw = turnToward(c.yaw, Math.atan2(-dirX, -dirZ), dt * 6);
+    if (c.chatUntil > state.tick / 60 && c.grounded) {
+      const partner = state.creatures.find(o => o.id === c.chatPartner);
+      if (partner) c.yaw = turnToward(c.yaw, Math.atan2(c.pos.x - partner.pos.x, c.pos.z - partner.pos.z), dt * 10);
+    }
     const accel = c.grounded ? 20 : 5;
     c.vel.x += clampMag(dirX * speed - c.vel.x, accel * dt);
     c.vel.z += clampMag(dirZ * speed - c.vel.z, accel * dt);

@@ -77,3 +77,5 @@ Tests:
 - Polish: Added nearby touch elevator interaction/calling to the caller’s floor and stronger blue sky after inspecting 412x915 rooftop screenshots. Build and tests pass. Full e2e run was interrupted at the settings-close wait; focused phone views rendered without page errors.
 
 - Regression coverage: Added real sim checks for temporary glue, bouncy freeing/flight shouts and paired chats; prevented chatter from replacing flight shouts and added horizontal launch momentum. Build and tests pass.
+
+- Final interaction polish: Named teleports safely dismount riders; paired pyshki face each other and keep alternating turns quiet. Saved focused 412x915 tower/pool/spa screenshots in shots/r2-tower-phone-*.png. Build and tests pass; fresh desktop e2e passed.
