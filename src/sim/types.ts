@@ -221,6 +221,7 @@ export interface GameEvent {
 }
 
 export interface GameState {
+  elevator: { y: number; target: number; wait: number };
   tick: number;
   time: number;
   rng: number;

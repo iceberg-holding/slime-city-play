@@ -32,7 +32,7 @@ export function createWorld(): World {
   b(-20, -32, -8, -21, 5);
   b(-8, -32, 7, -21, 7);
   b(7, -32, 20, -21, 4, false);
-  b(20, -32, 32, -21, 10);
+  // Northeast tower has an open lobby and separate floor slabs.
   // South row
   b(-32, 21, -18, 32, 6);
   b(-18, 21, -6, 32, 3, false);
@@ -54,6 +54,10 @@ export function createWorld(): World {
     }
   }
 
+  // Slabs leave the exterior elevator shaft open.
+  for (const y of [0.26, 11.57, 22.1325]) solids.push(box(21.8, y - 0.2, -30.2, 30.2, y, -21.8));
+  solids.push(box(21.8, 0.26, -30.2, 22.1, 22.1, -21.8));
+  solids.push(box(22.1, 0.26, -30.2, 30.2, 22.1, -29.9));
   const ramps: Solid[] = [
     // Up to the 5m roof on the north row, rising toward -x
     { minX: -17.5, minY: 0, minZ: -21, maxX: -6, maxY: 5, maxZ: -18.6, ramp: 2 },

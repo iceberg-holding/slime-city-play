@@ -1,3 +1,4 @@
+import { liftSolid, updateLift } from './tower';
 import {
   BUBBLE_TIME,
   CREATURE_CROWD_SPEED,
@@ -29,6 +30,7 @@ import { interact, missionComplete, setupMission, syncRider, updatePickups, upda
 
 export function createGame(seed: number, look: Look): GameState {
   const state: GameState = {
+    elevator: { y: 0.26, target: 0, wait: 2 },
     tick: 0,
     time: 0,
     rng: seed | 0,
@@ -111,7 +113,7 @@ function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z
 }
 
 export function makeCollider(state: GameState): Collider {
-  return new Collider(state.world.solids, state.blocks.map(blockSolid));
+  return new Collider(state.world.solids, [...state.blocks.map(blockSolid), liftSolid(state.elevator.y)]);
 }
 
 /** Advance the simulation by dt seconds. `inputs` is keyed by player id. */
@@ -120,6 +122,7 @@ export function step(state: GameState, inputs: Record<number, InputCommand>, dt:
   state.tick++;
   // after winning the world keeps running (so the trick can land), but the clock stops
   if (state.status === 'playing') state.time += dt;
+  updateLift(state, inputs, dt);
   const col = makeCollider(state);
 
   for (const p of state.players) {

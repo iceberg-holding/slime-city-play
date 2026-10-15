@@ -63,3 +63,5 @@ Tests:
 - A1: Added persistent EN/RU/PL/LT/DE phrase picker, fly-off shouts for projectile/pad launches and synthesized vowel babble, whee and blub. Build and reach tests pass.
 
 - A2: Nearby pyshki bump, pause and take alternating voiced conversation turns with a cooldown before returning to crowding. Build and tests pass.
+
+- B: Added northeast tower lobby/floor collision and a sim-driven elevator platform with three stops, automatic boarding rides and interact activation. Existing five walking routes still pass; build and tests pass.

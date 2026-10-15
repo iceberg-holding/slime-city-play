@@ -1,3 +1,4 @@
+import { TOWER } from '../sim/tower';
 import * as THREE from 'three';
 import { Collider, blockSolid } from '../sim/physics';
 import { computePlacement, makeCollider } from '../sim/step';
@@ -90,6 +91,7 @@ export class GameView {
   private col: Collider;
   private camDist = 7;
   private time = 0;
+  private lift = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.2, 24), new THREE.MeshStandardMaterial({ color: 0xffcf4a }));
 
   constructor(state: GameState, aspect: number, renderer: THREE.WebGLRenderer) {
     this.camera = new THREE.PerspectiveCamera(62, aspect, 0.1, 400);
@@ -104,6 +106,14 @@ export class GameView {
 
     const city = buildCity(state.world);
     this.scene.add(city.root);
+    this.scene.add(this.lift);
+    const tower = new Kit();
+    for (const y of [0.26, 11.57, 22.1325]) tower.add(geo.rbox(8.4, 0.2, 8.4, 0.1), 0xffffff, { p: [26, y - 0.1, -26] });
+    for (let y = 3; y < 22; y += 2.2) {
+      tower.add(geo.rbox(8.4, 0.18, 8.4, 0.08), 0xffffff, { p: [26, y, -26] });
+      tower.add(geo.rbox(8, 1.9, 0.15, 0.07), 0x68c8e8, { p: [26, y - 1, -30] });
+    }
+    this.scene.add(tower.build());
     this.spray = city.root.getObjectByName('spray');
     this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
 
@@ -253,6 +263,7 @@ export class GameView {
 
   /** Render-side sync. `playerId` is the local player the camera follows. */
   sync(state: GameState, camYaw: number, camPitch: number, dt: number, playerId?: number, ghostOn = false) {
+    this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);
     this.time += dt;
     const t = this.time;
     this.ensureEntities(state);
