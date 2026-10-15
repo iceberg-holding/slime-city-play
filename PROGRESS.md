@@ -79,3 +79,5 @@ Tests:
 - Regression coverage: Added real sim checks for temporary glue, bouncy freeing/flight shouts and paired chats; prevented chatter from replacing flight shouts and added horizontal launch momentum. Build and tests pass.
 
 - Final interaction polish: Named teleports safely dismount riders; paired pyshki face each other and keep alternating turns quiet. Saved focused 412x915 tower/pool/spa screenshots in shots/r2-tower-phone-*.png. Build and tests pass; fresh desktop e2e passed.
+
+- Validation complete: npm run test:e2e passes desktop and mobile with no console errors (7 crowding/talking pyshki; bike 7.43 m/s). Latest npm run build && npm test pass, including all 5 walking routes, glue/flight/chat regressions and elevator stops. No pushes.
