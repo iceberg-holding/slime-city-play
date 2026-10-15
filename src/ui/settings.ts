@@ -1,4 +1,4 @@
-import { getLang, onLangChange, setLang, t } from './i18n';
+import { nextLang, getLang, onLangChange, t } from './i18n';
 
 const CLASSIC_KEY = 'slimecity.classicButtons';
 
@@ -70,7 +70,7 @@ export class SettingsPanel {
     this.closeBtn = q('.settings-close');
     this.toggle.checked = classic;
     this.toggle.addEventListener('change', () => setClassic(this.toggle.checked));
-    this.langBtn.addEventListener('click', () => setLang(getLang() === 'en' ? 'ru' : 'en'));
+    this.langBtn.addEventListener('click', () => nextLang());
     this.closeBtn.addEventListener('click', () => this.open(false));
     this.el.addEventListener('pointerdown', (e) => {
       if (e.target === this.el) this.open(false);
@@ -104,7 +104,7 @@ export class SettingsPanel {
     this.label.textContent = s.classic;
     this.help.textContent = s.classicHelp;
     this.langLabel.textContent = s.language;
-    this.langBtn.textContent = getLang() === 'en' ? 'EN · ru' : 'en · RU';
+    this.langBtn.textContent = 'EN · RU · PL · LT · DE (' + getLang().toUpperCase() + ')';
     this.closeBtn.textContent = s.close;
   }
 }

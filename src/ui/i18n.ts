@@ -1,4 +1,4 @@
-export type Lang = 'en' | 'ru';
+export type Lang = 'en' | 'ru' | 'pl' | 'lt' | 'de';
 
 const STRINGS = {
   en: {
@@ -228,7 +228,7 @@ const KEY = 'slimecity.lang';
 let lang: Lang = (() => {
   try {
     const v = localStorage.getItem(KEY);
-    return v === 'ru' ? 'ru' : 'en';
+    return ['en', 'ru', 'pl', 'lt', 'de'].includes(v || '') ? v as Lang : 'en';
   } catch {
     return 'en';
   }
@@ -255,5 +255,22 @@ export function onLangChange(f: () => void) {
 }
 
 export function t(): Strings {
-  return STRINGS[lang];
+  return { ...STRINGS[lang === 'ru' ? 'ru' : 'en'], phrases: CHAT[lang] };
 }
+
+export const LANGS: Lang[] = ['en', 'ru', 'pl', 'lt', 'de'];
+export function nextLang() { setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]); }
+const CHAT: Record<Lang, string[]> = {
+ en: STRINGS.en.phrases, ru: STRINGS.ru.phrases,
+ pl: ['Którędy do biblioteki?', 'Ja tu stałam!', 'Ile kosztują ogórki?', 'Zjedz coś!', 'Ale miękkie bułeczki!', 'Masz drobne?'],
+ lt: ['Kur biblioteka?', 'Aš čia stovėjau!', 'Kiek kainuoja agurkai?', 'Pavalgyk!', 'Kokios minkštos bandelės!', 'Ar turi smulkių?'],
+ de: ['Wo ist die Bibliothek?', 'Ich war zuerst hier!', 'Was kosten die Gurken?', 'Iss etwas!', 'Frische Brötchen!', 'Hast du Kleingeld?'],
+};
+const FLIGHT: Record<Lang, string[]> = {
+ en: ["That's it, I'm flying!", 'Hello birds, here I come!', 'Next stop: the moon!'],
+ ru: ['Всё, я полетела!', 'Птичкам привет, скоро буду у вас!', 'Следующая остановка — Луна!'],
+ pl: ['No to lecę!', 'Ptaki, zaraz do was dołączę!', 'Następny przystanek: Księżyc!'],
+ lt: ['Viskas, aš skrendu!', 'Paukščiai, tuoj būsiu pas jus!', 'Kita stotelė — Mėnulis!'],
+ de: ['Ich fliege los!', 'Hallo Vögel, ich komme!', 'Nächster Halt: der Mond!'],
+};
+export function flightPhrase(index: number) { return FLIGHT[lang][index % FLIGHT[lang].length]; }

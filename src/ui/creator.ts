@@ -1,6 +1,6 @@
 import { BASE_STATS, HERO_PARTS, HERO_SLOTS, PARTS_PER_SLOT, type HeroSlot, type HeroStats } from '../sim/hero';
 import type { Look } from '../sim/types';
-import { getLang, onLangChange, setLang, t } from './i18n';
+import { nextLang, getLang, onLangChange, t } from './i18n';
 
 const LOOK_KEY = 'slimecity.look';
 
@@ -98,7 +98,7 @@ export class CreatorScreen {
     const sub = div('subtitle');
     this.langBtn = document.createElement('button');
     this.langBtn.className = 'lang-btn';
-    this.langBtn.addEventListener('click', () => setLang(getLang() === 'en' ? 'ru' : 'en'));
+    this.langBtn.addEventListener('click', () => nextLang());
     top.append(title, sub, this.langBtn);
     this.texts.push({ el: title, key: 'title' }, { el: sub, key: 'subtitle' });
 
@@ -170,7 +170,7 @@ export class CreatorScreen {
   private refresh() {
     const s = t();
     for (const x of this.texts) x.el.textContent = s[x.key];
-    this.langBtn.textContent = getLang() === 'en' ? 'EN · ru' : 'en · RU';
+    this.langBtn.textContent = 'EN · RU · PL · LT · DE (' + getLang().toUpperCase() + ')';
     this.codeEl.textContent = this.look.join('');
 
     HERO_SLOTS.forEach((slot, i) => {

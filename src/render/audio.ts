@@ -34,7 +34,11 @@ export function playEvent(e: GameEvent) {
     case 'shoot':
       blip(500, 200, 0.12, 'triangle', 0.08);
       break;
+    case 'babble':
+      voice('chat');
+      break;
     case 'glue':
+      voice('blub');
       blip(200, 80, 0.3, 'sawtooth', 0.06);
       break;
     case 'splat':
@@ -44,6 +48,7 @@ export function playEvent(e: GameEvent) {
       blip(300, 600, 0.15, 'sine', 0.1);
       break;
     case 'bounce':
+      voice('whee');
       blip(200, 900, 0.35, 'sine', 0.15);
       break;
     case 'bonk':
@@ -76,5 +81,28 @@ export function playEvent(e: GameEvent) {
     case 'win':
       [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => blip(f, f, 0.25, 'triangle', 0.12), i * 150));
       break;
+  }
+}
+
+// Pitch slides through two resonant formants: little vowel-like syllables.
+function voice(kind: 'chat' | 'whee' | 'blub') {
+  if (!ctx || ctx.state !== 'running') return;
+  const ac = ctx;
+  const count = kind === 'chat' ? 5 : 3;
+  for (let i = 0; i < count; i++) {
+    const at = ac.currentTime + i * 0.095;
+    const o = ac.createOscillator(), gain = ac.createGain();
+    o.type = 'sawtooth';
+    const pitch = kind === 'blub' ? 110 : kind === 'whee' ? 420 + i * 110 : 210 + (i % 3) * 90;
+    o.frequency.setValueAtTime(pitch, at);
+    o.frequency.exponentialRampToValueAtTime(pitch * (kind === 'blub' ? 0.55 : 1.4), at + 0.12);
+    gain.gain.setValueAtTime(0, at);
+    gain.gain.linearRampToValueAtTime(0.035, at + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, at + 0.14);
+    for (const hz of [650 + i * 130, 1600 + (i % 2) * 600]) {
+      const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = hz; f.Q.value = 5;
+      o.connect(f); f.connect(gain);
+    }
+    gain.connect(ac.destination); o.start(at); o.stop(at + 0.15);
   }
 }

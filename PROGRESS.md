@@ -59,3 +59,5 @@ Tests:
 - A single tap fires sticky about 0.26 s late, because the game waits to see whether it's a double tap.
 - Speech bubbles aren't occluded by walls.
 - `VehicleDef.flies` is still unused. The bundle is ~680 kB (three.js isn't code-split).
+
+- A1: Added persistent EN/RU/PL/LT/DE phrase picker, fly-off shouts for projectile/pad launches and synthesized vowel babble, whee and blub. Build and reach tests pass.

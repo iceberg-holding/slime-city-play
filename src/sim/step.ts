@@ -307,6 +307,8 @@ function checkPad(state: GameState, b: Body, id: number, launch = 1) {
     b.grounded = false;
     b.padCd = 0.4;
     pad.squish = 1;
+    const creature = state.creatures.find(c => c.id === id);
+    if (creature) { creature.phrase = 100 + Math.floor(rand(state) * 3); creature.talk = 3; creature.stuck = 0; }
     emit(state, 'bounce', pad.pos.x, pad.pos.y, pad.pos.z, id);
     return;
   }
@@ -558,6 +560,9 @@ function updateProjectiles(state: GameState, dt: number, col: Collider) {
           c.mode = 'wander';
           emit(state, 'glue', c.pos.x, c.pos.y + 0.6, c.pos.z, c.id);
         } else {
+          c.stuck = 0;
+          c.phrase = 100 + Math.floor(rand(state) * 3);
+          c.talk = 3;
           c.vel.y = 11;
           c.grounded = false;
           emit(state, 'bounce', c.pos.x, c.pos.y, c.pos.z, c.id);
