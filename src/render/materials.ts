@@ -75,9 +75,9 @@ const r3 = (v: number) => Math.round(v * 1000) / 1000;
 /** Smooth, high-segment primitives (cached by size). */
 export const geo = {
   /** rounded box with real dimensions (corner radius defaults to 22% of the smallest side) */
-  rbox: (w: number, h: number, d: number, r = Math.min(w, h, d) * 0.22, seg = 3) =>
+  rbox: (w: number, h: number, d: number, r = Math.min(w, h, d) * 0.22, seg = 2) =>
     cached(`rb${r3(w)},${r3(h)},${r3(d)},${r3(r)},${seg}`, () => new RoundedBoxGeometry(w, h, d, seg, Math.min(r, Math.min(w, h, d) / 2 - 0.001))),
-  sphere: (r = 0.5, w = 32, h = 24) => cached(`sp${r3(r)},${w},${h}`, () => new THREE.SphereGeometry(r, w, h)),
+  sphere: (r = 0.5, w = 24, h = 16) => cached(`sp${r3(r)},${w},${h}`, () => new THREE.SphereGeometry(r, w, h)),
   /** capsule along y, total height h */
   capsule: (r: number, h: number, seg = 16) => cached(`cap${r3(r)},${r3(h)},${seg}`, () => new THREE.CapsuleGeometry(r, Math.max(0.001, h - 2 * r), 6, seg)),
   cyl: (rt: number, rb: number, h: number, seg = 32) => cached(`cy${r3(rt)},${r3(rb)},${r3(h)},${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg)),

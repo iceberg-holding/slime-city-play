@@ -45,7 +45,7 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   const blobs: BlobSpot[] = [];
 
   // Ground
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshStandardMaterial({ color: 0xbcc6d4, roughness: 0.9 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshStandardMaterial({ color: 0xa9b6c9, roughness: 0.9 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   root.add(ground);
@@ -57,7 +57,7 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   flat.add(geo.rbox(2.5, 0.08, 37, 0.04), 0xf3ece0, { p: [-19.75, 0, 0], finish: 'matte' });
   flat.add(geo.rbox(2.5, 0.08, 37, 0.04), 0xf3ece0, { p: [19.75, 0, 0], finish: 'matte' });
   // road dashes
-  const dash = geo.rbox(1.4, 0.04, 0.2, 0.02);
+  const dash = geo.rbox(1.4, 0.04, 0.2, 0.02, 1);
   for (let t = -14; t <= 14; t += 3) {
     flat.add(dash, 0xffffff, { p: [t, 0.01, -14.5], finish: 'matte' });
     flat.add(dash, 0xffffff, { p: [t, 0.01, 14.5], finish: 'matte' });
@@ -70,10 +70,17 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   flat.add(geo.cyl(world.plazaRadius - 2.2, world.plazaRadius - 2.2, 0.07, 72), 0xfbecd0, { p: [0, 0.012, 0], finish: 'matte' });
   root.add(flat.build(true));
 
-  // Buildings
-  const city = new Kit();
-  city.groundAO = 0.32;
-  const deco = new Kit(); // small facade details: no shadow casting
+  // Buildings: split into quadrants so frustum culling (main + shadow pass) can skip what's off screen
+  const quadKits = (ao: number) =>
+    [0, 1, 2, 3].map(() => {
+      const k = new Kit();
+      k.groundAO = ao;
+      return k;
+    });
+  const cityQ = quadKits(0.32);
+  const decoQ = quadKits(0); // small facade details: no shadow casting
+  let city = cityQ[0];
+  let deco = decoQ[0];
   let seed = 1;
   const rnd = () => {
     seed = (seed * 16807) % 2147483647;
@@ -82,10 +89,9 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   const coveredByRamp = (minX: number, minZ: number, maxX: number, maxZ: number) =>
     [...world.ramps, ...world.platforms].some((r) => r.minX < maxX + 0.3 && r.maxX > minX - 0.3 && r.minZ < maxZ + 0.3 && r.maxZ > minZ - 0.3);
 
-  const winFrame = geo.rbox(1.2, 1.65, 0.14, 0.07, 2);
-  const winGlass = geo.rbox(0.92, 1.36, 0.12, 0.08, 2);
-  const shutter = geo.rbox(0.34, 1.5, 0.07, 0.04, 2);
-  const rail = geo.rbox(1.3, 0.08, 0.08, 0.035, 2);
+  const winFrame = geo.rbox(1.2, 1.65, 0.14, 0.07, 1);
+  const winGlass = geo.rbox(0.92, 1.36, 0.12, 0.06, 1);
+  const unit = geo.box();
 
   world.buildings.forEach((b, bi) => {
     const w = b.maxX - b.minX;
@@ -93,10 +99,13 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
     const cx = (b.minX + b.maxX) / 2;
     const cz = (b.minZ + b.maxZ) / 2;
     const accent = SHUTTER[bi % SHUTTER.length];
-    city.add(geo.rbox(w, b.height, d, 0.35), b.color, { p: [cx, b.height / 2, cz], finish: 'soft' });
+    const q = (cx < 0 ? 0 : 1) + (cz < 0 ? 0 : 2);
+    city = cityQ[q];
+    deco = decoQ[q];
+    city.add(geo.rbox(w, b.height, d, 0.35, 3), b.color, { p: [cx, b.height / 2, cz], finish: 'soft' });
     city.add(geo.rbox(w + 0.16, 0.55, d + 0.16, 0.2), shade(b.color, 0.86), { p: [cx, 0.27, cz], finish: 'soft' });
     city.add(geo.rbox(w + 0.4, 0.32, d + 0.4, 0.15), STONE, { p: [cx, b.height - 0.1, cz], finish: 'soft' });
-    for (let y = 2.5; y < b.height - 1; y += 2.5) city.add(geo.rbox(w + 0.12, 0.14, d + 0.12, 0.06), STONE, { p: [cx, y - 0.05, cz], finish: 'soft' });
+    for (let y = 2.5; y < b.height - 1; y += 2.5) city.add(geo.rbox(w + 0.12, 0.14, d + 0.12, 0.06, 1), STONE, { p: [cx, y - 0.05, cz], finish: 'soft' });
     if (b.mansard) {
       const m = mansardBox(b);
       const mw = m.maxX - m.minX;
@@ -104,8 +113,8 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
       const mh = m.maxY - m.minY;
       city.add(taperedRoof(mw + 0.3, mh, md + 0.3), 0x8095c4, { p: [(m.minX + m.maxX) / 2, m.minY + mh / 2, (m.minZ + m.maxZ) / 2], finish: 'gloss' });
       for (const x of [m.minX + 1, m.maxX - 1]) {
-        city.add(geo.rbox(0.55, 1.1, 0.55, 0.12), 0xf08a6c, { p: [x, m.maxY + 0.25, (m.minZ + m.maxZ) / 2], finish: 'soft' });
-        city.add(geo.rbox(0.7, 0.16, 0.7, 0.07), STONE, { p: [x, m.maxY + 0.82, (m.minZ + m.maxZ) / 2], finish: 'soft' });
+        city.add(geo.rbox(0.55, 1.1, 0.55, 0.12, 1), 0xf08a6c, { p: [x, m.maxY + 0.25, (m.minZ + m.maxZ) / 2], finish: 'soft' });
+        city.add(geo.rbox(0.7, 0.16, 0.7, 0.07, 1), STONE, { p: [x, m.maxY + 0.82, (m.minZ + m.maxZ) / 2], finish: 'soft' });
       }
     }
 
@@ -132,26 +141,26 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
         for (let y = 3.6; y + 0.9 < b.height - 0.3; y += 2.5) {
           deco.add(winFrame, 0xffffff, { p: at(t, 0.02, y), r: [0, ry, 0], cast: false });
           deco.add(winGlass, 0x2f5f9e, { p: at(t, 0.06, y), r: [0, ry, 0], finish: 'glass', cast: false });
-          deco.add(shutter, accent, { p: at(t - 0.82, 0.05, y), r: [0, ry, 0], cast: false });
-          deco.add(shutter, accent, { p: at(t + 0.82, 0.05, y), r: [0, ry, 0], cast: false });
-          if (y < 6) deco.add(rail, 0x3b4a6b, { p: at(t, 0.3, y - 0.45), r: [0, ry, 0], finish: 'metal', cast: false });
+          deco.add(unit, accent, { p: at(t - 0.82, 0.05, y), r: [0, ry, 0], s: [0.34, 1.5, 0.07], cast: false });
+          deco.add(unit, accent, { p: at(t + 0.82, 0.05, y), r: [0, ry, 0], s: [0.34, 1.5, 0.07], cast: false });
+          if (y < 6) deco.add(unit, 0x3b4a6b, { p: at(t, 0.3, y - 0.45), r: [0, ry, 0], s: [1.3, 0.08, 0.08], finish: 'metal', cast: false });
         }
         if (inward && b.height >= 3) {
           const aw = spacing * 0.85;
           const [ax, , az] = at(t, 0.5, 0);
           const [hx, hz] = f.alongX ? [aw / 2, 0.5] : [0.5, aw / 2];
           if (coveredByRamp(ax - hx, az - hz, ax + hx, az + hz)) continue;
-          deco.add(geo.rbox(spacing * 0.72, 1.45, 0.12, 0.06), 0x9fdcf5, { p: at(t, 0.04, 1.05), r: [0, ry, 0], finish: 'glass', cast: false });
-          deco.add(geo.rbox(spacing * 0.78, 1.6, 0.1, 0.06), 0xffffff, { p: at(t, 0.01, 1.05), r: [0, ry, 0], cast: false });
+          deco.add(geo.rbox(spacing * 0.72, 1.45, 0.12, 0.06, 1), 0x9fdcf5, { p: at(t, 0.04, 1.05), r: [0, ry, 0], finish: 'glass', cast: false });
+          deco.add(geo.rbox(spacing * 0.78, 1.6, 0.1, 0.05, 1), 0xffffff, { p: at(t, 0.01, 1.05), r: [0, ry, 0], cast: false });
           cameraBlockers.push({ minX: ax - hx, minY: 1.7, minZ: az - hz, maxX: ax + hx, maxY: 2.35, maxZ: az + hz });
           const col = AWNING[Math.floor(rnd() * AWNING.length)];
-          city.add(geo.rbox(aw, 0.12, 1.0, 0.06), col, { p: at(t, 0.48, 2.05), r: [0.38, ry, 0], finish: 'soft' });
-          city.add(geo.rbox(aw + 0.04, 0.14, 0.14, 0.07), 0xffffff, { p: at(t, 0.98, 1.92), r: [0, ry, 0], finish: 'soft' });
+          city.add(geo.rbox(aw, 0.12, 1.0, 0.06, 1), col, { p: at(t, 0.48, 2.05), r: [0.38, ry, 0], finish: 'soft' });
+          city.add(geo.rbox(aw + 0.04, 0.14, 0.14, 0.07, 1), 0xffffff, { p: at(t, 0.98, 1.92), r: [0, ry, 0], finish: 'soft' });
         }
       }
     }
   });
-  root.add(city.build(true), deco.build(true));
+  for (const k of [...cityQ, ...decoQ]) root.add(k.build(true));
 
   // World ramps + landings
   const ramps = new Kit();
@@ -184,7 +193,7 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
     for (const a of [-1.3, 1.3]) {
       for (const s of [-0.88, 0.88]) {
         const rot: [number, number, number] = c.alongX ? [0, 0, 0] : [0, Math.PI / 2, 0];
-        cars.add(geo.torus(0.27, 0.12, Math.PI * 2, 28), 0x2b2d3a, { p: local(s, 0.38, a), r: rot, finish: 'rubber' });
+        cars.add(geo.torus(0.27, 0.12, Math.PI * 2, 18), 0x2b2d3a, { p: local(s, 0.38, a), r: rot, finish: 'rubber' });
         cars.add(geo.cyl(0.2, 0.2, 0.1, 20), 0xdfe6ee, { p: local(s * 1.04, 0.38, a), r: c.alongX ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2], finish: 'metal' });
       }
     }
@@ -199,9 +208,9 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
     if (p.kind === 'tree') {
       props.add(geo.cyl(1.25, 1.25, 0.1, 40), 0x7ccf5b, { p: [p.x, 0.04, p.z], finish: 'matte', cast: false });
       props.add(geo.capsule(0.17, 2.6), 0xb07a4f, { p: [p.x, 1.2, p.z], finish: 'soft' });
-      props.add(geo.sphere(1.25), 0x5cc45a, { p: [p.x, 3.0, p.z], s: [1, 0.9, 1], finish: 'soft' });
-      props.add(geo.sphere(0.85), 0x7fd96a, { p: [p.x + 0.55, 3.6, p.z - 0.25], finish: 'soft' });
-      props.add(geo.sphere(0.7), 0x4fb84f, { p: [p.x - 0.6, 3.35, p.z + 0.35], finish: 'soft' });
+      props.add(geo.sphere(1.25, 24, 16), 0x5cc45a, { p: [p.x, 3.0, p.z], s: [1, 0.9, 1], finish: 'soft' });
+      props.add(geo.sphere(0.85, 20, 14), 0x7fd96a, { p: [p.x + 0.55, 3.6, p.z - 0.25], finish: 'soft' });
+      props.add(geo.sphere(0.7, 20, 14), 0x4fb84f, { p: [p.x - 0.6, 3.35, p.z + 0.35], finish: 'soft' });
       blobs.push({ x: p.x, z: p.z, sx: 2.6, sz: 2.6, y: 0.1 });
     } else if (p.kind === 'lamp') {
       props.add(lamppost(), 0x2f5d50, { p: [p.x, 0, p.z], finish: 'gloss' });

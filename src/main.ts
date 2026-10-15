@@ -189,9 +189,9 @@ function resize() {
   // keep the hero clear of the builder panel: above it in portrait, left of it in landscape
   const portrait = h > w * 1.05;
   if (portrait) {
-    previewCam.position.set(0, 1.6, 9);
-    previewCam.lookAt(0, 0.95, 0);
-    previewCam.setViewOffset(w, h, 0, h * 0.3, w, h);
+    previewCam.position.set(0, 1.7, 11.5);
+    previewCam.lookAt(0, 0.9, 0);
+    previewCam.setViewOffset(w, h, 0, h * 0.2, w, h);
   } else {
     previewCam.position.set(0, 1.5, 5.6);
     previewCam.lookAt(0, 0.95, 0);

@@ -36,14 +36,14 @@ let bunGeo: THREE.BufferGeometry | null = null;
 function bun(): THREE.BufferGeometry {
   if (bunGeo) return bunGeo;
   const pts: [number, number][] = [];
-  const N = 32;
+  const N = 24;
   for (let i = 0; i <= N; i++) {
     const th = -Math.PI / 2 + (Math.PI * i) / N;
     const x = 0.58 * Math.pow(Math.max(0, Math.cos(th)), 0.72);
     const y = th < 0 ? 0.3 + 0.3 * Math.sin(th) : 0.3 + 0.62 * Math.sin(th);
     pts.push([Math.max(0.001, x), y]);
   }
-  bunGeo = lathe(pts, 48);
+  bunGeo = lathe(pts, 36);
   bunGeo.computeVertexNormals();
   return bunGeo;
 }

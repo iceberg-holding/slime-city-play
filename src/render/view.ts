@@ -493,8 +493,10 @@ function buildGarageProps(x: number, z: number, r: number): THREE.Group {
   k.add(geo.rbox(r * 2, 0.62, 0.16, 0.08), 0xff5d73, { p: [0, 3.3, -r + 0.1], finish: 'gloss' });
   // wrench sign
   k.add(geo.rbox(1.2, 0.8, 0.12, 0.2), 0xffffff, { p: [0, 4.1, -r + 0.1], finish: 'gloss' });
-  k.add(geo.capsule(0.07, 0.6), 0x5a667a, { p: [0.05, 4.05, -r + 0.02], r: [0, 0, 0.7], finish: 'metal' });
-  k.add(geo.torus(0.13, 0.05, Math.PI * 1.5, 20), 0x5a667a, { p: [-0.17, 4.25, -r + 0.02], finish: 'metal' });
+  for (const z of [-r + 0.02, -r + 0.18]) {
+    k.add(geo.capsule(0.07, 0.6), 0x5a667a, { p: [0.05, 4.05, z], r: [0, 0, 0.7], finish: 'metal' });
+    k.add(geo.torus(0.13, 0.05, Math.PI * 1.5, 20), 0x5a667a, { p: [-0.17, 4.25, z], finish: 'metal' });
+  }
   const g = k.build();
   g.position.set(x, 0, z);
   return g;
