@@ -1,3 +1,4 @@
+import { TOWER } from '../sim/tower';
 import type { InputController, ActionName } from '../input/input';
 import { mountable } from '../sim/mission';
 import type { GameEvent, GameState } from '../sim/types';
@@ -131,12 +132,13 @@ export class Hud {
     const total = garage ? VEHICLES[garage.vehicle].parts.length : 0;
     const delivered = garage ? garage.delivered.length : 0;
     const carrying = state.pickups.filter((pk) => pk.status === 'carried' && pk.carrier === p.id).length;
+    const nearLift = Math.hypot(p.pos.x - TOWER.liftX, p.pos.z - TOWER.z) < 3;
     const canMount = mountable(state, p) !== null;
     const riding = p.riding !== null;
     let hint = s.hintFind;
     if (carrying > 0) hint = s.hintBring;
     else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
-    const shown = [delivered, carrying, formatTime(state.time), state.blocks.length, p.shape, hint, canMount, riding].join('|');
+    const shown = [delivered, carrying, formatTime(state.time), state.blocks.length, p.shape, hint, canMount, riding, nearLift].join('|');
     if (shown !== this.lastShown) {
       this.lastShown = shown;
       this.partsEl.textContent = `${delivered}/${total}`;
@@ -144,8 +146,8 @@ export class Hud {
       this.timeEl.textContent = formatTime(state.time);
       this.hintEl.textContent = hint;
       this.blocksEl.textContent = `${p.stats.maxBlocks - state.blocks.length}`;
-      this.rideBtn.style.display = canMount || riding ? '' : 'none';
-      this.rideBtn.textContent = riding ? `${s.exit}` : `🏍 ${s.ride}`;
+      this.rideBtn.style.display = canMount || riding || nearLift ? '' : 'none';
+      this.rideBtn.textContent = nearLift && !riding ? (document.documentElement.lang === 'ru' ? '↕ Лифт' : '↕ Elevator') : riding ? `${s.exit}` : `🏍 ${s.ride}`;
       this.el.classList.toggle('riding', riding);
       if (p.shape !== this.shape) {
         this.shape = p.shape;

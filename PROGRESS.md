@@ -73,3 +73,5 @@ Tests:
 - D2: Integrated studio trees/benches/lamps; restored visible pyshka glue/speech expressions, hid the decorative elevator cabin, added spa palms/towels and blue rooftop splash particles. Build and tests pass.
 
 - D3: Restored studio head/leg rig animation and batched static studio tower/props by material to reduce draw calls while retaining bubble animation. Build and tests pass.
+
+- Polish: Added nearby touch elevator interaction/calling to the caller’s floor and stronger blue sky after inspecting 412x915 rooftop screenshots. Build and tests pass. Full e2e run was interrupted at the settings-close wait; focused phone views rendered without page errors.

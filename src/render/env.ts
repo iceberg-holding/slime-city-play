@@ -4,8 +4,8 @@ import { Kit, geo } from './materials';
 
 // Renderer setup, image-based lighting, sky and adaptive resolution.
 
-export const SKY_TOP = 0x5fb4ff;
-export const SKY_HORIZON = 0xd8eeff;
+export const SKY_TOP = 0x248eff;
+export const SKY_HORIZON = 0x70c8ff;
 
 const MAX_DPR = 2.5;
 

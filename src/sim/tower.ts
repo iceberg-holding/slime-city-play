@@ -7,6 +7,10 @@ export function liftSolid(y: number): Solid {
 export function updateLift(s: GameState, inputs: Record<number, InputCommand>, dt: number) {
   const e = s.elevator;
   const riders = s.players.filter(p => Math.abs(p.pos.x - TOWER.liftX) < 0.7 && Math.abs(p.pos.z + 26) < 0.7 && Math.abs(p.pos.y - e.y) < 0.3);
+  const caller = s.players.find(p => inputs[p.id]?.interact && Math.hypot(p.pos.x - TOWER.liftX, p.pos.z + 26) < 3);
+  if (caller && !riders.includes(caller)) {
+    e.target = STOPS.reduce((best, y, i) => Math.abs(y - caller.pos.y) < Math.abs(STOPS[best] - caller.pos.y) ? i : best, 0);
+  }
   if (e.wait > 0) e.wait -= dt;
   if (e.y === STOPS[e.target] && e.wait <= 0 && (riders.length || s.players.some(p => inputs[p.id]?.interact && Math.hypot(p.pos.x - TOWER.liftX, p.pos.z + 26) < 3))) {
     e.target = (e.target + 1) % STOPS.length;
