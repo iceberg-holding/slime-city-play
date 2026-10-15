@@ -1,3 +1,4 @@
+import { buildHeroPart as studioPart } from './art/studio';
 import * as THREE from 'three';
 import type { HeroSlot } from '../sim/hero';
 import type { Look } from '../sim/types';
@@ -269,6 +270,11 @@ export function buildCharacter(look: Look): CharacterRig {
   head.add(buildHead(h));
   head.position.y = 1.3;
   inner.add(head);
+  // Studio parts share the feet origin, with +Z forward.
+  inner.clear();
+  const studio = new THREE.Group(); studio.rotation.y = Math.PI;
+  (['head', 'body', 'legs', 'gun'] as HeroSlot[]).forEach((slot, i) => studio.add(studioPart(slot, look[i])));
+  inner.add(studio);
   return { root, inner, legL, legR, armL, armR, head };
 }
 
@@ -296,6 +302,13 @@ export function buildHeroPart(slot: HeroSlot, i: number): THREE.Group {
     gun.rotation.y = -Math.PI / 2.6;
     g.add(gun);
   }
+  g.clear();
+  const part = studioPart(slot, i);
+  part.rotation.y = Math.PI;
+  const box = new THREE.Box3().setFromObject(part);
+  const center = box.getCenter(new THREE.Vector3());
+  part.position.sub(center);
+  g.add(part);
   return g;
 }
 

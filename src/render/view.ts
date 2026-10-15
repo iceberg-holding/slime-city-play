@@ -1,3 +1,4 @@
+import { buildSkyscraper } from './art/studio';
 import { buildRooftop } from './rooftop';
 import { TOWER } from '../sim/tower';
 import * as THREE from 'three';
@@ -108,13 +109,13 @@ export class GameView {
     const city = buildCity(state.world);
     this.scene.add(city.root);
     this.scene.add(this.lift, buildRooftop());
-    const tower = new Kit();
-    for (const y of [0.26, 11.57, 22.1325]) tower.add(geo.rbox(8.4, 0.2, 8.4, 0.1), 0xffffff, { p: [26, y - 0.1, -26] });
-    for (let y = 3; y < 22; y += 2.2) {
-      tower.add(geo.rbox(8.4, 0.18, 8.4, 0.08), 0xffffff, { p: [26, y, -26] });
-      tower.add(geo.rbox(8, 1.9, 0.15, 0.07), 0x68c8e8, { p: [26, y - 1, -30] });
-    }
-    this.scene.add(tower.build());
+    const tower = buildSkyscraper();
+    tower.scale.setScalar(0.65);
+    tower.position.set(26, 0, -26);
+    this.scene.add(tower);
+    // Remove the showcase-only elevator cabin: the sim owns the real platform.
+    tower.traverse(o => { if (o.userData.tick && o.children.length === 4) o.visible = false; });
+    this.scene.userData.studioTower = tower;
     this.spray = city.root.getObjectByName('spray');
     this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
 
@@ -265,6 +266,8 @@ export class GameView {
   /** Render-side sync. `playerId` is the local player the camera follows. */
   sync(state: GameState, camYaw: number, camPitch: number, dt: number, playerId?: number, ghostOn = false) {
     this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);
+    const tower = this.scene.userData.studioTower as THREE.Group;
+    tower?.traverse(o => { if (o.userData.tick && o.visible) o.userData.tick(state.tick / 60); });
     this.time += dt;
     const t = this.time;
     this.ensureEntities(state);

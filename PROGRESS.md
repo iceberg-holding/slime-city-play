@@ -67,3 +67,5 @@ Tests:
 - B: Added northeast tower lobby/floor collision and a sim-driven elevator platform with three stops, automatic boarding rides and interact activation. Existing five walking routes still pass; build and tests pass.
 
 - C: Added teal rooftop water/deck, pergola and loungers, slower wading with splash events, four named teleport hooks; reach suite now also proves elevator travel to mid/roof. All five parts remain in their tested walking locations. Build and tests pass.
+
+- D1: Wired the existing Claude studio module into hero previews/game models, pyshki and skyscraper; rooftop retains Codex-inspired teal tiles/pergola. Studio animation hooks animate spa bubbles; no transmission materials. Build and tests pass.

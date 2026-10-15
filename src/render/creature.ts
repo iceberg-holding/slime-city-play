@@ -1,3 +1,4 @@
+import { buildPyshka } from './art/studio';
 import * as THREE from 'three';
 import { nextRandom } from '../sim/rng';
 import { Kit, geo, lathe } from './materials';
@@ -104,6 +105,12 @@ export function buildCreature(seed: number): CreatureView {
   goo.visible = false;
   root.add(goo);
 
+  blob.clear();
+  const studio = buildPyshka(seed);
+  studio.rotation.y = Math.PI;
+  blob.add(studio);
+  // Keep the existing expression groups for glue and speech state hooks.
+  eyes.visible = false; smile.visible = false;
   return { root, blob, goo, eyes, happy, smile, mouth };
 }
 
