@@ -1,14 +1,14 @@
 import * as THREE from 'three';
+import type { HeroSlot } from '../sim/hero';
 import type { Look } from '../sim/types';
-import { geo, part } from './materials';
+import { Kit, geo } from './materials';
 
-// Procedural chunky toy character. Origin at the feet, facing -z.
+// Procedural rounded toy hero. Origin at the feet, facing -z. Each animated piece is one Kit (few draw calls).
 
-export const PART_COUNT = 6;
-
-const SKIN = 0xffcc99;
-const DARK = 0x222233;
+const SKIN = 0xffd2b0;
+const DARK = 0x1d1f33;
 const WHITE = 0xffffff;
+const BLUSH = 0xff9eb5;
 
 export interface CharacterRig {
   root: THREE.Group;
@@ -20,197 +20,217 @@ export interface CharacterRig {
   head: THREE.Group;
 }
 
-function eyes(g: THREE.Group, y: number, z: number, spread = 0.11, size = 0.08, color = DARK) {
-  g.add(part(geo.box(), color, size, size * 1.2, 0.04, -spread, y, z));
-  g.add(part(geo.box(), color, size, size * 1.2, 0.04, spread, y, z));
+type V3 = [number, number, number];
+
+function face(k: Kit, y: number, z: number, o: { spread?: number; r?: number; eye?: number; smile?: boolean; blush?: boolean } = {}) {
+  const sp = o.spread ?? 0.11;
+  const r = o.r ?? 0.055;
+  for (const s of [-sp, sp]) {
+    k.add(geo.sphere(r, 20, 14), o.eye ?? DARK, { p: [s, y, z], s: [1, 1.25, 0.6], finish: 'gloss', cast: false });
+    k.add(geo.sphere(r * 0.35, 10, 8), WHITE, { p: [s + r * 0.3, y + r * 0.45, z - r * 0.45], finish: 'glow', cast: false });
+    if (o.blush !== false) k.add(geo.sphere(0.05, 16, 10), BLUSH, { p: [s * 1.55, y - 0.09, z + 0.015], s: [1.3, 0.7, 0.4], finish: 'soft', cast: false });
+  }
+  if (o.smile !== false) k.add(geo.torus(0.055, 0.014, Math.PI, 16), 0x7a2a3a, { p: [0, y - 0.11, z + 0.005], r: [0, 0, Math.PI], finish: 'soft', cast: false });
 }
 
 function buildHead(i: number): THREE.Group {
-  const g = new THREE.Group();
-  const b = geo.box();
+  const k = new Kit();
   switch (i) {
-    case 0: // blocky
-      g.add(part(b, SKIN, 0.5, 0.48, 0.48, 0, 0.24));
-      g.add(part(b, 0x6b3e1f, 0.54, 0.14, 0.52, 0, 0.52));
-      g.add(part(b, 0x6b3e1f, 0.54, 0.3, 0.12, 0, 0.36, 0.22));
-      eyes(g, 0.28, -0.25);
-      g.add(part(b, 0xcc5555, 0.18, 0.04, 0.04, 0, 0.12, -0.25));
+    case 0: // cube head
+      k.add(geo.rbox(0.56, 0.52, 0.52, 0.17), SKIN, { p: [0, 0.27, 0] });
+      k.add(geo.rbox(0.6, 0.18, 0.56, 0.09), 0x7a4a2a, { p: [0, 0.54, 0.01] });
+      k.add(geo.rbox(0.6, 0.34, 0.16, 0.08), 0x7a4a2a, { p: [0, 0.4, 0.22] });
+      face(k, 0.3, -0.265);
       break;
-    case 1: // round smiley
-      g.add(part(geo.sphere(), 0xffd93d, 0.6, 0.58, 0.58, 0, 0.27));
-      eyes(g, 0.32, -0.27, 0.1, 0.07);
-      g.add(part(b, 0xcc3333, 0.2, 0.05, 0.05, 0, 0.16, -0.27));
-      g.add(part(geo.cone(6), 0xff4d6d, 0.3, 0.3, 0.3, 0, 0.66));
+    case 1: // big head with a cap
+      k.add(geo.sphere(0.42), 0xffd93d, { p: [0, 0.4, 0], finish: 'gloss' });
+      k.add(geo.sphere(0.43, 32, 16), 0xff4d6d, { p: [0, 0.47, 0], s: [1, 0.75, 1], finish: 'soft' });
+      k.add(geo.rbox(0.42, 0.05, 0.3, 0.025), 0xff4d6d, { p: [0, 0.6, -0.38], r: [0.15, 0, 0] });
+      k.add(geo.sphere(0.05), WHITE, { p: [0, 0.8, 0] });
+      face(k, 0.38, -0.39, { spread: 0.14, r: 0.075 });
       break;
     case 2: // robot
-      g.add(part(b, 0x9aa5b1, 0.52, 0.46, 0.48, 0, 0.23));
-      g.add(part(b, 0x33e6ff, 0.42, 0.12, 0.04, 0, 0.28, -0.25));
-      g.add(part(geo.cyl(6), 0x666677, 0.04, 0.3, 0.04, 0, 0.6));
-      g.add(part(geo.sphere(), 0xff3355, 0.12, 0.12, 0.12, 0, 0.78));
-      g.add(part(b, 0x666677, 0.08, 0.2, 0.2, -0.3, 0.24));
-      g.add(part(b, 0x666677, 0.08, 0.2, 0.2, 0.3, 0.24));
+      k.add(geo.rbox(0.56, 0.5, 0.5, 0.16), 0xc9d3de, { p: [0, 0.27, 0], finish: 'metal' });
+      k.add(geo.rbox(0.44, 0.17, 0.06, 0.06), 0x33e6ff, { p: [0, 0.3, -0.25], finish: 'glow', cast: false });
+      k.add(geo.capsule(0.025, 0.3), 0x8a95a5, { p: [0, 0.62, 0], finish: 'metal' });
+      k.add(geo.sphere(0.07), 0xff3355, { p: [0, 0.79, 0], finish: 'glow' });
+      for (const x of [-0.3, 0.3]) k.add(geo.cyl(0.1, 0.1, 0.07), 0xff9f1c, { p: [x, 0.27, 0], r: [0, 0, Math.PI / 2], finish: 'gloss' });
+      k.add(geo.rbox(0.2, 0.05, 0.03, 0.02), DARK, { p: [0, 0.13, -0.25], cast: false });
       break;
     case 3: // cat
-      g.add(part(b, 0xffa94d, 0.52, 0.46, 0.48, 0, 0.23));
-      g.add(part(geo.cone(4), 0xffa94d, 0.2, 0.22, 0.14, -0.16, 0.56));
-      g.add(part(geo.cone(4), 0xffa94d, 0.2, 0.22, 0.14, 0.16, 0.56));
-      eyes(g, 0.28, -0.25, 0.12, 0.08, 0x2b9348);
-      g.add(part(b, 0xff6b9a, 0.08, 0.06, 0.04, 0, 0.18, -0.26));
-      g.add(part(b, WHITE, 0.6, 0.02, 0.02, 0, 0.16, -0.26));
+      k.add(geo.sphere(0.31), 0xffa94d, { p: [0, 0.28, 0], s: [1.05, 0.92, 1] });
+      for (const x of [-0.17, 0.17]) {
+        k.add(geo.cone(0.1, 0.2), 0xffa94d, { p: [x, 0.58, 0.02], r: [0, 0, -x * 1.2] });
+        k.add(geo.cone(0.055, 0.12), 0xffc2d1, { p: [x, 0.57, -0.03], r: [0, 0, -x * 1.2], cast: false });
+      }
+      face(k, 0.32, -0.27, { eye: 0x2b9348, r: 0.06, smile: false });
+      k.add(geo.sphere(0.035), 0xff6b9a, { p: [0, 0.24, -0.3], finish: 'gloss', cast: false });
+      for (const s of [-1, 1]) for (const a of [-0.12, 0.12]) k.add(geo.capsule(0.006, 0.2, 6), WHITE, { p: [s * 0.2, 0.23, -0.26], r: [0, 0, Math.PI / 2 + a * s], cast: false });
       break;
     case 4: // knight helmet
-      g.add(part(geo.cyl(8), 0xc0c8d0, 0.5, 0.52, 0.5, 0, 0.26));
-      g.add(part(b, DARK, 0.36, 0.06, 0.04, 0, 0.3, -0.25));
-      g.add(part(b, DARK, 0.06, 0.24, 0.04, 0, 0.18, -0.25));
-      g.add(part(geo.cone(6), 0xe63946, 0.16, 0.42, 0.3, 0, 0.7, 0.05));
+      k.add(geo.capsule(0.28, 0.66), 0xd7dee6, { p: [0, 0.3, 0], finish: 'metal' });
+      k.add(geo.rbox(0.36, 0.06, 0.08, 0.03), DARK, { p: [0, 0.34, -0.26], cast: false });
+      k.add(geo.rbox(0.06, 0.24, 0.08, 0.03), DARK, { p: [0, 0.22, -0.26], cast: false });
+      for (let j = 0; j < 4; j++) k.add(geo.sphere(0.1 - j * 0.012), 0xff4d6d, { p: [0, 0.68 - j * 0.03, 0.02 + j * 0.1], finish: 'soft' });
       break;
     default: // alien
-      g.add(part(geo.sphere(), 0x7ed957, 0.56, 0.7, 0.56, 0, 0.32));
-      g.add(part(geo.sphere(), DARK, 0.2, 0.13, 0.08, -0.13, 0.36, -0.25));
-      g.add(part(geo.sphere(), DARK, 0.2, 0.13, 0.08, 0.13, 0.36, -0.25));
-      g.add(part(geo.cyl(5), 0x7ed957, 0.03, 0.25, 0.03, -0.15, 0.75));
-      g.add(part(geo.cyl(5), 0x7ed957, 0.03, 0.25, 0.03, 0.15, 0.75));
-      g.add(part(geo.sphere(), 0xfff275, 0.09, 0.09, 0.09, -0.15, 0.88));
-      g.add(part(geo.sphere(), 0xfff275, 0.09, 0.09, 0.09, 0.15, 0.88));
+      k.add(geo.sphere(0.3), 0x7ed957, { p: [0, 0.34, 0], s: [1, 1.18, 1], finish: 'gloss' });
+      for (const x of [-0.12, 0.12]) {
+        k.add(geo.sphere(0.1), DARK, { p: [x, 0.38, -0.24], s: [1, 0.7, 0.5], r: [0, 0, x * 3], finish: 'gloss', cast: false });
+        k.add(geo.capsule(0.018, 0.28), 0x7ed957, { p: [x * 1.2, 0.76, 0], r: [0, 0, -x * 2.5], finish: 'soft' });
+        k.add(geo.sphere(0.055), 0xfff275, { p: [x * 1.6, 0.9, 0], finish: 'glow' });
+      }
+      k.add(geo.torus(0.04, 0.01, Math.PI, 12), 0x2d6a2d, { p: [0, 0.2, -0.29], r: [0, 0, Math.PI], cast: false });
       break;
   }
-  return g;
+  return k.build();
 }
 
-function bodyColor(i: number): number {
-  return [0xe63946, 0x3a86ff, 0xc0c8d0, 0x1d1d2b, 0x55dd55, 0xf1f1f1][i] ?? 0xe63946;
-}
+const BODY_COLORS = [0xff5d73, 0x4d96ff, 0x8f9bb3, 0x24263a, 0x5ee06a, 0xf8f8f8];
+const SLEEVES = [0xff5d73, 0x4d96ff, 0x8f9bb3, 0x24263a, 0x5ee06a, 0xf8f8f8];
 
 function buildBody(i: number): THREE.Group {
-  const g = new THREE.Group();
-  const b = geo.box();
-  const c = bodyColor(i);
+  const k = new Kit();
+  const c = BODY_COLORS[i] ?? BODY_COLORS[0];
   switch (i) {
-    case 0:
-      g.add(part(b, c, 0.62, 0.6, 0.36, 0, 0.3));
-      g.add(part(b, WHITE, 0.2, 0.2, 0.02, 0, 0.36, -0.19));
+    case 0: // t-shirt
+      k.add(geo.rbox(0.64, 0.62, 0.38, 0.17), c, { p: [0, 0.31, 0] });
+      k.add(geo.sphere(0.09, 20, 14), 0xffd166, { p: [0, 0.38, -0.18], s: [1, 1, 0.3], cast: false });
       break;
-    case 1:
-      g.add(part(b, c, 0.66, 0.62, 0.4, 0, 0.31));
-      g.add(part(b, 0x2a62c9, 0.5, 0.3, 0.12, 0, 0.5, 0.24));
-      g.add(part(b, 0x2a62c9, 0.36, 0.16, 0.02, 0, 0.14, -0.21));
+    case 1: // hoodie
+      k.add(geo.rbox(0.66, 0.64, 0.4, 0.18), c, { p: [0, 0.32, 0] });
+      k.add(geo.torus(0.2, 0.08, Math.PI * 2, 24), c, { p: [0, 0.6, 0.1], r: [Math.PI / 2 - 0.3, 0, 0] });
+      k.add(geo.rbox(0.4, 0.16, 0.06, 0.05), 0x3a7be0, { p: [0, 0.16, -0.2], cast: false });
+      for (const x of [-0.07, 0.07]) k.add(geo.capsule(0.012, 0.16, 6), WHITE, { p: [x, 0.48, -0.21], cast: false });
       break;
-    case 2:
-      g.add(part(b, c, 0.66, 0.6, 0.4, 0, 0.3));
-      g.add(part(b, 0xffc300, 0.44, 0.34, 0.06, 0, 0.36, -0.22));
-      g.add(part(b, 0xa0a8b0, 0.2, 0.14, 0.42, -0.38, 0.54));
-      g.add(part(b, 0xa0a8b0, 0.2, 0.14, 0.42, 0.38, 0.54));
+    case 2: // tank armor
+      k.add(geo.rbox(0.76, 0.66, 0.48, 0.2), 0x7c8aa5, { p: [0, 0.33, 0], finish: 'metal' });
+      k.add(geo.rbox(0.5, 0.36, 0.08, 0.08), 0xffc300, { p: [0, 0.38, -0.24], finish: 'gloss' });
+      for (const x of [-0.42, 0.42]) k.add(geo.sphere(0.17), 0x9aa7bd, { p: [x, 0.58, 0], s: [1, 0.7, 1], finish: 'metal' });
+      for (const x of [-0.18, 0.18]) for (const y of [0.24, 0.5]) k.add(geo.sphere(0.025), 0x4a5568, { p: [x, y, -0.29], finish: 'metal', cast: false });
       break;
-    case 3:
-      g.add(part(b, c, 0.62, 0.6, 0.36, 0, 0.3));
-      g.add(part(b, WHITE, 0.2, 0.5, 0.02, 0, 0.32, -0.19));
-      g.add(part(b, 0xe63946, 0.22, 0.08, 0.04, 0, 0.52, -0.2));
+    case 3: // tuxedo
+      k.add(geo.rbox(0.62, 0.62, 0.38, 0.17), c, { p: [0, 0.31, 0], finish: 'gloss' });
+      k.add(geo.rbox(0.22, 0.5, 0.04, 0.04), WHITE, { p: [0, 0.34, -0.19], cast: false });
+      for (const s of [-1, 1]) k.add(geo.cone(0.06, 0.12, 16), 0xe63946, { p: [s * 0.06, 0.56, -0.22], r: [0, 0, (s * Math.PI) / 2], finish: 'gloss', cast: false });
+      k.add(geo.sphere(0.03), 0xe63946, { p: [0, 0.56, -0.22], finish: 'gloss', cast: false });
+      for (const y of [0.4, 0.28, 0.16]) k.add(geo.sphere(0.022), DARK, { p: [0, y, -0.22], cast: false });
       break;
-    case 4:
-      g.add(part(geo.sphere(), c, 0.72, 0.68, 0.48, 0, 0.32));
-      g.add(part(b, 0x2d6a4f, 0.7, 0.08, 0.5, 0, 0.12));
-      g.add(part(geo.sphere(), 0xb7ffb7, 0.16, 0.16, 0.06, 0.12, 0.42, -0.23));
+    case 4: // slime suit
+      k.add(geo.sphere(0.4), c, { p: [0, 0.32, 0], s: [0.92, 0.85, 0.66], finish: 'gloss' });
+      k.add(geo.torus(0.3, 0.04, Math.PI * 2, 32), 0x2d6a4f, { p: [0, 0.12, 0], r: [Math.PI / 2, 0, 0], s: [1.15, 0.85, 1] });
+      k.add(geo.sphere(0.07), 0xb7ffb7, { p: [0.14, 0.42, -0.24], finish: 'gloss', cast: false });
       break;
     default: // marinière
-      g.add(part(b, c, 0.62, 0.6, 0.36, 0, 0.3));
-      for (let k = 0; k < 3; k++) g.add(part(b, 0x1d3557, 0.64, 0.07, 0.38, 0, 0.12 + k * 0.17));
+      k.add(geo.rbox(0.62, 0.62, 0.38, 0.17), c, { p: [0, 0.31, 0] });
+      for (let j = 0; j < 3; j++) k.add(geo.rbox(0.635, 0.06, 0.395, 0.03), 0x1d3557, { p: [0, 0.13 + j * 0.16, 0] });
+      k.add(geo.torus(0.17, 0.05, Math.PI * 2, 24), 0xe63946, { p: [0, 0.6, 0], r: [Math.PI / 2, 0, 0] });
       break;
   }
+  return k.build();
+}
+
+function buildArm(body: number, right: boolean): THREE.Group {
+  const k = new Kit();
+  const metal = body === 2;
+  k.add(geo.capsule(0.1, 0.34), SLEEVES[body] ?? SKIN, { p: [0, -0.15, 0], finish: metal ? 'metal' : body === 4 ? 'gloss' : 'soft' });
+  k.add(geo.sphere(0.09), metal ? 0x5a667a : SKIN, { p: [0, -0.38, 0], finish: metal ? 'metal' : 'soft' });
+  const g = k.build();
+  g.name = right ? 'armR' : 'armL';
   return g;
 }
 
+function helix(): THREE.BufferGeometry {
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i <= 80; i++) {
+    const t = i / 80;
+    const a = t * Math.PI * 2 * 5;
+    pts.push(new THREE.Vector3(Math.cos(a) * 0.09, -0.08 - t * 0.48, Math.sin(a) * 0.09));
+  }
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.025, 8, false);
+}
+let helixGeo: THREE.BufferGeometry | null = null;
+
 function buildLeg(i: number): THREE.Group {
-  const g = new THREE.Group(); // pivot at hip; leg extends down to y=-0.7
-  const b = geo.box();
+  const k = new Kit(); // pivot at hip; leg extends down to y=-0.7
   switch (i) {
-    case 0:
-      g.add(part(b, 0x3d5a80, 0.24, 0.6, 0.26, 0, -0.3));
-      g.add(part(b, 0x333333, 0.26, 0.12, 0.36, 0, -0.64, -0.05));
+    case 0: // jeans
+      k.add(geo.capsule(0.12, 0.62), 0x3d6fb6, { p: [0, -0.31, 0] });
+      k.add(geo.rbox(0.25, 0.13, 0.36, 0.06), WHITE, { p: [0, -0.64, -0.05] });
+      k.add(geo.rbox(0.26, 0.04, 0.37, 0.02), 0xff5d73, { p: [0, -0.69, -0.05], finish: 'rubber' });
       break;
-    case 1:
-      g.add(part(b, 0xe63946, 0.26, 0.26, 0.28, 0, -0.13));
-      g.add(part(b, SKIN, 0.18, 0.36, 0.18, 0, -0.42));
-      g.add(part(b, WHITE, 0.26, 0.14, 0.38, 0, -0.63, -0.05));
+    case 1: // shorts
+      k.add(geo.capsule(0.14, 0.3), 0xff8c42, { p: [0, -0.13, 0] });
+      k.add(geo.capsule(0.09, 0.42), SKIN, { p: [0, -0.4, 0] });
+      k.add(geo.rbox(0.24, 0.14, 0.36, 0.06), 0x4d96ff, { p: [0, -0.63, -0.05], finish: 'gloss' });
       break;
-    case 2:
-      g.add(part(geo.cyl(6), 0x8d99ae, 0.16, 0.6, 0.16, 0, -0.3));
-      g.add(part(geo.sphere(), 0x555566, 0.22, 0.22, 0.22, 0, -0.32));
-      g.add(part(b, 0x555566, 0.28, 0.12, 0.4, 0, -0.64, -0.05));
+    case 2: // robo legs
+      k.add(geo.capsule(0.09, 0.62), 0xb8c4d2, { p: [0, -0.3, 0], finish: 'metal' });
+      k.add(geo.sphere(0.12), 0xff9f1c, { p: [0, -0.33, 0], finish: 'gloss' });
+      k.add(geo.rbox(0.28, 0.12, 0.4, 0.05), 0x6b778a, { p: [0, -0.64, -0.05], finish: 'metal' });
       break;
-    case 3: {
-      g.add(part(geo.cyl(6), 0xff8fab, 0.08, 0.6, 0.08, 0, -0.3));
-      for (let k = 0; k < 4; k++) {
-        const ring = part(geo.torus(), 0xffd23f, 0.45, 0.45, 0.45, 0, -0.12 - k * 0.13);
-        ring.rotation.x = Math.PI / 2;
-        g.add(ring);
-      }
-      g.add(part(b, 0xff8fab, 0.28, 0.12, 0.36, 0, -0.64, -0.04));
+    case 3: // springs
+      k.add((helixGeo ??= helix()), 0xffd23f, { finish: 'metal' });
+      k.add(geo.sphere(0.12), 0xff8fab, { p: [0, -0.04, 0], s: [1, 0.7, 1], finish: 'gloss' });
+      k.add(geo.rbox(0.28, 0.12, 0.38, 0.06), 0xff8fab, { p: [0, -0.64, -0.04], finish: 'gloss' });
       break;
-    }
-    case 4:
-      g.add(part(b, 0x52b788, 0.24, 0.4, 0.26, 0, -0.2));
-      g.add(part(b, 0x7f4f24, 0.3, 0.32, 0.32, 0, -0.52));
-      g.add(part(b, 0x7f4f24, 0.3, 0.12, 0.44, 0, -0.64, -0.06));
+    case 4: // boots
+      k.add(geo.capsule(0.12, 0.42), 0x52b788, { p: [0, -0.2, 0] });
+      k.add(geo.rbox(0.3, 0.32, 0.32, 0.12), 0x9c6644, { p: [0, -0.52, 0], finish: 'gloss' });
+      k.add(geo.rbox(0.31, 0.14, 0.46, 0.07), 0x7f4f24, { p: [0, -0.63, -0.06], finish: 'gloss' });
       break;
-    default: // roller skates
-      g.add(part(b, 0xc77dff, 0.22, 0.5, 0.24, 0, -0.25));
-      g.add(part(b, WHITE, 0.26, 0.16, 0.36, 0, -0.56, -0.04));
-      for (const z of [-0.16, 0.08]) {
-        const w = part(geo.cyl(8), 0xff006e, 0.14, 0.08, 0.14, 0, -0.66, z);
-        w.rotation.z = Math.PI / 2;
-        g.add(w);
-      }
+    default: // wheels
+      k.add(geo.capsule(0.11, 0.5), 0xc77dff, { p: [0, -0.25, 0] });
+      k.add(geo.rbox(0.26, 0.18, 0.38, 0.08), WHITE, { p: [0, -0.54, -0.04], finish: 'gloss' });
+      for (const z of [-0.17, 0.09]) k.add(geo.torus(0.05, 0.03, Math.PI * 2, 20), 0xff006e, { p: [0, -0.66, z], r: [0, Math.PI / 2, 0], finish: 'gloss' });
       break;
   }
-  return g;
+  return k.build();
 }
 
 function buildGun(i: number): THREE.Group {
   // Held in the right hand; barrel points -z.
-  const g = new THREE.Group();
-  const b = geo.box();
-  const barrel = (color: number, r: number, len: number, x = 0, y = 0, z = 0) => {
-    const m = part(geo.cyl(8), color, r, len, r, x, y, z);
-    m.rotation.x = Math.PI / 2;
-    return m;
-  };
+  const k = new Kit();
+  const tube = (color: number, r: number, len: number, p: V3, finish: 'gloss' | 'metal' = 'gloss') =>
+    k.add(geo.capsule(r, len), color, { p, r: [Math.PI / 2, 0, 0], finish });
   switch (i) {
-    case 0:
-      g.add(part(b, 0xff7b00, 0.16, 0.2, 0.36, 0, 0, -0.1));
-      g.add(barrel(0x7ae582, 0.12, 0.3, 0, 0.04, -0.4));
-      g.add(part(b, 0x444444, 0.1, 0.18, 0.1, 0, -0.14, 0.02));
+    case 0: // blaster
+      k.add(geo.rbox(0.18, 0.22, 0.4, 0.08), 0xff7b00, { p: [0, 0, -0.1], finish: 'gloss' });
+      tube(0x7ae582, 0.07, 0.34, [0, 0.04, -0.4]);
+      k.add(geo.sphere(0.09), 0x7ae582, { p: [0, 0.16, 0.0], finish: 'gloss' });
+      k.add(geo.rbox(0.1, 0.18, 0.1, 0.04), 0x444455, { p: [0, -0.14, 0.02] });
       break;
-    case 1:
-      g.add(part(b, 0x00b4d8, 0.16, 0.16, 0.5, 0, 0, -0.18));
-      g.add(part(geo.sphere(), 0xff9f1c, 0.28, 0.28, 0.28, 0, 0.18, -0.05));
-      g.add(barrel(0xffd60a, 0.07, 0.3, 0, 0.02, -0.55));
-      break;
-    case 2:
-      g.add(barrel(0x588157, 0.24, 0.9, 0, 0.12, -0.15));
-      g.add(barrel(0x344e41, 0.28, 0.12, 0, 0.12, -0.6));
-      break;
-    case 3: {
-      g.add(barrel(0xff70a6, 0.06, 0.55, 0, 0, -0.2));
-      const ring = part(geo.torus(), 0x70d6ff, 0.6, 0.6, 0.6, 0, 0, -0.55);
-      g.add(ring);
-      break;
-    }
-    case 4:
-      g.add(part(b, 0x6a4c93, 0.3, 0.18, 0.34, 0, 0, -0.1));
-      g.add(barrel(0xc0c0c0, 0.1, 0.4, -0.07, 0.03, -0.42));
-      g.add(barrel(0xc0c0c0, 0.1, 0.4, 0.07, 0.03, -0.42));
-      break;
-    default:
-      g.add(part(b, 0xe5e5e5, 0.14, 0.18, 0.34, 0, 0, -0.08));
-      g.add(barrel(0xef476f, 0.08, 0.36, 0, 0.03, -0.38));
-      for (const z of [-0.3, -0.42]) {
-        const r = part(geo.torus(), 0x06d6a0, 0.4, 0.4, 0.4, 0, 0.03, z);
-        g.add(r);
+    case 1: // rapid fire
+      k.add(geo.cyl(0.13, 0.13, 0.22), 0x00b4d8, { p: [0, 0, -0.05], r: [Math.PI / 2, 0, 0], finish: 'gloss' });
+      for (let j = 0; j < 4; j++) {
+        const a = (j / 4) * Math.PI * 2;
+        tube(0xdfe6ee, 0.03, 0.42, [Math.cos(a) * 0.065, Math.sin(a) * 0.065, -0.35], 'metal');
       }
-      g.add(part(geo.sphere(), 0xffd166, 0.14, 0.14, 0.14, 0, 0.03, -0.58));
+      k.add(geo.sphere(0.12), 0xffd60a, { p: [0, 0.16, 0.05], finish: 'gloss' });
+      break;
+    case 2: // bazooka
+      tube(0x5aa36b, 0.15, 0.95, [0, 0.12, -0.15]);
+      k.add(geo.torus(0.15, 0.04, Math.PI * 2, 28), 0x2f6f45, { p: [0, 0.12, -0.62], finish: 'gloss' });
+      k.add(geo.rbox(0.08, 0.16, 0.1, 0.03), 0x2f6f45, { p: [0, -0.06, 0] });
+      break;
+    case 3: // bubble wand
+      tube(0xff70a6, 0.035, 0.5, [0, 0, -0.2]);
+      k.add(geo.torus(0.14, 0.03, Math.PI * 2, 28), 0x70d6ff, { p: [0, 0, -0.52], finish: 'gloss' });
+      k.add(geo.sphere(0.12), 0xd8f3ff, { p: [0, 0, -0.52], s: [1, 1, 0.3], finish: 'glass', cast: false });
+      break;
+    case 4: // twin shot
+      k.add(geo.rbox(0.3, 0.18, 0.34, 0.07), 0x6a4c93, { p: [0, 0, -0.1], finish: 'gloss' });
+      tube(0xdfe6ee, 0.05, 0.42, [-0.07, 0.03, -0.42], 'metal');
+      tube(0xdfe6ee, 0.05, 0.42, [0.07, 0.03, -0.42], 'metal');
+      break;
+    default: // ray gun
+      k.add(geo.sphere(0.14), 0xf2f2f2, { p: [0, 0, -0.06], s: [1, 1, 1.5], finish: 'gloss' });
+      tube(0xef476f, 0.05, 0.36, [0, 0.0, -0.36]);
+      for (const z of [-0.3, -0.42]) k.add(geo.torus(0.08, 0.02, Math.PI * 2, 24), 0x06d6a0, { p: [0, 0, z], finish: 'metal' });
+      k.add(geo.sphere(0.06), 0xffd166, { p: [0, 0, -0.56], finish: 'glow' });
       break;
   }
-  return g;
+  return k.build();
 }
 
 export function buildCharacter(look: Look): CharacterRig {
@@ -219,25 +239,25 @@ export function buildCharacter(look: Look): CharacterRig {
   root.add(inner);
   const [h, bo, l, gn] = look;
 
-  const legL = buildLeg(l);
-  legL.position.set(-0.16, 0.7, 0);
-  const legR = buildLeg(l);
-  legR.position.set(0.16, 0.7, 0);
+  const legL = new THREE.Group();
+  legL.add(buildLeg(l));
+  legL.position.set(-0.15, 0.7, 0);
+  const legR = new THREE.Group();
+  legR.add(buildLeg(l));
+  legR.position.set(0.15, 0.7, 0);
   inner.add(legL, legR);
 
   const body = buildBody(bo);
-  body.position.y = 0.7;
+  body.position.y = 0.68;
   inner.add(body);
 
-  const sleeve = bo === 4 ? 0x55dd55 : bodyColor(bo);
+  const shoulder = bo === 2 ? 0.48 : 0.42;
   const armL = new THREE.Group();
-  armL.position.set(-0.42, 1.24, 0);
-  armL.add(part(geo.box(), sleeve, 0.18, 0.26, 0.2, 0, -0.12));
-  armL.add(part(geo.box(), SKIN, 0.16, 0.26, 0.16, 0, -0.38));
+  armL.position.set(-shoulder, 1.22, 0);
+  armL.add(buildArm(bo, false));
   const armR = new THREE.Group();
-  armR.position.set(0.42, 1.24, 0);
-  armR.add(part(geo.box(), sleeve, 0.18, 0.26, 0.2, 0, -0.12));
-  armR.add(part(geo.box(), SKIN, 0.16, 0.26, 0.16, 0, -0.38));
+  armR.position.set(shoulder, 1.22, 0);
+  armR.add(buildArm(bo, true));
   const gun = buildGun(gn);
   gun.position.set(0, -0.42, 0);
   gun.rotation.x = -Math.PI / 2; // compensates the arm raise so the barrel points forward
@@ -245,15 +265,38 @@ export function buildCharacter(look: Look): CharacterRig {
   armR.rotation.x = Math.PI / 2;
   inner.add(armL, armR);
 
-  const head = buildHead(h);
+  const head = new THREE.Group();
+  head.add(buildHead(h));
   head.position.y = 1.3;
   inner.add(head);
-
-  // tiny face/detail pieces don't need to cast shadows
-  root.traverse((c) => {
-    if (c instanceof THREE.Mesh && c.scale.x * c.scale.y * c.scale.z < 0.004) c.castShadow = false;
-  });
   return { root, inner, legL, legR, armL, armR, head };
+}
+
+/** One hero part on its own, centered for a builder-card thumbnail. */
+export function buildHeroPart(slot: HeroSlot, i: number): THREE.Group {
+  const g = new THREE.Group();
+  if (slot === 'head') g.add(buildHead(i));
+  else if (slot === 'body') {
+    g.add(buildBody(i));
+    const shoulder = i === 2 ? 0.48 : 0.42;
+    for (const s of [-1, 1]) {
+      const a = buildArm(i, s > 0);
+      a.position.set(s * shoulder, 0.54, 0);
+      a.rotation.z = s * 0.25;
+      g.add(a);
+    }
+  } else if (slot === 'legs') {
+    for (const s of [-1, 1]) {
+      const leg = buildLeg(i);
+      leg.position.set(s * 0.17, 0.7, 0);
+      g.add(leg);
+    }
+  } else {
+    const gun = buildGun(i);
+    gun.rotation.y = -Math.PI / 2.6;
+    g.add(gun);
+  }
+  return g;
 }
 
 export function animateCharacter(rig: CharacterRig, phase: number, speed: number, airborne: boolean, t: number) {

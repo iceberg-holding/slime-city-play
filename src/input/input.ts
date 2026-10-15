@@ -6,10 +6,16 @@ export type ActionName = 'sticky' | 'bouncy' | 'jump' | 'place' | 'toggleShape' 
  * Turns keyboard / mouse / touch into InputCommands.
  * Camera yaw/pitch live here because they are part of what the player "asks" for (aim direction).
  */
+const TAP_MOVE = 12; // px a touch may wander and still count as a tap
+const TAP_TIME = 300; // ms
+const DOUBLE_TAP = 260; // ms window for the second tap
+
 export class InputController {
   camYaw = 0;
   camPitch = 0.45;
   enabled = false;
+  /** classic layout: sticky/bouncy are on-screen buttons; otherwise right-half tap = sticky, double-tap = bouncy */
+  classic = false;
 
   private keys = new Set<string>();
   private edges = new Set<ActionName>();
@@ -20,6 +26,9 @@ export class InputController {
   private joy = { x: 0, y: 0 };
   private lookId: number | null = null;
   private lookLast = { x: 0, y: 0 };
+  private lookStart = { x: 0, y: 0, t: 0, moved: 0 };
+  /** time of a single tap waiting to see if a second one follows */
+  private pendingTap = 0;
   private mouseDown: { x: number; y: number; button: number; moved: number } | null = null;
 
   private joyBase: HTMLDivElement;
@@ -63,6 +72,7 @@ export class InputController {
     this.endJoy();
     this.lookId = null;
     this.mouseDown = null;
+    this.pendingTap = 0;
   }
 
   private onKey(e: KeyboardEvent, down: boolean) {
@@ -109,6 +119,7 @@ export class InputController {
     } else if (this.lookId === null) {
       this.lookId = e.pointerId;
       this.lookLast = { x: e.clientX, y: e.clientY };
+      this.lookStart = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
     }
   }
 
@@ -137,7 +148,9 @@ export class InputController {
       const dx = e.clientX - this.lookLast.x;
       const dy = e.clientY - this.lookLast.y;
       this.lookLast = { x: e.clientX, y: e.clientY };
-      this.rotate(dx * 0.008, dy * 0.006);
+      this.lookStart.moved = Math.max(this.lookStart.moved, Math.hypot(e.clientX - this.lookStart.x, e.clientY - this.lookStart.y));
+      // small jitter during a tap shouldn't swing the camera
+      if (this.lookStart.moved > TAP_MOVE || this.classic) this.rotate(dx * 0.008, dy * 0.006);
     }
   }
 
@@ -152,7 +165,20 @@ export class InputController {
       return;
     }
     if (e.pointerId === this.joyId) this.endJoy();
-    if (e.pointerId === this.lookId) this.lookId = null;
+    if (e.pointerId === this.lookId) {
+      this.lookId = null;
+      const now = performance.now();
+      const tap = this.lookStart.moved <= TAP_MOVE && now - this.lookStart.t < TAP_TIME;
+      if (tap && this.enabled && !this.classic && e.type === 'pointerup') this.tap(now);
+    }
+  }
+
+  /** Right-half tap: a single tap fires sticky (after the double-tap window), a double tap fires bouncy. */
+  private tap(now: number) {
+    if (this.pendingTap && now - this.pendingTap < DOUBLE_TAP) {
+      this.pendingTap = 0;
+      this.edges.add('bouncy');
+    } else this.pendingTap = now;
   }
 
   private endJoy() {
@@ -172,6 +198,10 @@ export class InputController {
 
   /** Build the command for the next sim tick; clears one-shot presses. */
   consume(dt: number): InputCommand {
+    if (this.pendingTap && performance.now() - this.pendingTap >= DOUBLE_TAP) {
+      this.pendingTap = 0;
+      if (this.enabled) this.edges.add('sticky');
+    }
     let sx = this.joy.x;
     let sy = -this.joy.y;
     const k = this.keys;

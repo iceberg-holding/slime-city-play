@@ -1,17 +1,52 @@
 import * as THREE from 'three';
 import { nextRandom } from '../sim/rng';
-import { geo, mat, part } from './materials';
+import { Kit, geo, lathe } from './materials';
 
-const COLORS = [0x9b5de5, 0x00bbf9, 0xff8c42, 0xf15bb5, 0x00c49a, 0xfee440];
+// "Pyshki": round glossy slime buns with big eyes. About half wear a market-granny headscarf.
+
+const COLORS = [0xffb347, 0xff8fb1, 0x8be0ff, 0xb69cff, 0x7ee8a2, 0xffe066, 0xff9b7a];
+const SCARF = [0xff4d6d, 0x4d96ff, 0x9b5de5, 0x2ec4b6, 0xff9f1c];
+const DARK = 0x1d1f33;
 
 export interface CreatureView {
   root: THREE.Group;
+  /** squash & stretch group */
   blob: THREE.Group;
   goo: THREE.Mesh;
-  eyes: THREE.Object3D[];
+  /** open eyes (hidden when happy/glued) */
+  eyes: THREE.Group;
+  /** ^ ^ closed happy eyes */
+  happy: THREE.Group;
+  /** smile (quiet) vs open "O" mouth (talking) */
+  smile: THREE.Group;
+  mouth: THREE.Group;
 }
 
-const gooMat = new THREE.MeshLambertMaterial({ color: 0x6dff4a, transparent: true, opacity: 0.55, flatShading: true, depthWrite: false });
+const gooMat = new THREE.MeshPhysicalMaterial({
+  color: 0x6dff4a,
+  roughness: 0.08,
+  clearcoat: 1,
+  transparent: true,
+  opacity: 0.5,
+  depthWrite: false,
+});
+
+let bunGeo: THREE.BufferGeometry | null = null;
+/** Bun profile: flat-ish bottom, puffy rounded top. Height ~0.95, radius ~0.58. */
+function bun(): THREE.BufferGeometry {
+  if (bunGeo) return bunGeo;
+  const pts: [number, number][] = [];
+  const N = 32;
+  for (let i = 0; i <= N; i++) {
+    const th = -Math.PI / 2 + (Math.PI * i) / N;
+    const x = 0.58 * Math.pow(Math.max(0, Math.cos(th)), 0.72);
+    const y = th < 0 ? 0.3 + 0.3 * Math.sin(th) : 0.3 + 0.62 * Math.sin(th);
+    pts.push([Math.max(0.001, x), y]);
+  }
+  bunGeo = lathe(pts, 48);
+  bunGeo.computeVertexNormals();
+  return bunGeo;
+}
 
 export function buildCreature(seed: number): CreatureView {
   let s = seed;
@@ -21,70 +56,62 @@ export function buildCreature(seed: number): CreatureView {
     return v;
   };
   const color = COLORS[Math.floor(r() * COLORS.length)];
+  const scarf = r() < 0.55 ? SCARF[Math.floor(r() * SCARF.length)] : null;
   const root = new THREE.Group();
   const blob = new THREE.Group();
   root.add(blob);
 
-  // Lumpy body: displace icosahedron vertices by a smooth function of direction (keeps seams closed).
-  const g = new THREE.IcosahedronGeometry(0.6, 1);
-  const pos = g.attributes.position;
-  const a1 = 2 + r() * 3;
-  const a2 = 2 + r() * 3;
-  const ph = r() * 6;
-  const v = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const n = v.clone().normalize();
-    const k = 1 + 0.14 * Math.sin(n.x * a1 + ph) * Math.cos(n.z * a2 + ph) + 0.08 * n.y;
-    v.multiplyScalar(k);
-    v.y *= 0.85;
-    pos.setXYZ(i, v.x, v.y, v.z);
+  const body = new Kit();
+  body.add(bun(), color, { finish: 'gloss' });
+  // little feet nubs
+  for (const x of [-0.22, 0.22]) body.add(geo.sphere(0.13, 20, 12), shadeHex(color, 0.85), { p: [x, 0.04, -0.12], s: [1, 0.55, 1.2], finish: 'gloss' });
+  // cheeks
+  for (const x of [-0.3, 0.3]) body.add(geo.sphere(0.08, 16, 10), 0xff6f91, { p: [x, 0.42, -0.47], s: [1.2, 0.7, 0.4], finish: 'soft', cast: false });
+  if (scarf) {
+    // headscarf: a cap over the top and a knot under the "chin"
+    const cap = new THREE.SphereGeometry(0.6, 40, 16, 0, Math.PI * 2, 0, 1.15);
+    body.add(cap, scarf, { p: [0, 0.35, 0.02], r: [0.45, 0, 0], s: [1.06, 1, 1.06], finish: 'soft' });
+    body.add(geo.sphere(0.07, 16, 10), scarf, { p: [0.4, 0.45, -0.42], finish: 'soft' });
+    for (const a of [-0.5, 0.5]) body.add(geo.capsule(0.04, 0.18, 8), scarf, { p: [0.42 + a * 0.08, 0.35, -0.42], r: [0, 0, a], finish: 'soft' });
+  } else {
+    body.add(geo.sphere(0.09, 20, 14), shadeHex(color, 1.1), { p: [0.18, 0.92, 0.05], s: [1, 0.6, 1], finish: 'gloss' });
   }
-  g.computeVertexNormals();
-  const body = new THREE.Mesh(g, mat(color));
-  body.castShadow = true;
-  body.position.y = 0.55;
-  blob.add(body);
+  blob.add(body.build());
 
-  // Little feet
-  for (const x of [-0.25, 0.25]) blob.add(part(geo.sphere(), color, 0.25, 0.18, 0.3, x, 0.08, -0.05));
-
-  // Eyes: 1–3, some on stalks
-  const eyes: THREE.Object3D[] = [];
-  const count = 1 + Math.floor(r() * 3);
-  const stalks = r() < 0.4;
-  for (let i = 0; i < count; i++) {
-    const ex = count === 1 ? 0 : (i / (count - 1) - 0.5) * 0.5;
-    const eye = new THREE.Group();
-    const size = count === 1 ? 0.36 : 0.24;
-    eye.add(part(geo.sphere(), 0xffffff, size, size, size));
-    eye.add(part(geo.sphere(), 0x111111, size * 0.45, size * 0.45, size * 0.3, 0, 0, -size * 0.42));
-    if (stalks) {
-      eye.position.set(ex, 1.35, -0.2);
-      blob.add(part(geo.cyl(5), color, 0.06, 0.4, 0.06, ex, 1.12, -0.2));
-    } else {
-      eye.position.set(ex, 0.8, -0.48);
-    }
-    eye.traverse((c) => (c.castShadow = false));
-    blob.add(eye);
-    eyes.push(eye);
+  const eyeK = new Kit();
+  for (const x of [-0.16, 0.16]) {
+    eyeK.add(geo.sphere(0.13, 24, 16), 0xffffff, { p: [x, 0.58, -0.44], s: [1, 1.1, 0.6], finish: 'gloss', cast: false });
+    eyeK.add(geo.sphere(0.07, 20, 14), DARK, { p: [x, 0.57, -0.52], s: [1, 1.1, 0.5], finish: 'gloss', cast: false });
+    eyeK.add(geo.sphere(0.022, 10, 8), 0xffffff, { p: [x + 0.025, 0.6, -0.555], finish: 'glow', cast: false });
   }
-  // Mouth
-  blob.add(part(geo.box(), 0x330022, 0.3, 0.08, 0.05, 0, 0.45, -0.6));
-  // Optional horns
-  if (r() < 0.5) {
-    for (const x of [-0.3, 0.3]) {
-      const h = part(geo.cone(5), 0xffffff, 0.12, 0.25, 0.12, x, 1.08, 0);
-      h.rotation.z = -x;
-      blob.add(h);
-    }
-  }
+  const eyes = eyeK.build();
+  blob.add(eyes);
 
-  const goo = new THREE.Mesh(geo.sphere(), gooMat);
-  goo.scale.set(1.7, 1.5, 1.7);
-  goo.position.y = 0.6;
+  const happyK = new Kit();
+  for (const x of [-0.16, 0.16]) happyK.add(geo.torus(0.07, 0.018, Math.PI, 16), DARK, { p: [x, 0.56, -0.5], cast: false });
+  const happy = happyK.build();
+  happy.visible = false;
+  blob.add(happy);
+
+  const smile = new Kit().add(geo.torus(0.08, 0.02, Math.PI, 16), 0x7a2a3a, { p: [0, 0.4, -0.58], r: [0, 0, Math.PI], cast: false }).build();
+  blob.add(smile);
+  const mouth = new Kit().add(geo.sphere(0.07, 16, 12), 0x7a2a3a, { p: [0, 0.38, -0.565], s: [1, 0.8, 0.5], cast: false }).build();
+  mouth.visible = false;
+  blob.add(mouth);
+
+  const goo = new THREE.Mesh(geo.sphere(0.5), gooMat);
+  goo.scale.set(1.5, 1.3, 1.5);
+  goo.position.y = 0.48;
   goo.visible = false;
   root.add(goo);
 
-  return { root, blob, goo, eyes };
+  return { root, blob, goo, eyes, happy, smile, mouth };
+}
+
+function shadeHex(c: number, k: number): number {
+  const col = new THREE.Color(c).multiplyScalar(k);
+  col.r = Math.min(1, col.r);
+  col.g = Math.min(1, col.g);
+  col.b = Math.min(1, col.b);
+  return col.getHex();
 }

@@ -3,6 +3,7 @@ import { mountable } from '../sim/mission';
 import type { GameEvent, GameState } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
 import { onLangChange, t } from './i18n';
+import { isClassic, onClassicChange, type SettingsPanel } from './settings';
 
 export function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -27,7 +28,10 @@ export class Hud {
   private shape: 'cube' | 'ramp' = 'cube';
   private lastShown = '';
 
-  constructor(input: InputController) {
+  private tapHintEl: HTMLDivElement;
+  private tapHintTimer = 0;
+
+  constructor(input: InputController, settings: SettingsPanel) {
     this.el = document.createElement('div');
     this.el.className = 'screen hud';
     this.el.innerHTML = `
@@ -36,8 +40,9 @@ export class Hud {
           <div class="pill parts"><span class="wrench-icon">🔧</span><span class="v"></span><span class="carry"></span></div>
           <div class="hint"></div>
         </div>
-        <div class="pill time"></div>
+        <div class="hud-right"><div class="pill time"></div></div>
       </div>
+      <div class="tap-hint"></div>
       <div class="toast"></div>
       <div class="trick"></div>
       <button class="ride-btn" data-a="interact"></button>
@@ -61,6 +66,15 @@ export class Hud {
     this.rideBtn = q('.ride-btn');
     this.toastEl = q('.toast');
     this.trickEl = q('.trick');
+    this.tapHintEl = q('.tap-hint');
+    q('.hud-right').prepend(settings.gearButton());
+    const applyClassic = (v: boolean) => {
+      input.classic = v;
+      this.el.classList.toggle('classic', v);
+      this.el.classList.toggle('modern', !v);
+    };
+    applyClassic(isClassic());
+    onClassicChange(applyClassic);
     this.labels = [
       { el: q('.act-sticky .lb'), key: 'sticky' },
       { el: q('.act-bouncy .lb'), key: 'bouncy' },
@@ -95,6 +109,13 @@ export class Hud {
     const s = t();
     for (const l of this.labels) l.el.textContent = s[l.key];
     this.shapeBtn.textContent = this.shape === 'cube' ? `■ ${s.cube}` : `◢ ${s.ramp}`;
+    this.tapHintEl.textContent = s.tapHint;
+  }
+
+  /** Remind touch players how the right half works (modern layout only). */
+  showTapHint() {
+    this.tapHintTimer = 5;
+    this.tapHintEl.classList.add('on');
   }
 
   show(v: boolean) {
@@ -130,6 +151,10 @@ export class Hud {
         this.shape = p.shape;
         this.refreshText();
       }
+    }
+    if (this.tapHintTimer > 0) {
+      this.tapHintTimer -= dt;
+      if (this.tapHintTimer <= 0) this.tapHintEl.classList.remove('on');
     }
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;

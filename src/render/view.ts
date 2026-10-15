@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { Collider } from '../sim/physics';
-import type { GameEvent, GameState } from '../sim/types';
-import { playEvent } from './audio';
-import { buildCharacter, animateCharacter, type CharacterRig } from './character';
-import { buildCity, wedgeGeometry, wedgeTransform } from './city';
-import { buildCreature, type CreatureView } from './creature';
-import { geo, mat } from './materials';
-import { blockSolid } from '../sim/physics';
-import { VEHICLES } from '../sim/vehicles';
-import { buildPart, buildVehicle, type VehicleModel } from './vehicleModels';
+import { Collider, blockSolid } from '../sim/physics';
 import { computePlacement, makeCollider } from '../sim/step';
+import type { GameEvent, GameState } from '../sim/types';
+import { VEHICLES } from '../sim/vehicles';
+import { playEvent } from './audio';
+import { animateCharacter, buildCharacter, type CharacterRig } from './character';
+import { buildCity, wedge } from './city';
+import { buildCreature, type CreatureView } from './creature';
+import { SKY_HORIZON, addLights, buildSky, environment } from './env';
+import { Kit, blobMaterial, geo } from './materials';
+import { buildPart, buildVehicle, type VehicleModel } from './vehicleModels';
 
 /** Instanced pool for dynamic, short-lived things. */
 class Pool {
@@ -61,12 +61,17 @@ interface Particle {
   size: number;
 }
 
-const BLOCK_COLORS = [0xff595e, 0xffca3a, 0x8ac926, 0x1982c4, 0x6a4c93, 0xff924c];
+const BLOCK_COLORS = [0xff5d73, 0xffc93c, 0x5ee06a, 0x4d96ff, 0x9b5de5, 0xff9f1c];
+
+const glossy = (opts: THREE.MeshPhysicalMaterialParameters = {}) =>
+  new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.08, ...opts });
 
 export class GameView {
   scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
   private sun: THREE.DirectionalLight;
+  private sky: THREE.Group;
+  private spray: THREE.Object3D | undefined;
   private players = new Map<number, CharacterRig>();
   private creatures = new Map<number, CreatureView>();
   private pickups = new Map<number, THREE.Group>();
@@ -79,50 +84,46 @@ export class GameView {
   private ramps: Pool;
   private splats: Pool;
   private parts: Pool;
+  private shadows: Pool;
   private ghost: THREE.Mesh;
   private particles: Particle[] = [];
   private col: Collider;
   private camDist = 7;
   private time = 0;
 
-  constructor(state: GameState, aspect: number) {
-    this.camera = new THREE.PerspectiveCamera(62, aspect, 0.1, 160);
-    this.scene.background = new THREE.Color(0x9fd8ff);
-    this.scene.fog = new THREE.Fog(0x9fd8ff, 45, 110);
-    this.scene.add(new THREE.HemisphereLight(0xdff3ff, 0x9a8f78, 1.6));
-    this.sun = new THREE.DirectionalLight(0xffffff, 1.9);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(1024, 1024);
-    const sc = this.sun.shadow.camera;
-    sc.left = -22;
-    sc.right = 22;
-    sc.top = 22;
-    sc.bottom = -22;
-    sc.near = 1;
-    sc.far = 80;
-    this.sun.shadow.bias = -0.0015;
-    this.sun.shadow.normalBias = 0.03;
-    this.scene.add(this.sun, this.sun.target);
+  constructor(state: GameState, aspect: number, renderer: THREE.WebGLRenderer) {
+    this.camera = new THREE.PerspectiveCamera(62, aspect, 0.1, 400);
+    this.scene.background = new THREE.Color(SKY_HORIZON);
+    this.scene.fog = new THREE.Fog(SKY_HORIZON, 55, 150);
+    this.scene.environment = environment(renderer);
+    this.scene.environmentIntensity = 0.55;
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches;
+    this.sun = addLights(this.scene, coarse ? 1024 : 2048).sun;
+    this.sky = buildSky();
+    this.scene.add(this.sky);
 
     const city = buildCity(state.world);
     this.scene.add(city.root);
+    this.spray = city.root.getObjectByName('spray');
     this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
 
-    const basic = (c: number, o = 1) =>
-      new THREE.MeshLambertMaterial({ color: c, transparent: o < 1, opacity: o, depthWrite: o >= 1, flatShading: true });
-    this.projectiles = new Pool(geo.sphere(), basic(0xffffff), 32);
-    const padGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
-    padGeo.translate(0, 0.5, 0);
-    this.pads = new Pool(padGeo, basic(0xffffff), 8, true);
-    this.cubes = new Pool(geo.box(), basic(0xffffff), 12, true);
-    this.ramps = new Pool(wedgeGeometry(), basic(0xffffff), 12, true);
-    this.splats = new Pool(geo.sphere(), basic(0xffffff, 0.85), 40);
-    this.parts = new Pool(geo.box(), new THREE.MeshBasicMaterial({ color: 0xffffff }), 160);
-    for (const p of [this.projectiles, this.pads, this.cubes, this.ramps, this.splats, this.parts]) this.scene.add(p.mesh);
+    this.projectiles = new Pool(geo.sphere(0.5, 24, 16), glossy(), 32, true);
+    const padGeo = new THREE.SphereGeometry(0.5, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    this.pads = new Pool(padGeo, glossy({ roughness: 0.18 }), 8, true);
+    this.cubes = new Pool(geo.rbox(0.98, 0.98, 0.98, 0.14), glossy({ roughness: 0.35 }), 16, true);
+    const rampGeo = wedge(0.98, 0.98, 0.98, 0.07);
+    this.ramps = new Pool(rampGeo, glossy({ roughness: 0.35 }), 16, true);
+    this.splats = new Pool(geo.sphere(0.5, 20, 10), glossy({ transparent: true, opacity: 0.85 }), 40);
+    this.parts = new Pool(geo.sphere(0.5, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }), 160);
+    const blobGeo = new THREE.PlaneGeometry(1, 1);
+    blobGeo.rotateX(-Math.PI / 2);
+    this.shadows = new Pool(blobGeo, blobMaterial(), 48);
+    this.shadows.mesh.renderOrder = 2;
+    for (const p of [this.projectiles, this.pads, this.cubes, this.ramps, this.splats, this.parts, this.shadows]) this.scene.add(p.mesh);
 
     this.ghost = new THREE.Mesh(
-      geo.box(),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthWrite: false }),
+      geo.rbox(1, 1, 1, 0.14),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }),
     );
     this.ghost.visible = false;
     this.scene.add(this.ghost);
@@ -135,10 +136,11 @@ export class GameView {
       spinner.add(model);
       spinner.scale.setScalar(1.3);
       // glowing ring so parts read as collectibles
-      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.06, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffe066 }));
+      const halo = new THREE.Mesh(geo.torus(0.75, 0.05, Math.PI * 2, 48), new THREE.MeshBasicMaterial({ color: 0xffe066 }));
       halo.rotation.x = Math.PI / 2;
       halo.position.y = -0.55;
       const beam = makeBeam(0xffe066);
+      beam.position.y = -0.6;
       holder.add(spinner, halo, beam);
       noShadows(holder);
       this.scene.add(holder);
@@ -152,7 +154,6 @@ export class GameView {
       );
       model.root.position.set(g.x, 0.12, g.z);
       model.root.rotation.y = 0.6;
-      noShadows(model.root);
       this.scene.add(model.root);
       const beam = makeBeam(0x4cc9f0);
       beam.position.set(g.x, 0, g.z);
@@ -234,13 +235,20 @@ export class GameView {
     }
   }
 
-  /** Free GPU buffers (shared geometries are re-uploaded automatically if reused). */
+  /** Free GPU buffers (shared cached geometries are re-uploaded automatically if reused). */
   dispose() {
     this.scene.traverse((o) => {
       if (o instanceof THREE.InstancedMesh) o.dispose();
-      if (o instanceof THREE.Mesh) o.geometry.dispose();
+      else if (o instanceof THREE.Mesh) o.geometry.dispose();
     });
     this.scene.clear();
+  }
+
+  /** Screen position (CSS px) of a world point, or null if behind the camera. */
+  toScreen(x: number, y: number, z: number, w: number, h: number): { x: number; y: number } | null {
+    const v = new THREE.Vector3(x, y, z).project(this.camera);
+    if (v.z > 1) return null;
+    return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h };
   }
 
   /** Render-side sync. `playerId` is the local player the camera follows. */
@@ -248,6 +256,15 @@ export class GameView {
     this.time += dt;
     const t = this.time;
     this.ensureEntities(state);
+    const ground = new Collider(state.world.solids, state.blocks.map(blockSolid));
+    this.shadows.begin();
+    const shadow = (x: number, y: number, z: number, size: number) => {
+      const g = ground.groundAt(x, z, y + 0.3, 0.05);
+      const k = Math.max(0, 1 - (y - g) / 6);
+      if (k <= 0) return;
+      const s = size * (0.6 + 0.4 * k);
+      this.shadows.push(x, g + 0.03, z, s, 1, s, 0xffffff);
+    };
 
     for (const p of state.players) {
       const rig = this.players.get(p.id)!;
@@ -255,6 +272,7 @@ export class GameView {
       rig.root.rotation.y = p.yaw;
       animateCharacter(rig, p.walkPhase, Math.hypot(p.vel.x, p.vel.z), !p.grounded, t);
       rig.inner.rotation.z = p.stun > 0 ? Math.sin(t * 40) * 0.15 : 0;
+      if (p.riding === null) shadow(p.pos.x, p.pos.y, p.pos.z, 1.1);
     }
 
     for (const c of state.creatures) {
@@ -263,19 +281,28 @@ export class GameView {
       v.root.rotation.y = c.yaw;
       const stuck = c.stuck > 0;
       v.goo.visible = stuck;
+      v.eyes.visible = !stuck;
+      v.happy.visible = stuck;
+      const talking = c.talk > 0 && !stuck;
+      v.mouth.visible = talking;
+      v.smile.visible = !talking;
+      if (talking) v.mouth.scale.y = 0.6 + Math.abs(Math.sin(t * 16 + c.id)) * 0.8;
       if (stuck) {
         const w = 1 + Math.sin(t * 6) * 0.04;
-        v.goo.scale.set(1.7 * w, 1.5 / w, 1.7 * w);
-        v.blob.scale.set(1, 1, 1);
+        v.goo.scale.set(1.5 * w, 1.3 / w, 1.5 * w);
+        const breathe = 1 + Math.sin(t * 2 + c.id) * 0.03;
+        v.blob.scale.set(1, breathe, 1);
         v.blob.position.y = 0;
       } else {
         const speed = Math.hypot(c.vel.x, c.vel.z);
-        const k = Math.sin(t * (c.mode === 'crowd' ? 14 : 7) + c.id);
-        const sq = 1 + k * 0.08 * Math.min(1, speed / 2 + 0.3);
+        const k = Math.sin(t * (c.mode === 'crowd' ? 12 : 7) + c.id);
+        const talkWobble = talking ? Math.sin(t * 9) * 0.04 : 0;
+        const sq = 1 + k * 0.09 * Math.min(1, speed / 2 + 0.3) + talkWobble;
         v.blob.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
         v.blob.position.y = c.grounded ? Math.max(0, k) * 0.12 * Math.min(1, speed) : 0;
+        v.eyes.scale.y = Math.sin(t * 0.8 + c.id * 3) > 0.985 ? 0.15 : 1; // blink
       }
-      for (const e of v.eyes) e.scale.y = Math.sin(t * 0.8 + c.id * 3) > 0.985 ? 0.15 : 1; // blink
+      shadow(c.pos.x, c.pos.y, c.pos.z, 1.4);
     }
 
     const me = state.players.find((p) => p.id === playerId) ?? state.players[0];
@@ -291,6 +318,7 @@ export class GameView {
       spinner.scale.setScalar(carried ? 0.6 : 1.3);
       h.children[1].visible = !carried;
       h.children[2].visible = !carried;
+      if (pk.status === 'world') shadow(pk.pos.x, pk.pos.y - 0.6, pk.pos.z, 1.3);
     }
 
     for (const g of state.garages) {
@@ -321,6 +349,7 @@ export class GameView {
       m.pivot.rotation.z += (lean - m.pivot.rotation.z) * Math.min(1, dt * 10);
       m.pivot.rotation.x = v.flip;
       for (const w of m.wheels) w.rotation.x -= (v.speed * dt) / 0.4;
+      shadow(v.pos.x, v.pos.y, v.pos.z, 2.2);
     }
 
     for (const p of state.players) {
@@ -341,7 +370,8 @@ export class GameView {
     this.projectiles.begin();
     for (const p of state.projectiles) {
       const c = p.kind === 'sticky' ? 0x6dff4a : 0xff70a6;
-      this.projectiles.push(p.pos.x, p.pos.y, p.pos.z, 0.36, 0.36, 0.36, c);
+      const s = 0.36 * p.scale;
+      this.projectiles.push(p.pos.x, p.pos.y, p.pos.z, s, s, s, c);
     }
     this.projectiles.end();
 
@@ -349,8 +379,8 @@ export class GameView {
     for (const p of state.pads) {
       const sq = p.squish;
       const fade = Math.min(1, p.life / 2);
-      const r = 2.4 * (1 + sq * 0.2) * (0.6 + 0.4 * fade);
-      this.pads.push(p.pos.x, p.pos.y, p.pos.z, r, 0.22 * (1 - sq * 0.5) + 0.03 * Math.sin(t * 5 + p.id), r, 0xff5fa2);
+      const r = 2.4 * p.scale * (1 + sq * 0.2) * (0.6 + 0.4 * fade);
+      this.pads.push(p.pos.x, p.pos.y, p.pos.z, r, 0.5 * (1 - sq * 0.5) + 0.06 * Math.sin(t * 5 + p.id), r, 0xff5fa2);
     }
     this.pads.end();
 
@@ -362,10 +392,10 @@ export class GameView {
     this.ramps.begin();
     for (const b of state.blocks) {
       const color = BLOCK_COLORS[b.id % BLOCK_COLORS.length];
-      if (b.shape === 'cube') this.cubes.push(b.x + 0.5, b.y + 0.5, b.z + 0.5, 0.98, 0.98, 0.98, color);
+      if (b.shape === 'cube') this.cubes.push(b.x + 0.5, b.y + 0.5, b.z + 0.5, 1, 1, 1, color);
       else {
-        const w = wedgeTransform(blockSolid(b));
-        this.ramps.push(w.x, w.y, w.z, w.sx, w.sy, w.sz, 0xffca3a, w.ry);
+        const ry = b.dir === 0 ? 0 : b.dir === 2 ? Math.PI : b.dir === 1 ? -Math.PI / 2 : Math.PI / 2;
+        this.ramps.push(b.x + 0.5, b.y + 0.01, b.z + 0.5, 1, 1, 1, 0xffc93c, ry);
       }
     }
     this.cubes.end();
@@ -386,6 +416,12 @@ export class GameView {
     }
     this.particles = keep;
     this.parts.end();
+    this.shadows.end();
+
+    if (this.spray) {
+      const k = 1 + Math.sin(t * 3) * 0.06;
+      this.spray.scale.set(k, 0.5 / k, k);
+    }
 
     // Camera follow
     if (me) {
@@ -402,8 +438,9 @@ export class GameView {
       this.camDist = target < this.camDist ? target : this.camDist + (target - this.camDist) * Math.min(1, dt * 4);
       this.camera.position.set(tx + dx * this.camDist, Math.max(0.3, ty + dy * this.camDist), tz + dz * this.camDist);
       this.camera.lookAt(tx, ty, tz);
-      this.sun.position.set(tx + 12, ty + 28, tz + 8);
+      this.sun.position.set(tx + 14, ty + 30, tz + 10);
       this.sun.target.position.set(tx, ty, tz);
+      this.sky.position.copy(this.camera.position);
 
       this.ghost.visible = ghostOn;
       if (ghostOn) this.updateGhost(state, me.id, camYaw);
@@ -419,52 +456,51 @@ export class GameView {
 }
 
 function makeBeam(color: number): THREE.Mesh {
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.3, 0.3, 40, 8, 1, true),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }),
+  const g = new THREE.CylinderGeometry(0.32, 0.45, 40, 24, 1, true);
+  g.translate(0, 20, 0);
+  // fade out toward the top
+  const pos = g.attributes.position;
+  const alpha = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const k = 1 - pos.getY(i) / 40;
+    alpha.set([k, k, k], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(alpha, 3));
+  return new THREE.Mesh(
+    g,
+    new THREE.MeshBasicMaterial({
+      color,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      fog: false,
+    }),
   );
-  beam.geometry.translate(0, 20, 0);
-  return beam;
 }
 
 function buildGarageProps(x: number, z: number, r: number): THREE.Group {
-  const g = new THREE.Group();
-  g.position.set(x, 0, z);
-  const floor = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.1, 6), mat(0x4361ee));
-  floor.position.y = 0.05;
-  floor.receiveShadow = true;
-  const inner = new THREE.Mesh(new THREE.CylinderGeometry(r - 0.3, r - 0.3, 0.12, 6), mat(0xffd166));
-  inner.position.y = 0.06;
-  inner.receiveShadow = true;
-  g.add(floor, inner);
-  for (const x of [-r + 0.1, r - 0.1]) {
-    const post = new THREE.Mesh(geo.cyl(6), mat(0xffffff));
-    post.scale.set(0.14, 3.6, 0.14);
-    post.position.set(x, 1.8, -r + 0.1);
-    post.castShadow = true;
-    g.add(post);
+  const k = new Kit();
+  k.add(geo.cyl(r, r, 0.1, 48), 0x4d96ff, { p: [0, 0.05, 0], finish: 'gloss', cast: false });
+  k.add(geo.cyl(r - 0.3, r - 0.3, 0.12, 48), 0xffd166, { p: [0, 0.06, 0], finish: 'gloss', cast: false });
+  for (const px of [-r + 0.1, r - 0.1]) {
+    k.add(geo.capsule(0.1, 3.7), 0xffffff, { p: [px, 1.8, -r + 0.1], finish: 'gloss' });
+    k.add(geo.sphere(0.16), 0xff5d73, { p: [px, 3.7, -r + 0.1], finish: 'gloss' });
   }
-  // arch with a banner over the garage pad
-  const banner = new THREE.Mesh(geo.box(), mat(0xe63946));
-  banner.scale.set(r * 2, 0.6, 0.15);
-  banner.position.set(0, 3.3, -r + 0.1);
-  banner.castShadow = true;
-  g.add(banner);
+  // banner over the garage pad
+  k.add(geo.rbox(r * 2, 0.62, 0.16, 0.08), 0xff5d73, { p: [0, 3.3, -r + 0.1], finish: 'gloss' });
   // wrench sign
-  const sign = new THREE.Group();
-  sign.position.set(0, 4.1, -r + 0.1);
-  sign.add(new THREE.Mesh(geo.box(), mat(0xffffff)));
-  sign.children[0].scale.set(1.2, 0.8, 0.1);
-  const handle = new THREE.Mesh(geo.box(), mat(0x555566));
-  handle.scale.set(0.15, 0.55, 0.12);
-  handle.rotation.z = 0.7;
-  const head = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.06, 4, 8, Math.PI * 1.5), mat(0x555566));
-  head.position.set(-0.2, 0.2, 0);
-  sign.add(handle, head);
-  g.add(sign);
+  k.add(geo.rbox(1.2, 0.8, 0.12, 0.2), 0xffffff, { p: [0, 4.1, -r + 0.1], finish: 'gloss' });
+  k.add(geo.capsule(0.07, 0.6), 0x5a667a, { p: [0.05, 4.05, -r + 0.02], r: [0, 0, 0.7], finish: 'metal' });
+  k.add(geo.torus(0.13, 0.05, Math.PI * 1.5, 20), 0x5a667a, { p: [-0.17, 4.25, -r + 0.02], finish: 'metal' });
+  const g = k.build();
+  g.position.set(x, 0, z);
   return g;
 }
 
 function noShadows(o: THREE.Object3D) {
   o.traverse((c) => (c.castShadow = false));
 }
+

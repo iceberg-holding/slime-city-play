@@ -1,17 +1,58 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-const cache = new Map<string, THREE.MeshLambertMaterial>();
+// Shared "toy" look: a handful of PBR finishes driven by vertex colors, plus cached smooth primitives.
+// Models are assembled with a Kit, which merges everything into one mesh per finish (few draw calls).
 
-/** Shared flat-shaded toy material per color. */
-export function mat(color: number, opts: { emissive?: number; transparent?: number } = {}): THREE.MeshLambertMaterial {
-  const key = `${color}|${opts.emissive ?? 0}|${opts.transparent ?? 1}`;
+export type Finish = 'matte' | 'soft' | 'gloss' | 'metal' | 'glass' | 'glow' | 'rubber';
+
+const finishes = new Map<Finish, THREE.Material>();
+
+/** Shared vertex-colored material for a finish. */
+export function finishMat(f: Finish): THREE.Material {
+  let m = finishes.get(f);
+  if (m) return m;
+  switch (f) {
+    case 'matte':
+      m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82 });
+      break;
+    case 'soft':
+      m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 });
+      break;
+    case 'rubber':
+      m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+      break;
+    case 'gloss':
+      m = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 });
+      break;
+    case 'metal':
+      m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.85 });
+      break;
+    case 'glass':
+      m = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.6 });
+      break;
+    case 'glow':
+      m = new THREE.MeshBasicMaterial({ vertexColors: true });
+      break;
+  }
+  finishes.set(f, m);
+  return m;
+}
+
+const cache = new Map<string, THREE.MeshStandardMaterial>();
+
+/** Plain (non vertex-colored) material for one-off meshes. */
+export function mat(color: number, opts: { rough?: number; metal?: number; emissive?: number; opacity?: number; gloss?: boolean } = {}) {
+  const key = `${color}|${opts.rough ?? 0.55}|${opts.metal ?? 0}|${opts.emissive ?? 0}|${opts.opacity ?? 1}|${opts.gloss ?? false}`;
   let m = cache.get(key);
   if (!m) {
-    m = new THREE.MeshLambertMaterial({ color, flatShading: true });
+    const params = { color, roughness: opts.rough ?? 0.55, metalness: opts.metal ?? 0 };
+    m = opts.gloss ? new THREE.MeshPhysicalMaterial({ ...params, clearcoat: 1, clearcoatRoughness: 0.1 }) : new THREE.MeshStandardMaterial(params);
     if (opts.emissive) m.emissive = new THREE.Color(opts.emissive);
-    if (opts.transparent !== undefined && opts.transparent < 1) {
+    if (opts.opacity !== undefined && opts.opacity < 1) {
       m.transparent = true;
-      m.opacity = opts.transparent;
+      m.opacity = opts.opacity;
       m.depthWrite = false;
     }
     cache.set(key, m);
@@ -29,19 +70,150 @@ function cached<T extends THREE.BufferGeometry>(key: string, make: () => T): T {
   return g as T;
 }
 
+const r3 = (v: number) => Math.round(v * 1000) / 1000;
+
+/** Smooth, high-segment primitives (cached by size). */
 export const geo = {
+  /** rounded box with real dimensions (corner radius defaults to 22% of the smallest side) */
+  rbox: (w: number, h: number, d: number, r = Math.min(w, h, d) * 0.22, seg = 3) =>
+    cached(`rb${r3(w)},${r3(h)},${r3(d)},${r3(r)},${seg}`, () => new RoundedBoxGeometry(w, h, d, seg, Math.min(r, Math.min(w, h, d) / 2 - 0.001))),
+  sphere: (r = 0.5, w = 32, h = 24) => cached(`sp${r3(r)},${w},${h}`, () => new THREE.SphereGeometry(r, w, h)),
+  /** capsule along y, total height h */
+  capsule: (r: number, h: number, seg = 16) => cached(`cap${r3(r)},${r3(h)},${seg}`, () => new THREE.CapsuleGeometry(r, Math.max(0.001, h - 2 * r), 6, seg)),
+  cyl: (rt: number, rb: number, h: number, seg = 32) => cached(`cy${r3(rt)},${r3(rb)},${r3(h)},${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg)),
+  torus: (R: number, r: number, arc = Math.PI * 2, seg = 32) =>
+    cached(`to${r3(R)},${r3(r)},${r3(arc)},${seg}`, () => new THREE.TorusGeometry(R, r, 12, seg, arc)),
+  cone: (r: number, h: number, seg = 24) => cached(`co${r3(r)},${r3(h)},${seg}`, () => new THREE.ConeGeometry(r, h, seg)),
+  /** unit box (for instanced / scaled use) */
   box: () => cached('box', () => new THREE.BoxGeometry(1, 1, 1)),
-  sphere: () => cached('sphere', () => new THREE.IcosahedronGeometry(0.5, 1)),
-  cyl: (n = 8) => cached('cyl' + n, () => new THREE.CylinderGeometry(0.5, 0.5, 1, n)),
-  cone: (n = 8) => cached('cone' + n, () => new THREE.ConeGeometry(0.5, 1, n)),
-  torus: () => cached('torus', () => new THREE.TorusGeometry(0.35, 0.16, 8, 16)),
 };
 
-/** Mesh helper: unit primitive scaled + positioned. */
-export function part(g: THREE.BufferGeometry, color: number, sx: number, sy: number, sz: number, x = 0, y = 0, z = 0): THREE.Mesh {
-  const m = new THREE.Mesh(g, mat(color));
-  m.scale.set(sx, sy, sz);
-  m.position.set(x, y, z);
-  m.castShadow = true;
-  return m;
+/** Lathe from a 2D profile [radius, y][] with smooth normals. */
+export function lathe(profile: [number, number][], seg = 40): THREE.BufferGeometry {
+  return new THREE.LatheGeometry(
+    profile.map(([x, y]) => new THREE.Vector2(x, y)),
+    seg,
+  );
+}
+
+type V3 = [number, number, number];
+export interface KitOpts {
+  p?: V3;
+  /** Euler rotation, order YXZ (yaw, then local pitch, then roll) */
+  r?: V3;
+  s?: number | V3;
+  finish?: Finish;
+  /** cast shadows (default true) */
+  cast?: boolean;
+}
+
+const tmpM = new THREE.Matrix4();
+const tmpQ = new THREE.Quaternion();
+const tmpE = new THREE.Euler(0, 0, 0, 'YXZ'); // yaw first, then local pitch/roll
+const tmpP = new THREE.Vector3();
+const tmpS = new THREE.Vector3();
+const tmpC = new THREE.Color();
+
+/** Collects primitives (geometry + color + transform + finish) and merges them into one mesh per finish. */
+export class Kit {
+  private buckets = new Map<string, THREE.BufferGeometry[]>();
+  /** darken vertices near the ground (fake ambient occlusion) */
+  groundAO = 0;
+
+  add(g: THREE.BufferGeometry, color: number, o: KitOpts = {}): this {
+    const s = o.s ?? 1;
+    tmpE.set(...(o.r ?? [0, 0, 0]));
+    tmpQ.setFromEuler(tmpE);
+    tmpM.compose(tmpP.set(...(o.p ?? [0, 0, 0])), tmpQ, typeof s === 'number' ? tmpS.set(s, s, s) : tmpS.set(...s));
+    return this.addMatrix(g, color, tmpM, o.finish ?? 'soft', o.cast ?? true);
+  }
+
+  addMatrix(g: THREE.BufferGeometry, color: number, m: THREE.Matrix4, finish: Finish = 'soft', cast = true): this {
+    const c = g.index ? g.clone() : withIndex(g.clone());
+    for (const name of Object.keys(c.attributes)) if (name !== 'position' && name !== 'normal') c.deleteAttribute(name);
+    c.applyMatrix4(m);
+    tmpC.set(color);
+    const n = c.attributes.position.count;
+    const col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      col[i * 3] = tmpC.r;
+      col[i * 3 + 1] = tmpC.g;
+      col[i * 3 + 2] = tmpC.b;
+    }
+    c.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const key = `${finish}|${cast ? 1 : 0}`;
+    let list = this.buckets.get(key);
+    if (!list) this.buckets.set(key, (list = []));
+    list.push(c);
+    return this;
+  }
+
+  /** Merge into a group (one mesh per finish/shadow bucket). Optionally offsets AO by `aoBase` world height. */
+  build(receive = true, aoBase = 0): THREE.Group {
+    const root = new THREE.Group();
+    for (const [key, list] of this.buckets) {
+      const [finish, cast] = key.split('|');
+      const merged = mergeGeometries(list, false);
+      for (const g of list) g.dispose();
+      if (!merged) continue;
+      if (this.groundAO > 0) applyGroundAO(merged, this.groundAO, aoBase);
+      merged.computeBoundingSphere();
+      const mesh = new THREE.Mesh(merged, finishMat(finish as Finish));
+      mesh.castShadow = cast === '1' && finish !== 'glow';
+      mesh.receiveShadow = receive && finish !== 'glow';
+      mesh.name = finish;
+      root.add(mesh);
+    }
+    this.buckets.clear();
+    return root;
+  }
+}
+
+function withIndex(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  const n = g.attributes.position.count;
+  const idx = new (n > 65535 ? Uint32Array : Uint16Array)(n);
+  for (let i = 0; i < n; i++) idx[i] = i;
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  return g;
+}
+
+function applyGroundAO(g: THREE.BufferGeometry, strength: number, base: number) {
+  const pos = g.attributes.position;
+  const col = g.attributes.color;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) + base;
+    const t = Math.min(1, Math.max(0, y / 1.4));
+    const k = 1 - strength * (1 - t * t * (3 - 2 * t));
+    col.setXYZ(i, col.getX(i) * k, col.getY(i) * k, col.getZ(i) * k);
+  }
+}
+
+let blobTex: THREE.Texture | null = null;
+/** Soft radial "contact shadow" texture. */
+export function blobTexture(): THREE.Texture {
+  if (blobTex) return blobTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d')!;
+  const grd = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(0,0,0,0.55)');
+  grd.addColorStop(0.5, 'rgba(0,0,0,0.28)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 64, 64);
+  blobTex = new THREE.CanvasTexture(c);
+  return blobTex;
+}
+
+/** Material for contact shadow blobs (multiplies the ground darker). */
+export function blobMaterial(): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    map: blobTexture(),
+    color: 0x1a2440,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
 }
