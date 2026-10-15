@@ -22,10 +22,9 @@ export interface CreatureView {
   mouth: THREE.Group;
 }
 
-const gooMat = new THREE.MeshPhysicalMaterial({
+const gooMat = new THREE.MeshStandardMaterial({
   color: 0x6dff4a,
-  roughness: 0.08,
-  clearcoat: 1,
+  roughness: 0.1,
   transparent: true,
   opacity: 0.5,
   depthWrite: false,

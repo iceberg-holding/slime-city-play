@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "node tests/reach.test.mjs",
-    "test:reach": "node tests/reach.test.mjs"
+    "test:reach": "node tests/reach.test.mjs",
+    "test:e2e": "node tests/e2e.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

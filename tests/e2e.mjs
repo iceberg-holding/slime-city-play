@@ -22,7 +22,12 @@ async function run(viewport, touch, tag) {
   await page.goto(url);
   await page.waitForFunction(() => window.__game && document.querySelectorAll('.card').length === 6);
   await page.waitForTimeout(600);
-  const shot = async (name) => SHOTS && page.screenshot({ path: `shots/r2-${tag}-${name}.png` });
+  const t0 = Date.now();
+  const shot = async (name) => {
+    if (process.env.VERBOSE) console.log(`  [${tag}] ${((Date.now() - t0) / 1000).toFixed(1)}s ${name}`);
+    if (SHOTS) await page.screenshot({ path: `shots/r2-${tag}-${name}.png` });
+  };
+  page.setDefaultTimeout(60000);
 
   // Hero builder: cards change the code + stats
   await page.click('.tab:nth-child(3)'); // legs
@@ -34,6 +39,14 @@ async function run(viewport, touch, tag) {
   assert.ok(jump > 1.2, `springs give a higher jump (${jump})`);
   assert.ok((await page.textContent('.quirk-text')).length > 5, 'quirk text shown');
   await shot('01-builder');
+  if (SHOTS) {
+    await page.click('.tab:nth-child(4)');
+    await shot('01b-guns');
+    await page.click('.creator-top .lang-btn');
+    await page.click('.tab:nth-child(2)');
+    await shot('01c-ru-body');
+    await page.click('.creator-top .lang-btn');
+  }
 
   await page.click('#play-btn');
   await page.waitForFunction(() => window.__game.mode === 'play');
@@ -68,6 +81,33 @@ async function run(viewport, touch, tag) {
   await page.waitForTimeout(300);
   await shot('04-glued');
 
+  if (touch) {
+    // right half: single tap = sticky, double tap = bouncy; buttons hidden in the default layout
+    assert.equal(await page.isVisible('.act-sticky'), false, 'no sticky button in tap layout');
+    const kinds = async () => page.evaluate(() => window.__game.state.projectiles.map((p) => p.kind));
+    await page.evaluate(() => (window.__game.state.creatures = []));
+    await shot('03a-before-tap');
+    await page.touchscreen.tap(viewport.width * 0.75, viewport.height * 0.4);
+    await page.waitForFunction(() => window.__game.state.projectiles.length > 0, null, { timeout: 5000 });
+    assert.deepEqual(await kinds(), ['sticky'], 'single tap fires sticky');
+    await page.waitForFunction(() => window.__game.state.projectiles.length === 0, null, { timeout: 8000 });
+    // two quick taps (dispatched in-page so slow software-GL frames can't stretch the gap)
+    await page.evaluate(([x, y]) => {
+      const c = document.getElementById('game');
+      for (const id of [11, 12]) {
+        const o = { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: true };
+        c.dispatchEvent(new PointerEvent('pointerdown', o));
+        c.dispatchEvent(new PointerEvent('pointerup', o));
+      }
+    }, [viewport.width * 0.75, viewport.height * 0.4]);
+    await page.waitForFunction(() => window.__game.state.projectiles.length > 0, null, { timeout: 5000 });
+    assert.deepEqual(await kinds(), ['bouncy'], 'double tap fires bouncy');
+    await page.evaluate(() => window.__game.setClassic(true));
+    assert.equal(await page.isVisible('.act-sticky'), true, 'classic layout shows sticky button');
+    await shot('03b-classic');
+    await page.evaluate(() => window.__game.setClassic(false));
+  }
+
   // reachability + ride
   const reach = await page.evaluate(() => window.__game.reach());
   assert.deepEqual(reach, [true, true, true, true, true], 'every part reachable on foot');
@@ -88,6 +128,25 @@ async function run(viewport, touch, tag) {
   assert.ok(speed > 0, `bike rides after collectAll + interact (speed ${speed})`);
   await page.waitForTimeout(500);
   await shot('05-ride');
+  if (SHOTS) {
+    await page.evaluate(() => {
+      const g = window.__game;
+      g.interact();
+      g.teleport(-4, 0, 17);
+      g.setCamera(-1.2, 0.35);
+      g.tick(30);
+    });
+    await page.waitForTimeout(600);
+    await shot('07-cafe-ramp');
+    await page.evaluate(() => {
+      const g = window.__game;
+      g.teleport(16, 0, 2);
+      g.setCamera(-0.4, 0.3);
+      g.tick(30);
+    });
+    await page.waitForTimeout(600);
+    await shot('08-east-ramp');
+  }
 
   // settings toggle persists
   await page.click('.hud .gear-btn');

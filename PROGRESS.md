@@ -1,40 +1,61 @@
-# Slime City v0.1 — progress
+# Slime City v0.2 — progress
 
 `npm install && npm run dev` to play; `npm run build` (tsc --noEmit && vite build) passes. Vite `base: './'`, so `dist/` can be dropped onto GitHub Pages under `/slime-city-play/`.
 
-## What works
-- **Character creator**: combination-lock UI with 4 spinning wheels (head / body / legs / gun, 6 options each, digits 0–5). Drag a wheel, tap the ▲/▼ arrows or use the mouse wheel. The 4-digit code is shown and saved to localStorage. There's a live 3D turntable preview, a Random button and a Play button. EN/RU toggle is saved in localStorage.
-- **City block**: Paris-ish ring of pastel buildings with mansard roofs, chimneys, windows, balconies and shop awnings. Plaza with a fountain, trees, lamps, benches and 6 parked cars. Two long ramps with flat landings lead to rooftops, and a crate staircase climbs another. Repeated geometry uses InstancedMesh. One directional light with a 1024 shadow map that follows the player. About 170–195 draw calls including the shadow pass.
-- **Mission (per the SPEC "CHANGE")**: 5 pit-bike parts (front wheel, rear wheel, frame, handlebar, engine), each glowing with a light beam:
-  - one on the fountain
-  - one on a roof reached by a ramp
-  - one on a low café roof (needs blocks or a bounce pad)
-  - one on a car roof
-  - one floating above the street (bounce pad or a stack of blocks)
-  - Parts you pick up float above your head. Walk into the garage (blue beam) to deliver them, and the bike there assembles part by part. When all 5 are in, a Ride button appears (F / Enter on desktop).
-- **Riding**: arcade bike physics. Joystick up = throttle, down = brake/reverse, sideways = steer; the bike leans into turns. Ramps launch the bike into the air. Pink slime pads launch it and do an automatic backflip. Steering in the air spins the bike, and Jump in the air starts a flip. Each completed flip or 360 spin shows a "TRICK!" popup. Creatures knock the bike back. You can still fire both slime types while riding, but not place blocks. The camera swings behind the bike unless you're dragging it.
-- **Win**: first trick or 10 s of riding. The world keeps running for ~2 s so the trick lands, then the win screen shows the time with Play again / New hero.
-- **Creatures**: 5 lumpy procedural blobs (seeded colors, 1–3 eyes, some on stalks, some horns). They wander, chase when you're within 9 m, and hop over obstacles. Touching one knocks you back with a short stun. Nobody gets hurt.
-- **Slime gun**:
-  - Sticky: lightly aim-assisted at creatures in front. Glues a creature for 5 s inside a green goo shell, or splats on walls.
-  - Bouncy: lob that leaves a pink pad on whatever surface it lands on (max 4, 30 s each). Players, creatures and the bike that step on a pad launch about 5.8 m up. A direct hit pops a creature into the air.
-- **Blocks**: cube or ramp placed on the 1 m grid in front of you (along the camera direction), stacked on whatever is below. A preview cell shows for a few seconds after placing or toggling, red when the spot is blocked. Max 10; past that the oldest block is recycled. The HUD counter shows how many are left. You can climb blocks and walk up ramps.
+Tests:
+- `npm test` — pure-sim test (Node + Vite SSR loader, no browser). Walk-path search proves all 5 bike parts are reachable on foot from the spawn. A scripted walk through `step()` (3 hero builds) then collects all 5, delivers them, mounts the bike and checks speed > 0.
+- `npm run build && npm run test:e2e` — Playwright against `vite preview` (desktop + mobile touch). Checks:
+  - no console errors
+  - builder cards change the code and stats
+  - pyshki crowd and talk
+  - `__game.reach()` is all true
+  - `collectAll()` + `interact()` gives a bike with speed > 0
+  - tap = sticky, double-tap = bouncy, classic layout shows the buttons
+  - the settings toggle persists
+  - `SHOTS=1` also saves screenshots to `shots/r2-*.png`.
+
+## Round 2 (what changed)
+- **Look**:
+  - All models are procedural and rounded: rounded boxes, capsules, lathes and smooth spheres.
+  - A `Kit` (`render/materials.ts`) merges each model into one vertex-colored mesh per finish (matte / soft / gloss-clearcoat / metal / glass / rubber / glow), so draw calls stay low.
+  - Lighting: RoomEnvironment PMREM env map, hemisphere light, soft PCF shadows (`shadow.radius`), Neutral tone mapping, sRGB output.
+  - Gradient sky dome with clouds and fog.
+  - Fake AO: vertex AO darkens the city near the ground, plus contact-shadow blobs under props (baked) and under characters, pyshki, the bike and parts (dynamic).
+  - Pixel ratio is `min(devicePixelRatio, 2.5)`. `AdaptiveResolution` steps it down when FPS < 50 and won't climb back to a ratio that was too slow.
+  - Static city meshes are split into quadrants for frustum culling. About 130–160 draw calls and ~0.4 M triangles per frame, shadow pass included.
+- **Pyshki**:
+  - Glossy slime buns with big eyes and blush. About half wear a granny headscarf.
+  - Within 9 m they crowd you on a ring of ~1.5 m. Half of them try to stand in your path. They face you, sometimes twirl, keep a little space from each other, block you as soft obstacles, and give a mild shove when you walk into them.
+  - They babble one of 16 phrases (RU/EN) in DOM speech bubbles.
+  - Glued pyshki go quiet, close their eyes happily and show "z z z".
+  - All behaviour is in the sim (`talk` / `phrase` state, `babble` events); text lives in the UI.
+- **Hero builder** (replaces the combination lock):
+  - Tabs for head / body / legs / gun, 6 cards each. Card thumbnails are rendered from the real 3D parts.
+  - A live 3D turntable shows the hero.
+  - Quirk text plus green/red stat chips (RU/EN), the 4-digit code, and Random.
+  - Stats are pure data in `sim/hero.ts` (`heroStats(look)`) and are applied by the sim: speed, jump, push/stun, fire rate, blob size, range/aim, glue time, max blocks, pad boing/size, twin shot, bike speed, personal space.
 - **Controls**:
-  - Touch: floating joystick on the left; drag the right side to look; buttons for sticky, bouncy, jump and block, plus a small cube/ramp toggle and the Ride/Exit button.
-  - Desktop: WASD or arrows to move, drag to look (←/→ also turn), Space jump, click or J sticky, right-click or K bouncy, E block, Q cube/ramp, F ride/exit.
-- **Architecture**:
-  - `src/sim` is pure TS with no three.js. `step(state, inputsByPlayerId, dt)` runs at a fixed 60 Hz. RNG is seeded and stored in state, entities have ids, and events go out to the view for sound and particles.
-  - `src/sim/vehicles.ts` is data-driven: a `VehicleDef` lists parts and handling, and `MISSION` sets the garage and part spots.
-  - `src/render` reads state. `vehicleModels.ts` maps each vehicle kind and part id to a builder, so a scooter or drone = a new def plus builders.
-  - `src/input` produces `InputCommand`s; `src/ui` holds the DOM screens.
-- **`window.__game`** test hooks: `state`, `mode`, `start()`, `teleport(x,y,z)`, `fire(kind,yaw)`, `place(yaw)`, `tick(n, cmd)`, `interact()`, `collectAll()`, `setCamera()`, `setPaused()`, `renderInfo()`.
-- Sound is a few synthesized WebAudio blips; there are no asset files.
+  - Touch default: left-thumb joystick. Right half: tap = sticky, double-tap = bouncy (a single tap fires after the 260 ms double-tap window), drag = camera. Separate Jump and Block buttons, plus the cube/ramp toggle.
+  - ⚙ Settings (in the builder and the HUD) has "Classic buttons" (separate Sticky/Bouncy buttons) and language. Saved in localStorage; the game pauses while it's open.
+  - Desktop controls are unchanged.
+- **Reachability fix**: every part can now be reached on foot.
+  - front wheel: fountain rim, via a new step ring
+  - rear wheel: north roof via the ramp
+  - frame: café roof via a new café ramp
+  - handlebar: the red car's hood, from the ground
+  - engine: east rooftop landing via the east ramp
+  - Previously the fountain-top and car-roof parts needed jumps, and the engine floated in mid-air (pad or blocks only).
+- **`window.__game`**: `state`, `mode`, `view`, `look`, `start()`, `showCreator()`, `pickPart(slot, i)`, `heroStats()`, `teleport()`, `fire()`, `place()`, `tick(n, cmd)`, `interact()`, `collectAll()`, `reach()`, `setCamera()`, `setPaused()`, `setClassic()`, `renderInfo()` (now includes pixelRatio and fps).
+
+## Architecture (unchanged principles)
+- `src/sim` is pure TS with no three.js. Fixed 60 Hz `step(state, inputs, dt)`, seeded RNG in state, entity ids, events out.
+- Vehicles are still data-driven (`VehicleDef`, `MISSION`). Hero parts are data too (`HERO_PARTS`).
+- `src/render` reads state, `src/input` makes `InputCommand`s, `src/ui` holds the DOM screens (builder, HUD, settings, bubbles, win).
 
 ## Known issues / not done
-- The sim is only tested by scripted headless runs (Playwright + SwiftShader, screenshots in `shots/`). FPS hasn't been measured on a real phone.
-- Physics is simple: characters are AABBs and ramp height is sampled at the body's center. Nothing blocks you from below (no ceilings), and the camera only collides with buildings, props and awnings, not creatures.
-- The mansard roofs' colliders are vertical boxes, so you stand a little in front of the sloped visual.
-- The bike can't climb cube blocks (0.4 m step limit), only ramps. Only the bike's center is tested against pads and walls.
-- Hitting the 10-block limit recycles the oldest block, even one you're standing on.
-- `VehicleDef.flies` exists for a future drone but isn't used yet.
-- Bundle is ~600 kB (three.js isn't code-split).
+- Only tested headless (SwiftShader). FPS on a real phone hasn't been measured. The adaptive resolution should absorb fill-rate problems, but the triangle count (~0.4 M with shadows) is the next thing to cut if needed, e.g. by not letting pyshki cast real shadows.
+- Physics is still simple: AABB characters, ramp height sampled at the body's center, no ceilings, the camera ignores creatures.
+- Pyshki crowding can feel busy with all 7 around you. Gluing them or riding away is the answer.
+- A single tap fires sticky about 0.26 s late, because the game waits to see whether it's a double tap.
+- Speech bubbles aren't occluded by walls.
+- `VehicleDef.flies` is still unused. The bundle is ~680 kB (three.js isn't code-split).
