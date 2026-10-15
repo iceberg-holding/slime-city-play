@@ -429,7 +429,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       speed = Math.min(CREATURE_CROWD_SPEED, d * 2.5);
       // babble
       c.talkCd -= dt;
-      if (c.talkCd <= 0 && td < 5) {
+      if (c.talkCd <= 0 && td < 5 && c.chatUntil <= state.tick / 60 && !(c.phrase >= 100 && c.talk > 0)) {
         c.phrase = Math.floor(rand(state) * PHRASE_COUNT);
         c.talk = BUBBLE_TIME;
         c.talkCd = randRange(state, 4, 10);
@@ -466,7 +466,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       dirZ += (oz / od) * push;
       speed = Math.max(speed, 1.5);
     }
-    if (c.chatUntil > state.tick / 60) {
+    if (c.chatUntil > state.tick / 60 && c.grounded && !(c.phrase >= 100 && c.talk > 0)) {
       const partner = state.creatures.find(o => o.id === c.chatPartner);
       speed = 0;
       if (partner) {
@@ -585,6 +585,8 @@ function updateProjectiles(state: GameState, dt: number, col: Collider) {
           c.stuck = 0;
           c.phrase = 100 + Math.floor(rand(state) * 3);
           c.talk = 3;
+          c.vel.x = pr.vel.x * 0.65;
+          c.vel.z = pr.vel.z * 0.65;
           c.vel.y = 11;
           c.grounded = false;
           emit(state, 'bounce', c.pos.x, c.pos.y, c.pos.z, c.id);

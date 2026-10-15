@@ -75,3 +75,5 @@ Tests:
 - D3: Restored studio head/leg rig animation and batched static studio tower/props by material to reduce draw calls while retaining bubble animation. Build and tests pass.
 
 - Polish: Added nearby touch elevator interaction/calling to the caller’s floor and stronger blue sky after inspecting 412x915 rooftop screenshots. Build and tests pass. Full e2e run was interrupted at the settings-close wait; focused phone views rendered without page errors.
+
+- Regression coverage: Added real sim checks for temporary glue, bouncy freeing/flight shouts and paired chats; prevented chatter from replacing flight shouts and added horizontal launch momentum. Build and tests pass.

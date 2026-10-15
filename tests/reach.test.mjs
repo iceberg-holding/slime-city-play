@@ -15,6 +15,29 @@ try {
   const { PLAYER_SPAWN } = await load('/src/sim/world.ts');
   const { DT } = await load('/src/sim/constants.ts');
 
+  const voices = createGame(777, [0, 0, 0, 0]);
+  const bun = voices.creatures[0];
+  voices.creatures = [bun];
+  const hit = kind => {
+    voices.projectiles.push({ id: voices.nextId++, kind, owner: voices.players[0].id,
+      pos: { x: bun.pos.x, y: bun.pos.y + 0.6, z: bun.pos.z }, vel: { x: 0, y: 0, z: 0 }, life: 2, scale: 1 });
+    step(voices, {}, DT);
+  };
+  hit('sticky');
+  assert.ok(bun.stuck > 0, 'sticky freezes a pyshka');
+  hit('bouncy');
+  assert.ok(bun.stuck <= 0 && bun.phrase >= 100 && bun.talk > 0 && bun.vel.y > 0, 'bouncy frees and launches with a flight shout');
+  hit('sticky');
+  for (let i = 0; i < 400; i++) step(voices, {}, DT);
+  assert.ok(bun.stuck <= 0, 'glue wears off');
+  const chat = createGame(777, [0, 0, 0, 0]);
+  chat.creatures = chat.creatures.slice(0, 2);
+  chat.creatures[0].pos = { x: 4, y: 0, z: 14 };
+  chat.creatures[1].pos = { x: 4.8, y: 0, z: 14 };
+  chat.tick = 420;
+  step(chat, {}, DT);
+  assert.equal(chat.creatures[0].chatPartner, chat.creatures[1].id, 'meeting pyshki pair up to chat');
+
   // Elevator carries a standing rider to mid floor and roof without jumping.
   const towerState = createGame(1234, [0, 0, 0, 0]);
   towerState.creatures = [];
