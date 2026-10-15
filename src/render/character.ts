@@ -270,11 +270,24 @@ export function buildCharacter(look: Look): CharacterRig {
   head.add(buildHead(h));
   head.position.y = 1.3;
   inner.add(head);
-  // Studio parts share the feet origin, with +Z forward.
+  // Preserve the rig pivots while adapting the studio's shared feet origin.
   inner.clear();
   const studio = new THREE.Group(); studio.rotation.y = Math.PI;
-  (['head', 'body', 'legs', 'gun'] as HeroSlot[]).forEach((slot, i) => studio.add(studioPart(slot, look[i])));
   inner.add(studio);
+  const studioHead = studioPart('head', h);
+  studioHead.position.y = -1.3;
+  head.clear(); head.add(studioHead);
+  studio.add(head);
+  studio.add(studioPart('body', bo), studioPart('gun', gn));
+  const legs = studioPart('legs', l);
+  legL.clear(); legR.clear();
+  legL.position.set(-0.14, 0.6, 0); legR.position.set(0.14, 0.6, 0);
+  for (const child of [...legs.children]) {
+    if (Math.abs(child.position.x) < 0.05) { studio.add(child); continue; }
+    const pivot = child.position.x < 0 ? legL : legR;
+    child.position.sub(pivot.position); pivot.add(child);
+  }
+  studio.add(legL, legR);
   return { root, inner, legL, legR, armL, armR, head };
 }
 

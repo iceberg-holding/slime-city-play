@@ -1,3 +1,4 @@
+import { batchStatic } from './art/batch';
 import { tree as studioTree, bench as studioBench, lamp as studioLamp } from './art/studio';
 import * as THREE from 'three';
 import type { Solid, World } from '../sim/types';
@@ -210,7 +211,7 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
       const model = p.kind === 'tree' ? studioTree(0.85) : p.kind === 'bench' ? studioBench() : studioLamp();
       model.position.set(p.x, 0, p.z);
       if (p.kind === 'bench' && Math.abs(p.x) > Math.abs(p.z)) model.rotation.y = Math.PI / 2;
-      root.add(model);
+      root.add(batchStatic(model));
       continue;
     }
     {

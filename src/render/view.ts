@@ -1,3 +1,4 @@
+import { batchStatic } from './art/batch';
 import { buildSkyscraper } from './art/studio';
 import { buildRooftop } from './rooftop';
 import { TOWER } from '../sim/tower';
@@ -115,6 +116,7 @@ export class GameView {
     this.scene.add(tower);
     // Remove the showcase-only elevator cabin: the sim owns the real platform.
     const cabin = tower.getObjectByName('showcase-cabin'); if (cabin) cabin.visible = false;
+    batchStatic(tower);
     this.scene.userData.studioTower = tower;
     this.spray = city.root.getObjectByName('spray');
     this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
