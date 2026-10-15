@@ -71,6 +71,8 @@ export interface Creature extends Body {
   /** phrase index (0..PHRASE_COUNT-1), localized by the UI */
   phrase: number;
   talkCd: number;
+  chatUntil: number;
+  chatPartner: number | null;
   /** seconds left of a happy little twirl */
   twirl: number;
 }

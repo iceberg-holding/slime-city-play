@@ -74,6 +74,7 @@ export function createGame(seed: number, look: Look): GameState {
       talk: 0,
       phrase: 0,
       talkCd: randRange(state, 0.5, 3),
+      chatUntil: 0, chatPartner: null,
       twirl: 0,
     };
     state.creatures.push(c);
@@ -448,10 +449,26 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       const oz = c.pos.z - o.pos.z;
       const od = Math.hypot(ox, oz);
       if (od > 1.15 || od < 0.001 || Math.abs(c.pos.y - o.pos.y) > 1) continue;
+      if (c.id < o.id && c.grounded && o.grounded && c.stuck <= 0 && o.stuck <= 0 && c.chatUntil + 6 < state.tick / 60 && o.chatUntil + 6 < state.tick / 60) {
+        c.chatPartner = o.id; o.chatPartner = c.id;
+        c.chatUntil = o.chatUntil = state.tick / 60 + 4.8;
+        c.twirl = o.twirl = 0.25;
+        c.vel.x += ox / od; c.vel.z += oz / od;
+        o.vel.x -= ox / od; o.vel.z -= oz / od;
+      }
       const push = (1.15 - od) * 3;
       dirX += (ox / od) * push;
       dirZ += (oz / od) * push;
       speed = Math.max(speed, 1.5);
+    }
+    if (c.chatUntil > state.tick / 60) {
+      const partner = state.creatures.find(o => o.id === c.chatPartner);
+      speed = 0;
+      if (partner) {
+        c.yaw = turnToward(c.yaw, Math.atan2(c.pos.x - partner.pos.x, c.pos.z - partner.pos.z), dt * 8);
+        const speaking = Math.floor((c.chatUntil - state.tick / 60) / 1.2) % 2 === (c.id < partner.id ? 0 : 1);
+        if (speaking && c.talk <= 0) { c.phrase = Math.floor(rand(state) * PHRASE_COUNT); c.talk = 1.1; emit(state, 'babble', c.pos.x, c.pos.y, c.pos.z, c.id); }
+      }
     }
     const d = Math.hypot(dirX, dirZ);
     if (d > 0.01) {
