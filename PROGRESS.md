@@ -81,3 +81,4 @@ Tests:
 - Final interaction polish: Named teleports safely dismount riders; paired pyshki face each other and keep alternating turns quiet. Saved focused 412x915 tower/pool/spa screenshots in shots/r2-tower-phone-*.png. Build and tests pass; fresh desktop e2e passed.
 
 - Validation complete: npm run test:e2e passes desktop and mobile with no console errors (7 crowding/talking pyshki; bike 7.43 m/s). Latest npm run build && npm test pass, including all 5 walking routes, glue/flight/chat regressions and elevator stops. No pushes.
+- R3.1: Classic Sticky/Bouncy buttons now default on; versioned storage resets old gesture preferences, with gestures still opt-in. Build and sim tests pass.

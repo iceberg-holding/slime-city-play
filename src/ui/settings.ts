@@ -1,12 +1,12 @@
 import { nextLang, getLang, onLangChange, t } from './i18n';
 
-const CLASSIC_KEY = 'slimecity.classicButtons';
+const CLASSIC_KEY = 'slimecity.controls.v3.classicButtons';
 
 let classic = (() => {
   try {
-    return localStorage.getItem(CLASSIC_KEY) === '1';
+    return localStorage.getItem(CLASSIC_KEY) !== '0';
   } catch {
-    return false;
+    return true;
   }
 })();
 const listeners: ((classic: boolean) => void)[] = [];
