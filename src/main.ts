@@ -143,7 +143,7 @@ setPreview(creator.look);
 const win = new WinScreen(
   () => {
     if (state?.race.phase === 'failed') { startRace(state); resumePlay(); }
-    else startGame(creator.look, state?.level === 1 ? 2 : 1);
+    else startGame(creator.look, state?.level === 1 ? 2 : state?.level ?? 1);
   },
   () => showCreator(),
 );
@@ -275,7 +275,7 @@ function frame(now: number) {
       input.reset();
       hud.show(false);
       bubbles.show(false);
-      win.open(state.winTime, state.race.phase === 'failed' ? 'failed' : state.level === 1 ? 'next' : 'won');
+      win.open(state.winTime, state.race.phase === 'failed' ? 'failed' : state.level === 1 ? 'next' : state.level === 2 ? 'complete' : 'won');
     }
   }
   followVehicle(dt);

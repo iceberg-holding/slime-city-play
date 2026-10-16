@@ -894,3 +894,42 @@ button {
 @media (pointer: coarse) {
   .ride-btn { left: 12px; top: 142px; bottom: auto; }
 }
+
+/* ---------- Level complete: drone teaser ---------- */
+.win.complete .win-card { box-shadow: 0 10px 0 #39d9c4, 0 20px 40px rgba(0, 0, 0, 0.3); }
+.win.complete .win-title { color: #1aa7b8; font-size: clamp(28px, 8vw, 40px); }
+.teaser {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 auto 16px;
+  padding: 10px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #e9f4ff, #f3e9ff);
+  border: 2px dashed #9b8cff;
+  text-align: left;
+  max-width: 320px;
+}
+.teaser[hidden] { display: none; }
+.teaser-title { font-weight: 900; color: #6c4cf0; font-size: 18px; }
+.teaser-sub { font-weight: 700; font-size: 13px; color: #5a5f7a; }
+.drone { position: relative; flex: 0 0 64px; height: 44px; animation: drone-hover 1.6s ease-in-out infinite; }
+.drone b {
+  position: absolute; left: 20px; top: 15px; width: 24px; height: 14px;
+  border-radius: 7px; background: #6c4cf0; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+}
+.drone b::before, .drone b::after {
+  content: ''; position: absolute; top: 5px; width: 18px; height: 3px; background: #3a3f55;
+}
+.drone b::before { right: 22px; }
+.drone b::after { left: 22px; }
+.drone i {
+  position: absolute; width: 22px; height: 5px; border-radius: 3px; background: #ff6f91;
+  animation: drone-rotor 0.25s linear infinite;
+}
+.drone i:nth-child(1) { left: 0; top: 4px; }
+.drone i:nth-child(2) { right: 0; top: 4px; }
+.drone i:nth-child(3) { left: 0; top: 30px; }
+.drone i:nth-child(4) { right: 0; top: 30px; }
+@keyframes drone-rotor { to { transform: scaleX(-1); } }
+@keyframes drone-hover { 50% { transform: translateY(-5px); } }

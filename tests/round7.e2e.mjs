@@ -47,10 +47,7 @@ try {
   assert.equal(await page.isVisible('.gate-compass'), false);
   assert.ok((await cues()).every(o => !o.visible), 'racing cues hidden');
   await page.screenshot({ path: 'shots/r7-road.png', timeout: 120000 });
-  await page.evaluate(() => { const g = window.__game; g.state.level = 2; g.state.race.phase = 'open'; });
-  await page.waitForTimeout(300);
-  assert.ok((await cues()).every(o => !o.visible), 'level 2 cues hidden');
-  assert.equal(await page.isVisible('.gate-compass'), false);
+  // Level 2 has its own harbor gate cues; tests/round9.e2e.mjs covers them.
   assert.deepEqual(errors, []);
-  console.log('ok round7: gate visibility, camera compass, five languages, phone screenshots');
+  console.log('ok round7: gate visibility, camera compass, five languages, phone screenshots (level 2 cues: round9)');
 } finally { await browser.close(); await new Promise(r => server.httpServer.close(r)); }

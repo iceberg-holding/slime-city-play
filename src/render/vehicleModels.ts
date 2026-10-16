@@ -68,11 +68,69 @@ const PITBIKE: Record<string, PartBuilder> = {
   },
 };
 
-const BUILDERS: Record<VehicleKind, Record<string, PartBuilder>> = { pitbike: PITBIKE, scooter: {
-  frontWheel: () => wheel(-0.72, false), rearWheel: () => wheel(0.7, false),
-  handlebar: PITBIKE.handlebar,
-  deck: () => { const k = new Kit(); k.add(geo.rbox(0.48, 0.16, 1.65, 0.07), 0x39d9c4, { p: [0, 0.35, 0], finish: 'gloss' }); const g = new THREE.Group(); g.add(k.build()); return g; },
-} };
+const MINT = 0x39d9c4;
+const CORAL = 0xff6f61;
+
+/** Small scooter wheel with a coloured hub. */
+function scooterWheel(z: number): THREE.Group {
+  const g = new THREE.Group();
+  const spin = new Kit();
+  spin.add(geo.torus(0.15, 0.065, Math.PI * 2, 32), 0x262838, { r: [0, Math.PI / 2, 0], finish: 'rubber' });
+  spin.add(geo.cyl(0.11, 0.11, 0.07, 24), CORAL, { r: [0, 0, Math.PI / 2], finish: 'gloss' });
+  spin.add(geo.cyl(0.04, 0.04, 0.16, 12), 0xe6ebf2, { r: [0, 0, Math.PI / 2], finish: 'metal' });
+  const spinner = spin.build();
+  spinner.name = 'spin';
+  g.add(spinner);
+  g.position.set(0, 0.22, z);
+  return g;
+}
+
+// Kick scooter: low mint deck you stand on, tall T-bar steering column.
+const SCOOTER: Record<string, PartBuilder> = {
+  frontWheel: () => {
+    const g = scooterWheel(-0.62);
+    const fork = new Kit();
+    for (const x of [-0.07, 0.07]) fork.add(geo.capsule(0.025, 0.3, 8), 0xe6ebf2, { p: [x, 0.1, 0.02], finish: 'metal' });
+    fork.add(geo.rbox(0.2, 0.05, 0.3, 0.02), MINT, { p: [0, 0.27, -0.02], r: [0.2, 0, 0], finish: 'gloss' }); // front fender
+    g.add(fork.build());
+    return g;
+  },
+  rearWheel: () => {
+    const g = scooterWheel(0.6);
+    const brake = new Kit();
+    brake.add(geo.rbox(0.18, 0.04, 0.34, 0.02), CORAL, { p: [0, 0.2, 0.04], r: [-0.25, 0, 0], finish: 'gloss' }); // fender brake
+    g.add(brake.build());
+    return g;
+  },
+  deck: () => {
+    const k = new Kit();
+    k.add(geo.rbox(0.34, 0.08, 1.15, 0.04), MINT, { p: [0, 0.26, 0], finish: 'gloss' });
+    k.add(geo.rbox(0.3, 0.015, 1.0, 0.007), 0x2b2d3a, { p: [0, 0.305, 0.02], finish: 'rubber' }); // grip tape
+    for (const z of [-0.36, -0.12, 0.12, 0.36]) k.add(geo.rbox(0.24, 0.005, 0.05, 0.002), 0xffffff, { p: [0, 0.315, z], finish: 'matte' });
+    k.add(geo.capsule(0.03, 0.42, 8), 0xe6ebf2, { p: [0, 0.23, -0.55], r: [Math.PI / 2 - 0.4, 0, 0], finish: 'metal' }); // neck
+    k.add(geo.capsule(0.022, 0.2, 8), 0x3a3f55, { p: [0.17, 0.12, 0.25], r: [0, 0, 0.6], finish: 'metal' }); // kickstand
+    const g = new THREE.Group();
+    g.add(k.build());
+    return g;
+  },
+  handlebar: () => {
+    const k = new Kit();
+    k.add(geo.capsule(0.035, 0.95, 12), 0xe6ebf2, { p: [0, 0.78, -0.66], r: [-0.12, 0, 0], finish: 'metal' }); // stem
+    k.add(geo.cyl(0.055, 0.055, 0.12, 16), CORAL, { p: [0, 0.5, -0.63], r: [-0.12, 0, 0], finish: 'gloss' }); // clamp
+    k.add(geo.capsule(0.03, 0.62, 10), 0x3a3f55, { p: [0, 1.24, -0.72], r: [0, 0, Math.PI / 2], finish: 'metal' });
+    for (const x of [-0.27, 0.27]) k.add(geo.capsule(0.045, 0.16, 10), CORAL, { p: [x, 1.24, -0.72], r: [0, 0, Math.PI / 2], finish: 'rubber' });
+    k.add(geo.sphere(0.05, 12, 8), 0xffd23f, { p: [0.12, 1.29, -0.72], finish: 'gloss' }); // bell
+    k.add(geo.sphere(0.055, 12, 8), 0xfff3b0, { p: [0, 1.02, -0.79], s: [1, 1, 0.5], finish: 'glow' }); // lamp
+    const g = new THREE.Group();
+    g.add(k.build());
+    return g;
+  },
+};
+
+const BUILDERS: Record<VehicleKind, Record<string, PartBuilder>> = { pitbike: PITBIKE, scooter: SCOOTER };
+
+/** Riders stand on scooters and sit on bikes. */
+export const STANDING: Record<VehicleKind, boolean> = { pitbike: false, scooter: true };
 
 export function buildPart(kind: VehicleKind, partId: string): THREE.Group {
   return BUILDERS[kind][partId]();
@@ -106,7 +164,8 @@ export function buildVehicle(kind: VehicleKind, partIds: string[]): VehicleModel
     if (s) wheels.push(s);
   }
   const seat = new THREE.Group();
-  seat.position.set(0, 0.25, 0.15);
+  if (STANDING[kind]) seat.position.set(0, 0.31, 0.12);
+  else seat.position.set(0, 0.25, 0.15);
   body.add(seat);
   return { root, pivot, seat, parts, wheels };
 }

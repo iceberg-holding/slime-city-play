@@ -16,7 +16,7 @@ import { buildCity, wedge } from './city';
 import { buildCreature, type CreatureView } from './creature';
 import { SKY_HORIZON, addLights, buildSky, environment } from './env';
 import { Kit, blobMaterial, geo } from './materials';
-import { buildPart, buildVehicle, type VehicleModel } from './vehicleModels';
+import { STANDING, buildPart, buildVehicle, type VehicleModel } from './vehicleModels';
 
 /** Instanced pool for dynamic, short-lived things. */
 class Pool {
@@ -425,8 +425,12 @@ export class GameView {
         if (rig.root.parent !== vm.seat) vm.seat.add(rig.root);
         rig.root.position.set(0, 0, 0);
         rig.root.rotation.set(0, 0, 0);
-        rig.legL.rotation.x = rig.legR.rotation.x = 1.1;
+        const kind = state.vehicles.find((v) => v.id === p.riding)?.kind;
+        const stand = kind ? STANDING[kind] : false;
+        rig.legL.rotation.x = stand ? -0.15 : 1.1;
+        rig.legR.rotation.x = stand ? 0.2 : 1.1;
         rig.armL.rotation.x = 1.3;
+        if (stand) rig.armR.rotation.x = 1.1;
         rig.inner.position.y = 0;
       } else if (rig.root.parent !== this.scene) {
         this.scene.add(rig.root);

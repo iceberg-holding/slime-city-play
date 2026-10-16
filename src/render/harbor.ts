@@ -50,6 +50,8 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
   const water = buildWater();
   root.add(water);
 
+  const main = new Kit();
+  main.groundAO = 0.2;
   const flat = new Kit();
   // Promenade paving with a darker border and tile lines.
   const pw = H.east - H.beachMaxX, pz = H.south - H.seawallZ;
@@ -67,8 +69,7 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
   root.add(flat.build(true));
 
   // Seawall: stone with a white coping and posts; a rope fence along the beach.
-  const wall = new Kit();
-  wall.groundAO = 0.25;
+  const wall = main;
   for (const s of world.solids.filter((s) => s.maxZ === H.seawallZ && s.maxY === 1)) {
     const w = s.maxX - s.minX, cx = (s.minX + s.maxX) / 2;
     const beach = s.maxX <= H.beachMaxX + 0.01;
@@ -83,7 +84,6 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
       wall.add(geo.capsule(0.04, w, 8), NAVY, { p: [cx, 1.25, H.seawallZ - 0.25], r: [0, 0, Math.PI / 2], finish: 'metal' });
     }
   }
-  root.add(wall.build(true));
 
   // Houses along the south edge (tall, narrow, colourful) and striped beach huts by the dunes.
   world.buildings.forEach((b, i) => {
@@ -124,7 +124,7 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
 
   // Wooden pier: planks, pilings, rails, lifebuoys.
   const P = H.pier;
-  const pier = new Kit();
+  const pier = main;
   pier.add(geo.rbox(P.maxX - P.minX, 0.3, P.maxZ - P.minZ, 0.08), WOOD, { p: [(P.minX + P.maxX) / 2, P.y - 0.15, (P.minZ + P.maxZ) / 2] });
   for (let z = P.minZ + 0.5; z < P.maxZ; z += 1) pier.add(geo.box(), WOOD_DARK, { p: [(P.minX + P.maxX) / 2, P.y + 0.005, z], s: [P.maxX - P.minX - 0.1, 0.01, 0.05], cast: false });
   for (let z = P.minZ + 0.6; z < P.maxZ; z += 4) for (const x of [P.minX + 0.3, P.maxX - 0.3]) pier.add(geo.cyl(0.18, 0.2, P.y + 0.6, 10), WOOD_DARK, { p: [x, (P.y - 0.6) / 2, z] });
@@ -139,18 +139,16 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
   for (const z of [-30, -18]) pier.add(geo.torus(0.32, 0.1, Math.PI * 2, 20), z === -30 ? 0xff5d5d : 0xffffff, { p: [P.minX + 0.05, P.y + 0.55, z], r: [0, Math.PI / 2, 0], finish: 'gloss' });
   const pr = wedgeTransform(H.pierRamp);
   pier.add(wedge(pr.w, pr.h, pr.d, 0.06), WOOD, { p: [pr.x, pr.y, pr.z], r: [0, pr.ry, 0] });
-  root.add(pier.build(true));
 
   // Moored fishing boat (walkable) plus two decorative boats out at sea.
-  root.add(boat(H.boat, 0xffc93c, true));
-  root.add(boat({ minX: 8, maxX: 12, minZ: -32, maxZ: -23, y: 1.2 }, 0xe63946, false));
-  root.add(boat({ minX: -22, maxX: -18.5, minZ: -30, maxZ: -22, y: 1 }, 0x4dc9ff, false));
-  root.add(sailboat(-40, -48));
+  boat(main, H.boat, 0xffc93c, true);
+  boat(main, { minX: 8, maxX: 12, minZ: -32, maxZ: -23, y: 1.2 }, 0xe63946, false);
+  boat(main, { minX: -22, maxX: -18.5, minZ: -30, maxZ: -22, y: 1 }, 0x4dc9ff, false);
+  sailboat(main, -40, -48);
 
   // Stone jetty, lighthouse and its gallery.
   const J = H.jetty, L = H.lighthouse;
-  const jet = new Kit();
-  jet.groundAO = 0.2;
+  const jet = main;
   jet.add(geo.rbox(J.maxX - J.minX, J.y + 0.4, J.maxZ - J.minZ, 0.15), STONE, { p: [(J.minX + J.maxX) / 2, (J.y - 0.4) / 2, (J.minZ + J.maxZ) / 2] });
   for (const x of [J.minX + 0.15, J.maxX - 0.15]) jet.add(geo.rbox(0.3, 1, J.maxZ - J.minZ, 0.1), 0xb8b0a1, { p: [x, J.y + 0.5, (J.minZ + J.maxZ) / 2] });
   jet.add(geo.rbox(J.maxX - J.minX, 1, 0.3, 0.1), 0xb8b0a1, { p: [(J.minX + J.maxX) / 2, J.y + 0.5, J.minZ + 0.15] });
@@ -181,7 +179,6 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
   // Sloped handrail over the ramp.
   const handrail = new THREE.CatmullRomCurve3([new THREE.Vector3(J.minX + 0.15, GR.minY + 1, GR.maxZ), new THREE.Vector3(J.minX + 0.15, GR.maxY + 1, GR.minZ), new THREE.Vector3(J.minX + 0.15, G.maxY + 1, G.minZ)]);
   jet.add(new THREE.TubeGeometry(handrail, 8, 0.06, 6, false), WHITE, { cast: false });
-  root.add(jet.build(true));
   // The lantern itself glows.
   const lantern = new THREE.Mesh(geo.cyl(0.9, 0.9, 1.3, 20), new THREE.MeshStandardMaterial({ color: 0xfff4c2, emissive: 0xffd36b, emissiveIntensity: 1.4, roughness: 0.2 }));
   lantern.position.set(L.x, L.height + 0.9, L.z);
@@ -190,7 +187,7 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
 
   // Lifeguard tower: stilts, platform, hut with a striped roof, ramp.
   const LG = H.lifeguard, LR = H.lifeguardRamp;
-  const life = new Kit();
+  const life = main;
   const lx = (LG.minX + LG.maxX) / 2, lz = (LG.minZ + LG.maxZ) / 2;
   life.add(geo.rbox(LG.maxX - LG.minX, 0.3, LG.maxZ - LG.minZ, 0.08), WOOD, { p: [lx, LG.maxY - 0.15, lz] });
   for (const x of [LG.minX + 0.3, LG.maxX - 0.3]) for (const z of [LG.minZ + 0.3, LG.maxZ - 0.3]) life.add(geo.cyl(0.12, 0.14, LG.maxY, 8), WHITE, { p: [x, LG.maxY / 2, z] });
@@ -201,10 +198,9 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
   const lr = wedgeTransform(LR);
   life.add(wedge(lr.w, lr.h, lr.d, 0.06), WOOD, { p: [lr.x, lr.y, lr.z], r: [0, lr.ry, 0] });
   blobs.push({ x: lx, z: lz, sx: 4.5, sz: 4.5 });
-  root.add(life.build(true));
 
   // Umbrellas and palms.
-  const props = new Kit();
+  const props = main;
   const UMB = [0xff6f91, 0x4dc9ff, 0xffd166, 0x7ee081, 0xb388eb];
   world.props.forEach((p, i) => {
     if (p.kind === 'umbrella') {
@@ -225,17 +221,18 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
       blobs.push({ x: p.x + 0.5, z: p.z, sx: 2.8, sz: 2.8 });
     }
   });
-  root.add(props.build(true));
+  // Lamps and benches share one batch.
+  const furniture = new THREE.Group();
   for (const p of world.props) {
     if (p.kind !== 'lamp' && p.kind !== 'bench') continue;
     const m = p.kind === 'lamp' ? studioLamp() : studioBench();
     m.position.set(p.x, 0, p.z);
-    root.add(batchStatic(m));
+    furniture.add(m);
   }
+  root.add(batchStatic(furniture));
 
   // West dunes with beach grass; east warehouses with a harbor crane.
-  const edge = new Kit();
-  edge.groundAO = 0.2;
+  const edge = main;
   for (let z = H.seawallZ + 1; z < H.south + 12; z += 4.5) {
     edge.add(geo.sphere(1, 16, 10), z % 2 ? 0xead09a : 0xe2c48b, { p: [H.west - 2, 0, z], s: [4.2, 5.8 + Math.sin(z) * 1.2, 3.4] });
     for (let g = 0; g < 3; g++) edge.add(geo.cone(0.25, 1, 5), 0x8cbf5a, { p: [H.west + 0.3 + g * 0.2, 0.4, z + g - 1], r: [0, 0, -0.3 + g * 0.2], cast: false });
@@ -253,10 +250,9 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
   edge.add(geo.rbox(1.6, 1.4, 1.6, 0.15), 0x2b2d3a, { p: [H.east + 2, 13, H.seawallZ - 2] });
   edge.add(geo.cyl(0.03, 0.03, 6, 4), 0x2b2d3a, { p: [H.east - 6, 11, H.seawallZ - 2], cast: false });
   edge.add(geo.rbox(2.4, 1.2, 1.4, 0.1), 0xe63946, { p: [H.east - 6, 7.6, H.seawallZ - 2] });
-  root.add(edge.build(true));
 
   // Seagulls on the seawall and a few buoys bobbing out at sea.
-  const bits = new Kit();
+  const bits = main;
   for (const [x, z] of [[-14, -14.2], [12, -14.2], [27, -16], [-24, -14.2]]) {
     bits.add(geo.sphere(0.18, 12, 8), WHITE, { p: [x, x < H.beachMaxX ? 1 : 1.42, z], s: [1, 0.9, 1.5] });
     bits.add(geo.sphere(0.1, 10, 8), WHITE, { p: [x, x < H.beachMaxX ? 1.18 : 1.6, z - 0.2] });
@@ -267,8 +263,8 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
     bits.add(geo.sphere(0.5, 14, 10), c, { p: [x, 0.1, z], s: [1, 0.8, 1], finish: 'gloss' });
     bits.add(geo.cone(0.25, 0.8, 10), c, { p: [x, 0.7, z], finish: 'gloss' });
   }
-  root.add(bits.build(true));
 
+  root.add(main.build(true));
   for (const k of [...quads, ...deco]) root.add(k.build(true));
   root.add(buildBlobs(blobs));
   return { root, cameraBlockers: [], water };
@@ -279,8 +275,7 @@ function shade(c: number, k: number) {
 }
 
 /** Simple fishing boat with a rounded hull, wheelhouse and mast; walkable decks keep the hull top at `y`. */
-function boat(b: { minX: number; maxX: number; minZ: number; maxZ: number; y: number }, hull: number, walkable: boolean): THREE.Group {
-  const k = new Kit();
+function boat(k: Kit, b: { minX: number; maxX: number; minZ: number; maxZ: number; y: number }, hull: number, walkable: boolean) {
   const w = b.maxX - b.minX, d = b.maxZ - b.minZ, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
   const g = geo.rbox(w, b.y + 0.4, d, Math.min(w, d) * 0.3, 3).clone();
   // Taper the bow (min z) and round the keel.
@@ -308,11 +303,9 @@ function boat(b: { minX: number; maxX: number; minZ: number; maxZ: number; y: nu
   k.add(geo.cyl(0.07, 0.07, 3.5, 8), WHITE, { p: [cx, b.y + 2, b.minZ + 2.5] });
   k.add(geo.torus(0.3, 0.08, Math.PI * 2, 16), 0xff5d5d, { p: [b.maxX + 0.05, b.y - 0.1, cz], r: [0, Math.PI / 2, 0], finish: 'gloss', cast: false });
   for (const z of [b.minZ + 3, cz + 0.5]) k.add(geo.rbox(0.8, 0.5, 0.6, 0.06), 0x7bc8f6, { p: [cx - 0.6, b.y + 0.3, z] });
-  return k.build(true);
 }
 
-function sailboat(x: number, z: number): THREE.Group {
-  const k = new Kit();
+function sailboat(k: Kit, x: number, z: number) {
   k.add(lathe([[0.001, -0.5], [0.9, -0.3], [1.1, 0.4], [0.001, 0.4]], 16), WHITE, { p: [x, 0.1, z], s: [1, 1, 3], finish: 'gloss' });
   k.add(geo.cyl(0.06, 0.06, 7, 8), WOOD_DARK, { p: [x, 3.9, z] });
   const sail = new THREE.BufferGeometry();
@@ -320,7 +313,6 @@ function sailboat(x: number, z: number): THREE.Group {
   sail.computeVertexNormals();
   k.add(sail, WHITE, { p: [x + 0.08, 0.4, z] });
   k.add(sail, 0xffd166, { p: [x - 0.08, 0.4, z], r: [0, Math.PI, 0] });
-  return k.build(false);
 }
 
 /** Opaque sea with a cheap animated vertex-free shader: depth tint, fresnel to the sky, sparkles. */

@@ -3,7 +3,8 @@ import type { InputController, ActionName } from '../input/input';
 import { mountable } from '../sim/mission';
 import type { GameEvent, GameState } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
-import { onLangChange, t } from './i18n';
+import { levelText, onLangChange, t } from './i18n';
+import { levelDef } from '../sim/levels';
 import { isClassic, onClassicChange, type SettingsPanel } from './settings';
 
 export function formatTime(s: number): string {
@@ -138,24 +139,26 @@ export class Hud {
     const total = garage ? VEHICLES[garage.vehicle].parts.length : 0;
     const delivered = garage ? garage.delivered.length : 0;
     const carrying = state.pickups.filter((pk) => pk.status === 'carried' && pk.carrier === p.id).length;
-    const nearLift = Math.hypot(p.pos.x - TOWER.liftX, p.pos.z - TOWER.z) < 3;
+    const def = levelDef(state.level), L2 = levelText(), harbor = state.world.theme === 'harbor';
+    const nearLift = def.tower && Math.hypot(p.pos.x - TOWER.liftX, p.pos.z - TOWER.z) < 3;
     const canMount = mountable(state, p) !== null;
     const riding = p.riding !== null;
     let hint = s.hintFind;
     if (carrying > 0) hint = s.hintBring;
     else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
-    if (state.level === 2) hint = 'Level 2 · Assemble the scooter';
-    const gateOpen = state.level === 1 && state.race.phase === 'open';
+    if (harbor) hint = carrying > 0 ? L2.hintBring : garage?.built ? L2.hintMount : L2.hintFind;
+    const gateOpen = !!def.race && state.race.phase === 'open';
     if (gateOpen) hint = s.hintGate;
     this.compassEl.hidden = !gateOpen || !riding;
     if (gateOpen && riding) {
       // Camera looks along (-sin(yaw), -cos(yaw)); CSS rotation is clockwise.
-      const angle = Math.atan2(5.5 - p.pos.x, p.pos.z - 10) + camYaw;
+      const g = def.race!.gateAt;
+      const angle = Math.atan2(g.x - p.pos.x, p.pos.z - g.z) + camYaw;
       this.compassArrow.style.transform = `rotate(${angle - Math.PI / 2}rad)`;
       this.compassEl.title = s.hintGate;
       this.compassEl.setAttribute('aria-label', s.hintGate);
     }
-    if (state.race.phase === 'racing') hint = 'Race! ↑ Forward · steer around green pyshki';
+    if (state.race.phase === 'racing') hint = harbor ? L2.race : 'Race! ↑ Forward · steer around green pyshki';
     if (state.race.phase === 'racing') {
       this.toastTimer = 0; this.toastEl.classList.remove('on');
       this.trickTimer = 0; this.trickEl.classList.remove('on');
@@ -171,7 +174,7 @@ export class Hud {
       this.hintEl.textContent = hint;
       this.blocksEl.textContent = `${p.stats.maxBlocks - state.blocks.length}`;
       this.rideBtn.style.display = canMount || riding || nearLift ? '' : 'none';
-      this.rideBtn.textContent = nearLift && !riding ? (document.documentElement.lang === 'ru' ? '↕ Лифт' : '↕ Elevator') : riding ? `${s.exit}` : `🏍 ${s.ride}`;
+      this.rideBtn.textContent = nearLift && !riding ? (document.documentElement.lang === 'ru' ? '↕ Лифт' : '↕ Elevator') : riding ? `${s.exit}` : garage?.vehicle === 'scooter' ? `🛴 ${L2.ride}` : `🏍 ${s.ride}`;
       this.el.classList.toggle('riding', riding);
       if (p.shape !== this.shape) {
         this.shape = p.shape;
@@ -220,11 +223,12 @@ export class Hud {
     if (state.race.phase === 'racing') return;
     for (const e of events) {
       const mine = e.who === playerId;
-      if (e.type === 'pickup' && mine) this.toast(`${s.got} ${s.partNames[e.info ?? ''] ?? e.info}`, 1.6);
+      const names = state.garages[0]?.vehicle === 'scooter' ? levelText().parts : s.partNames;
+      if (e.type === 'pickup' && mine) this.toast(`${s.got} ${names[e.info ?? ''] ?? e.info}`, 1.6);
       else if (e.type === 'deliver' && mine) {
         const g = state.garages[0];
         this.toast(`${s.delivered} ${g.delivered.length}/${VEHICLES[g.vehicle].parts.length}`, 1.4);
-      } else if (e.type === 'built') this.toast(e.info === 'scooter' ? 'Scooter ready!' : s.built, 2.2);
+      } else if (e.type === 'built') this.toast(e.info === 'scooter' ? levelText().built : s.built, 2.2);
       else if (e.type === 'trick' && mine) this.trick(e.info ?? '');
       else if (e.type === 'glue') this.toast(s.glued, 0.9);
       else if (e.type === 'bonk' && mine) this.toast(s.bonk, 0.7);
