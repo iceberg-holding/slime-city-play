@@ -99,6 +99,7 @@ export class GameView {
   private camDist = 7;
   private gateCues = new THREE.Group();
   private gateArrow = new THREE.Group();
+  private arrowProbe = new THREE.Vector3();
   private gateArchMaterial!: THREE.MeshStandardMaterial;
   private gate = new THREE.Group();
   private road: THREE.Object3D = new THREE.Group();
@@ -300,11 +301,11 @@ export class GameView {
     const t = this.time;
     this.gateCues.visible = state.level === 1 && state.race.phase === 'open';
     if (this.gateCues.visible) {
-      // Close to the gate a 6 m-high arrow leaves the top of a portrait screen: drop it toward the arch and shrink it.
-      const cd = Math.hypot(this.camera.position.x - 5.5, this.camera.position.z - 10);
-      const near = Math.min(1, Math.max(0, (cd - 4) / 12));
-      this.gateArrow.position.y = 4.9 + near * 1.5 + Math.sin(t * 3) * (0.25 + near * 0.2);
-      this.gateArrow.scale.setScalar(0.65 + near * 0.35);
+      // Keep the arrow inside a portrait view: pick the highest perch whose tip (+1.6 m) projects below the top edge.
+      let perch = 4.6;
+      for (const y of [6.4, 5.6, 4.9]) { this.arrowProbe.set(5.5, y + 1.6, 10).project(this.camera); if (this.arrowProbe.y < 0.92 && this.arrowProbe.z < 1) { perch = y; break; } }
+      this.gateArrow.position.y = perch + Math.sin(t * 3) * 0.3;
+      this.gateArrow.scale.setScalar(perch < 5 ? 0.7 : 1);
       this.gateArrow.rotation.y = t * 1.7;
       this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
     }
