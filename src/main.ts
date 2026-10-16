@@ -319,6 +319,9 @@ const api = {
   start(look: Look = creator.look) {
     startGame(look);
   },
+  startLevel(level: number, look: Look = creator.look) {
+    startGame(look, level);
+  },
   openGates() { if (state) openGates(state); },
   startRace() { if (state) { startRace(state); resumePlay(); input.camYaw = 0; } },
   raceFinish() { if (state) { raceFinish(state); api.tick(); } },

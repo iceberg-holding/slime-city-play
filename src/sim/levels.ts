@@ -2,6 +2,7 @@ import { COURSE1, courseAt, type Course } from './track';
 import type { Solid, Vec3, World } from './types';
 import { MISSION, SCOOTER_MISSION, VEHICLES, type MissionDef } from './vehicles';
 import { CREATURE_SPAWNS, PLAYER_SPAWN, createWorld } from './world';
+import { HARBOR_CREATURES, HARBOR_SPAWN, createHarbor } from './harbor';
 
 // Everything that differs between levels. The simulation reads only this, never level numbers directly.
 
@@ -50,11 +51,11 @@ const LEVEL1: LevelDef = {
 
 const LEVEL2: LevelDef = {
   id: 2,
-  createWorld,
-  spawn: PLAYER_SPAWN,
-  creatureSpawns: CREATURE_SPAWNS,
+  createWorld: createHarbor,
+  spawn: HARBOR_SPAWN,
+  creatureSpawns: HARBOR_CREATURES,
   mission: SCOOTER_MISSION,
-  tower: true,
+  tower: false,
   race: null,
 };
 

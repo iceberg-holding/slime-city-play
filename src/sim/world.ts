@@ -141,7 +141,7 @@ export function createWorld(): World {
   solids.push(box(-fountain.basinHalf, 0, -fountain.basinHalf, fountain.basinHalf, fountain.basinH, fountain.basinHalf));
   solids.push(box(-fountain.pillarHalf, 0, -fountain.pillarHalf, fountain.pillarHalf, fountain.pillarH, fountain.pillarHalf));
 
-  return { half, solids, buildings, ramps, platforms, cars, props, fountain, plazaRadius };
+  return { theme: 'city', half, solids, buildings, ramps, platforms, cars, props, fountain, plazaRadius };
 }
 
 export function mansardBox(bd: Building): Solid {

@@ -1,4 +1,6 @@
 import { trackAt } from '../sim/track';
+import { raceOf } from '../sim/race';
+import { buildHarbor } from './harbor';
 import { buildRaceRoad } from './raceRoad';
 import { batchStatic } from './art/batch';
 import { buildSkyscraper } from './art/studio';
@@ -7,7 +9,7 @@ import { TOWER } from '../sim/tower';
 import * as THREE from 'three';
 import { Collider, blockSolid } from '../sim/physics';
 import { computePlacement, makeCollider } from '../sim/step';
-import type { GameEvent, GameState } from '../sim/types';
+import type { GameEvent, GameState, Solid } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
 import { playEvent } from './audio';
 import { animateCharacter, buildCharacter, type CharacterRig } from './character';
@@ -121,23 +123,33 @@ export class GameView {
     this.sky = buildSky();
     this.scene.add(this.sky);
 
-    const road = buildRaceRoad(); this.gateCues = road.cues; this.gateArrow = road.arrow; this.gateArchMaterial = road.archMaterial; this.scene.add(road.cues); this.road = road.root; this.scene.add(road.root); this.gate = road.gate; road.root.remove(road.gate); this.scene.add(road.gate); road.gate.position.set(2, 0, 10);
-    const city = buildCity(state.world);
-    this.scene.add(city.root);
-    const rooftop = buildRooftop();
-    this.scene.add(this.lift, rooftop);
-    const tower = buildSkyscraper();
-    tower.scale.setScalar(0.65);
-    tower.position.set(26, 0, -26);
-    this.scene.add(tower);
-    // Remove the showcase-only elevator cabin: the sim owns the real platform.
-    const cabin = tower.getObjectByName('showcase-cabin'); if (cabin) cabin.visible = false;
-    batchStatic(tower);
-    this.occluders = [rooftop];
+    if (raceOf(state)) {
+      const road = buildRaceRoad(); this.gateCues = road.cues; this.gateArrow = road.arrow; this.gateArchMaterial = road.archMaterial; this.scene.add(road.cues); this.road = road.root; this.scene.add(road.root); this.gate = road.gate; road.root.remove(road.gate); this.scene.add(road.gate); road.gate.position.set(2, 0, 10);
+    }
+    let blockers: Solid[] = [];
+    if (state.world.theme === 'harbor') {
+      const harbor = buildHarbor(state.world);
+      this.scene.add(harbor.root);
+      blockers = harbor.cameraBlockers;
+    } else {
+      const city = buildCity(state.world);
+      this.scene.add(city.root);
+      const rooftop = buildRooftop();
+      this.scene.add(this.lift, rooftop);
+      const tower = buildSkyscraper();
+      tower.scale.setScalar(0.65);
+      tower.position.set(26, 0, -26);
+      this.scene.add(tower);
+      // Remove the showcase-only elevator cabin: the sim owns the real platform.
+      const cabin = tower.getObjectByName('showcase-cabin'); if (cabin) cabin.visible = false;
+      batchStatic(tower);
+      this.occluders = [rooftop];
+      this.scene.userData.studioTower = tower;
+      this.spray = city.root.getObjectByName('spray');
+      blockers = city.cameraBlockers;
+    }
     this.scene.updateMatrixWorld(true);
-    this.scene.userData.studioTower = tower;
-    this.spray = city.root.getObjectByName('spray');
-    this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
+    this.col = new Collider([...state.world.solids, ...blockers]);
 
     this.projectiles = new Pool(geo.sphere(0.5, 24, 16), glossy(), 32, true);
     const padGeo = new THREE.SphereGeometry(0.5, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -285,9 +297,9 @@ export class GameView {
 
   /** Render-side sync. `playerId` is the local player the camera follows. */
   sync(state: GameState, camYaw: number, camPitch: number, dt: number, playerId?: number, ghostOn = false) {
-    this.gate.visible = state.level === 1;
+    this.gate.visible = !!raceOf(state);
     // Race road only exists for the player once the gates are open (saves ~60k tris + draw calls in the city).
-    this.road.visible = state.level === 1 && state.race.phase !== 'locked';
+    this.road.visible = !!raceOf(state) && state.race.phase !== 'locked';
     for (const chunk of this.road.children) {
       const p = trackAt(chunk.userData.progress ?? 0);
       chunk.visible = this.road.visible && Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z) < 120;
@@ -295,10 +307,10 @@ export class GameView {
     this.gate.rotation.y = state.race.phase === 'locked' ? 0 : -Math.PI / 2;
     this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);
     const tower = this.scene.userData.studioTower as THREE.Group;
-    tower?.traverse(o => { if (o.userData.tick && o.visible) o.userData.tick(state.tick / 60); });
+    if (tower) tower.traverse(o => { if (o.userData.tick && o.visible) o.userData.tick(state.tick / 60); });
     this.time += dt;
     const t = this.time;
-    this.gateCues.visible = state.level === 1 && state.race.phase === 'open';
+    this.gateCues.visible = !!raceOf(state) && state.race.phase === 'open';
     if (this.gateCues.visible) {
       this.gateArrow.position.y = 6.4 + Math.sin(t * 3) * 0.45;
       this.gateArrow.rotation.y = t * 1.7;

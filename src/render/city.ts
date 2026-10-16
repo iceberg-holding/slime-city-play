@@ -32,7 +32,7 @@ const AWNING = [0xff5d73, 0x2ec4b6, 0x4d96ff, 0xff9f1c, 0x9b5de5];
 const SHUTTER = [0x2ec4b6, 0x4d96ff, 0xff7aa2, 0x8bc34a, 0xffb703, 0x9b5de5];
 const STONE = 0xf6efe4;
 
-interface BlobSpot {
+export interface BlobSpot {
   x: number;
   z: number;
   sx: number;
@@ -224,7 +224,7 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   root.add(props.build(true));
 
   // Fountain
-  const f = world.fountain;
+  const f = world.fountain!;
   const fk = new Kit();
   fk.groundAO = 0.25;
   fk.add(geo.rbox(f.stepHalf * 2, f.stepH, f.stepHalf * 2, 0.12), 0xeee3d0, { p: [f.x, f.stepH / 2, f.z], finish: 'soft' });
@@ -282,7 +282,7 @@ function taperedRoof(w: number, h: number, d: number): THREE.BufferGeometry {
 }
 
 /** Contact shadows under static props, merged into one transparent mesh. */
-function buildBlobs(spots: BlobSpot[]): THREE.Mesh {
+export function buildBlobs(spots: BlobSpot[]): THREE.Mesh {
   const pos: number[] = [];
   const uv: number[] = [];
   const idx: number[] = [];

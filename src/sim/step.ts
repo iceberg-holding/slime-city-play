@@ -1,5 +1,6 @@
 import { raceOf, updateRace } from './race';
 import { levelDef } from './levels';
+import { wet } from './harbor';
 import { TOWER, liftSolid, updateLift } from './tower';
 import {
   BUBBLE_TIME,
@@ -153,7 +154,7 @@ export function step(state: GameState, inputs: Record<number, InputCommand>, dt:
   state.splats = state.splats.filter((s) => s.life > 0);
 
   updateRace(state, dt);
-  if (state.level === 2 && state.status === 'playing' && missionComplete(state)) {
+  if (!raceOf(state) && state.status === 'playing' && missionComplete(state)) {
     state.status = 'won';
     state.winTime = state.time;
     emit(state, 'win', 0, 0, 0);
@@ -361,7 +362,8 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
   moveBody(p, dt, col, state.world.half);
   checkPad(state, p, p.id, st.padLaunch);
   if (p.grounded) p.walkPhase += Math.hypot(p.vel.x, p.vel.z) * dt * 1.6;
-  if (p.pos.y < -5) {
+  const splash = wet(state, p.pos.x, p.pos.y, p.pos.z);
+  if (p.pos.y < -5 || splash) {
     p.pos = { ...levelDef(state.level).spawn };
     p.vel = { x: 0, y: 0, z: 0 };
   }
@@ -507,7 +509,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
     if (c.mode === 'wander') c.thinkTimer = 0;
   }
   checkPad(state, c, c.id);
-  if (c.pos.y < -5) {
+  if (c.pos.y < -5 || wet(state, c.pos.x, c.pos.y, c.pos.z)) {
     c.pos = { x: c.home.x, y: 0, z: c.home.z };
     c.vel = { x: 0, y: 0, z: 0 };
   }

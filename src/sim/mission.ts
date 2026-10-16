@@ -1,5 +1,6 @@
 import { courseAt, courseNear } from './track';
 import { raceOf } from './race';
+import { wet } from './harbor';
 import { GRAVITY, PAD_LAUNCH } from './constants';
 import { Collider, moveBody } from './physics';
 import type { GameEvent, GameState, InputCommand, Player, Vehicle } from './types';
@@ -274,7 +275,7 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
 
   if (v.rider !== null && Math.abs(v.speed) > 1.5) state.rideTime += dt;
 
-  if (v.pos.y < -5) {
+  if (v.pos.y < -5 || wet(state, v.pos.x, v.pos.y, v.pos.z)) {
     const g = levelDef(state.level).mission.garage;
     v.pos = { x: g.x, y: 0, z: g.z };
     v.vel = { x: 0, y: 0, z: 0 };

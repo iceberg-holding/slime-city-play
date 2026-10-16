@@ -28,7 +28,12 @@ export interface VehicleDef {
   flies: boolean;
 }
 
-const scooter: VehicleDef = { id: 'scooter', parts: [{ id: 'frontWheel' }, { id: 'rearWheel' }, { id: 'deck' }, { id: 'handlebar' }], radius: 0.5, height: 1.4, seatY: 0.15, maxSpeed: 15, reverseSpeed: 3, accel: 10, brake: 20, drag: 1, turnRate: 2.5, hopVel: 6, launch: 1, flies: false };
+// Light and nimble: quicker acceleration and turns, a little faster, smaller hops and ramp jumps.
+const scooter: VehicleDef = {
+  id: 'scooter', parts: [{ id: 'frontWheel' }, { id: 'rearWheel' }, { id: 'deck' }, { id: 'handlebar' }],
+  radius: 0.45, height: 1.3, seatY: 0.2, maxSpeed: 14, reverseSpeed: 3, accel: 16, brake: 24, drag: 1,
+  turnRate: 3.4, hopVel: 5.2, launch: 0.75, flies: false,
+};
 
 export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   scooter,
@@ -73,7 +78,13 @@ export const MISSION: MissionDef = {
   rideGoal: 10,
 };
 
+// Harbor level (see sim/harbor.ts). Every spot is reachable on foot via ramps and steps.
 export const SCOOTER_MISSION: MissionDef = {
-  vehicle: 'scooter', garage: { x: 5.5, z: 15.5, radius: 2.6 }, rideGoal: 10,
-  partSpots: [{ x: 1, y: 0.9, z: 12 }, { x: 10, y: 0.9, z: 12 }, { x: 2, y: 0.9, z: 17 }, { x: 10, y: 0.9, z: 17 }],
+  vehicle: 'scooter', garage: { x: 8, z: 12, radius: 2.6 }, rideGoal: 10,
+  partSpots: [
+    { x: -5.5, y: 1.75, z: -32 }, // front wheel: end of the wooden pier
+    { x: 23.5, y: 4.75, z: -32 }, // rear wheel: lighthouse gallery, up the jetty ramp
+    { x: -1, y: 1.95, z: -25.5 }, // deck: aboard the moored fishing boat
+    { x: -25.5, y: 3.35, z: -4.5 }, // handlebar: lifeguard tower on the beach
+  ],
 };

@@ -11,8 +11,7 @@ try {
   const { createGame, step, makeCollider } = await load('/src/sim/step.ts');
   const { findWalkPaths } = await load('/src/sim/reach.ts');
   const { emptyInput } = await load('/src/sim/types.ts');
-  const { MISSION } = await load('/src/sim/vehicles.ts');
-  const { PLAYER_SPAWN } = await load('/src/sim/world.ts');
+  const { levelDef } = await load('/src/sim/levels.ts');
   const { DT } = await load('/src/sim/constants.ts');
 
   const { openGates, startRace, raceFinish, RACE } = await load('/src/sim/race.ts');
@@ -45,6 +44,9 @@ try {
   const level2 = createGame(42, racer.look, 2);
   assert.equal(level2.garages[0].vehicle, 'scooter');
   assert.equal(level2.pickups.length, 4, 'next level has scooter parts');
+  // Seawall, pier/jetty rails and gunwales keep walkers out of the water.
+  const sea = [[10, -20], [-20, -25], [-10, -30], [3, -26], [28, -30], [16, -36], [-30, -16]].map(([x, z]) => ({ x, y: 0.9, z }));
+  assert.deepEqual(findWalkPaths(makeCollider(level2), 60, levelDef(2).spawn, sea).map(Boolean), sea.map(() => false), 'harbor sea is not walkable');
   startRace(race); // finished races can be replayed through the test hook
   raceFinish(race); assert.equal(race.status, 'won');
   const voices = createGame(777, [0, 0, 0, 0]);
@@ -84,13 +86,16 @@ try {
   assert.ok(reachedMid && reachedRoof, 'standing elevator rider reaches both upper stops');
   assert.equal(towerState.pickups.length, 5, 'tower retains all five reachable bike parts');
 
-  // Try a few hero builds, including the slowest / lowest-jumping legs.
-  for (const look of [
-    [0, 0, 0, 0],
-    [3, 2, 5, 2],
-    [5, 2, 4, 1],
+  // Try a few hero builds, including the slowest / lowest-jumping legs, on both levels.
+  for (const [level, look] of [
+    [1, [0, 0, 0, 0]],
+    [1, [3, 2, 5, 2]],
+    [1, [5, 2, 4, 1]],
+    [2, [0, 0, 0, 0]],
+    [2, [5, 2, 4, 1]],
   ]) {
-    const state = createGame(1234, look);
+    const { spawn: PLAYER_SPAWN, mission: MISSION } = levelDef(level);
+    const state = createGame(1234, look, level);
     state.creatures = []; // isolate the walk from pyshki shoving
     const player = state.players[0];
     const pid = player.id;
@@ -131,8 +136,9 @@ try {
     });
     const g = state.garages[0];
     walkTo({ x: g.x, y: 0.9, z: g.z }, () => g.built, `look ${look} garage`);
-    assert.equal(g.delivered.length, 5, 'all 5 parts delivered');
-    assert.equal(state.vehicles.length, 1, 'bike spawned');
+    const total = MISSION.partSpots.length;
+    assert.equal(g.delivered.length, total, `all ${total} parts delivered`);
+    assert.equal(state.vehicles.length, 1, 'vehicle spawned');
 
     // 3) Mount and ride.
     const bike = state.vehicles[0];
@@ -147,7 +153,7 @@ try {
     const fz = -Math.cos(bike.yaw);
     for (let t = 0; t < 30; t++) step(state, { [pid]: { ...emptyInput(0), mx: fx, mz: fz } }, DT);
     assert.ok(bike.speed > 0, `bike speed after throttle: ${bike.speed}`);
-    console.log(`ok look ${look.join('')}: 5/5 parts walked & delivered, bike speed ${bike.speed.toFixed(2)} m/s`);
+    console.log(`ok level ${level} look ${look.join('')}: ${total}/${total} parts walked & delivered, ${bike.kind} speed ${bike.speed.toFixed(2)} m/s`);
   }
 } catch (e) {
   failed = true;

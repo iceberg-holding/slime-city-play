@@ -169,7 +169,7 @@ export interface Car {
 }
 
 export interface Prop {
-  kind: 'tree' | 'lamp' | 'bench' | 'crate';
+  kind: 'tree' | 'lamp' | 'bench' | 'crate' | 'palm' | 'umbrella';
   x: number;
   z: number;
   /** for crates: box size/height */
@@ -180,6 +180,7 @@ export interface Prop {
 }
 
 export interface World {
+  theme: 'city' | 'harbor';
   half: number;
   solids: Solid[];
   buildings: Building[];
@@ -187,7 +188,7 @@ export interface World {
   platforms: Solid[];
   cars: Car[];
   props: Prop[];
-  fountain: { x: number; z: number; stepHalf: number; stepH: number; basinHalf: number; basinH: number; pillarHalf: number; pillarH: number };
+  fountain?: { x: number; z: number; stepHalf: number; stepH: number; basinHalf: number; basinH: number; pillarHalf: number; pillarH: number };
   plazaRadius: number;
 }
 
