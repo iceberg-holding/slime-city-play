@@ -880,3 +880,7 @@ button {
 @media (max-width: 700px) {
   .ride-btn { left: 12px; top: 142px; bottom: auto; }
 }
+
+.gate-compass { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); width: 58px; height: 58px; border: 2px solid #78ffa0; border-radius: 50%; background: #153e32e8; box-shadow: 0 0 18px #54ff8470; display: grid; place-items: center; }
+.gate-compass[hidden] { display: none; }
+.gate-compass span { display: block; font-size: 38px; line-height: 1; color: #8dffa7; }

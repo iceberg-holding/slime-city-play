@@ -76,6 +76,7 @@ const STRINGS = {
     hintFind: 'Find the glowing bike parts!',
     hintBring: 'Bring the parts to the garage!',
     hintMount: 'Hop on your pit bike!',
+    hintGate: 'Ride through the green gate!',
     hintRide: 'Ride! Bounce off a pink slime pad for a trick!',
     glued: 'Glued!',
     bonk: 'Oof!',
@@ -186,6 +187,7 @@ const STRINGS = {
     hintFind: 'Найди светящиеся детали байка!',
     hintBring: 'Неси детали в гараж!',
     hintMount: 'Садись на питбайк!',
+    hintGate: 'Езжай через зелёные ворота!',
     hintRide: 'Катайся! Прыгни с розовой слизи — будет трюк!',
     glued: 'Приклеен!',
     bonk: 'Ой!',
@@ -255,7 +257,7 @@ export function onLangChange(f: () => void) {
 }
 
 export function t(): Strings {
-  return { ...STRINGS[lang === 'ru' ? 'ru' : 'en'], phrases: CHAT[lang] };
+  return { ...STRINGS[lang === 'ru' ? 'ru' : 'en'], phrases: CHAT[lang], hintGate: GATE_HINT[lang] };
 }
 
 export const LANGS: Lang[] = ['en', 'ru', 'pl', 'lt', 'de'];
@@ -274,3 +276,5 @@ const FLIGHT: Record<Lang, string[]> = {
  de: ['Ich fliege los!', 'Hallo Vögel, ich komme!', 'Nächster Halt: der Mond!'],
 };
 export function flightPhrase(index: number) { return FLIGHT[lang][index % FLIGHT[lang].length]; }
+
+const GATE_HINT: Record<Lang, string> = { en: 'Ride through the green gate!', ru: 'Езжай через зелёные ворота!', pl: 'Przejedź przez zieloną bramę!', lt: 'Važiuok pro žalius vartus!', de: 'Fahre durch das grüne Tor!' };

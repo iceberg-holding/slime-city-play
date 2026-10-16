@@ -3,16 +3,41 @@ import { Kit, geo } from './materials';
 import { wedge } from './city';
 import { trackAt, TRACK_LENGTH, JUMPS, GAP, TRACK } from '../sim/track';
 
+// Shared mitered edges: chunks and bends meet at identical vertices without overlapping faces.
+const distances = [0];
+for (let i = 1; i < TRACK.length; i++) distances.push(distances[i - 1] + Math.hypot(TRACK[i].x - TRACK[i - 1].x, TRACK[i].z - TRACK[i - 1].z));
+const edges = TRACK.map((_, i) => {
+  const a = trackAt(Math.max(0, distances[i] - 0.001)), b = trackAt(distances[i] + 0.001);
+  const nx = -a.dz - b.dz, nz = a.dx + b.dx;
+  const scale = 1 / (nx * -b.dz + nz * b.dx);
+  return { x: nx * scale, z: nz * scale };
+});
+function roadPoint(d: number, lane: number) {
+  let i = 0;
+  while (i < TRACK.length - 2 && d > distances[i + 1]) i++;
+  const t = (d - distances[i]) / (distances[i + 1] - distances[i]);
+  return [TRACK[i].x + (TRACK[i + 1].x - TRACK[i].x) * t + lane * (edges[i].x + (edges[i + 1].x - edges[i].x) * t),
+    0.015, TRACK[i].z + (TRACK[i + 1].z - TRACK[i].z) * t + lane * (edges[i].z + (edges[i + 1].z - edges[i].z) * t)];
+}
+
 export function buildRaceRoad() {
   const root = new THREE.Group();
   for (let start = 0; start < TRACK_LENGTH; start += 70) {
     const k = new Kit(), end = Math.min(start + 70, TRACK_LENGTH);
+    const cuts = [start, ...distances.filter(d => d > start && d < end), ...[GAP.start, GAP.end].filter(d => d > start && d < end), end].sort((a, b) => a - b);
+    const vertices: number[] = [];
+    for (let i = 1; i < cuts.length; i++) {
+      const a = cuts[i - 1], b = cuts[i], left = a >= GAP.start && a < GAP.end ? 0 : -7;
+      const al = roadPoint(a, left), ar = roadPoint(a, 7), bl = roadPoint(b, left), br = roadPoint(b, 7);
+      vertices.push(...al, ...ar, ...bl, ...ar, ...br, ...bl);
+    }
+    const pavement = new THREE.BufferGeometry();
+    pavement.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); pavement.computeVertexNormals();
+    k.add(pavement, 0x596b80, { cast: false }); pavement.dispose();
     for (let d = start; d < end; d += 2) {
       const p = trackAt(d + 1), length = Math.min(2.1, end - d + 0.1);
-      const gap = d >= GAP.start && d < GAP.end;
-      k.add(new THREE.BoxGeometry(gap ? 7 : 14, 0.15, length), 0x596b80, { p: [p.x + (gap ? -p.dz * 3.5 : 0), -0.08, p.z + (gap ? p.dx * 3.5 : 0)], r: [0, p.yaw, 0] });
       for (const side of [-1, 1]) k.add(new THREE.BoxGeometry(0.35, 1.1, length), 0xf6cc69, { p: [p.x - p.dz * side * 6.8, 0.55, p.z + p.dx * side * 6.8], r: [0, p.yaw, 0] });
-      if (d % 8 < 2) k.add(new THREE.BoxGeometry(0.15, 0.025, 2), 0xffffff, { p: [p.x, 0.03, p.z], r: [0, p.yaw, 0] });
+      if (d % 8 < 2) k.add(new THREE.BoxGeometry(0.15, 0.025, 2), 0xffffff, { p: [p.x, 0.065, p.z], r: [0, p.yaw, 0] });
     }
     // Round off polyline joins so the outside of each bend has continuous pavement.
     let progress = 0;
@@ -20,7 +45,6 @@ export function buildRaceRoad() {
       progress += Math.hypot(TRACK[i].x - TRACK[i - 1].x, TRACK[i].z - TRACK[i - 1].z);
       if (progress < start || progress >= end) continue;
       const node = TRACK[i], a = trackAt(progress - 0.1), b = trackAt(progress + 0.1);
-      k.add(new THREE.CylinderGeometry(7, 7, 0.15, 24), 0x596b80, { p: [node.x, -0.08, node.z] });
       for (const side of [-1, 1]) {
         const ax = node.x - a.dz * side * 6.8, az = node.z + a.dx * side * 6.8;
         const bx = node.x - b.dz * side * 6.8, bz = node.z + b.dx * side * 6.8;
@@ -63,11 +87,19 @@ export function buildRaceRoad() {
   finish.add(new THREE.BoxGeometry(13.5, 1, 0.3), 0xff5d73, { p: [p.x, 5.5, p.z] });
   const arch = finish.build(); arch.userData.progress = TRACK_LENGTH; root.add(arch);
   const entrance = new Kit();
-  for (const x of [2, 9]) entrance.add(geo.cyl(0.18, 0.18, 4), 0x36c7b0, { p: [x, 2, 10] });
-  entrance.add(new THREE.BoxGeometry(7.5, 0.65, 0.3), 0x36c7b0, { p: [5.5, 3.8, 10] });
-  const portal = entrance.build(); portal.userData.progress = 0; root.add(portal);
+  for (const x of [2, 9]) entrance.add(geo.capsule(0.24, 4.5), 0x57ff83, { p: [x, 2.25, 10], cast: false });
+  entrance.add(geo.rbox(7.5, 0.55, 0.55), 0x57ff83, { p: [5.5, 4.3, 10], cast: false });
+  const portal = entrance.build(false); portal.name = 'race-gate-arch';
+  const archMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, emissive: 0x22ff55, emissiveIntensity: 1, roughness: 0.25 });
+  (portal.children[0] as THREE.Mesh).material = archMaterial;
+  const pointer = new Kit();
+  pointer.add(geo.rbox(0.65, 1.65, 0.65), 0xffda45, { p: [0, 0.8, 0], finish: 'gloss', cast: false });
+  pointer.add(geo.cone(1.1, 1.25, 4), 0xffda45, { p: [0, -0.5, 0], r: [Math.PI, 0, 0], finish: 'gloss', cast: false });
+  const arrow = pointer.build(false); arrow.name = 'race-gate-arrow'; arrow.position.set(5.5, 6.4, 10);
+  // City entrance cues are independent of distant course chunk culling.
+  const cues = new THREE.Group(); cues.add(portal, arrow);
   const bars = new Kit();
   for (let x = 0; x <= 7; x += 0.5) bars.add(geo.cyl(0.055, 0.055, 3.3), 0xffd166, { p: [x, 1.65, 0] });
   const gate = bars.build(); gate.position.set(2, 0, 10); root.add(gate);
-  return { root, gate };
+  return { root, gate, cues, arrow, archMaterial };
 }

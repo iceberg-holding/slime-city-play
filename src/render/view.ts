@@ -97,6 +97,9 @@ export class GameView {
   private occluders: THREE.Object3D[] = [];
   private cameraRay = new THREE.Raycaster();
   private camDist = 7;
+  private gateCues = new THREE.Group();
+  private gateArrow = new THREE.Group();
+  private gateArchMaterial!: THREE.MeshStandardMaterial;
   private gate = new THREE.Group();
   private road: THREE.Object3D = new THREE.Group();
   private rayO = new THREE.Vector3();
@@ -118,7 +121,7 @@ export class GameView {
     this.sky = buildSky();
     this.scene.add(this.sky);
 
-    const road = buildRaceRoad(); this.road = road.root; this.scene.add(road.root); this.gate = road.gate; road.root.remove(road.gate); this.scene.add(road.gate); road.gate.position.set(2, 0, 10);
+    const road = buildRaceRoad(); this.gateCues = road.cues; this.gateArrow = road.arrow; this.gateArchMaterial = road.archMaterial; this.scene.add(road.cues); this.road = road.root; this.scene.add(road.root); this.gate = road.gate; road.root.remove(road.gate); this.scene.add(road.gate); road.gate.position.set(2, 0, 10);
     const city = buildCity(state.world);
     this.scene.add(city.root);
     const rooftop = buildRooftop();
@@ -295,6 +298,12 @@ export class GameView {
     tower?.traverse(o => { if (o.userData.tick && o.visible) o.userData.tick(state.tick / 60); });
     this.time += dt;
     const t = this.time;
+    this.gateCues.visible = state.level === 1 && state.race.phase === 'open';
+    if (this.gateCues.visible) {
+      this.gateArrow.position.y = 6.4 + Math.sin(t * 3) * 0.45;
+      this.gateArrow.rotation.y = t * 1.7;
+      this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
+    }
     this.ensureEntities(state);
     const ground = new Collider(state.world.solids, state.blocks.map(blockSolid));
     this.shadows.begin();

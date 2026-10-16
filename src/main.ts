@@ -281,7 +281,7 @@ function frame(now: number) {
   }
   followVehicle(dt);
   view.sync(state, input.camYaw, input.camPitch, dt, playerId, ghostTimer > 0 && mode === 'play');
-  hud.update(state, playerId, dt);
+  hud.update(state, playerId, dt, input.camYaw);
   const w = window.innerWidth;
   const h = window.innerHeight;
   const v = view;

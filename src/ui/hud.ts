@@ -14,6 +14,8 @@ export function formatTime(s: number): string {
 
 export class Hud {
   el: HTMLDivElement;
+  private compassEl: HTMLDivElement;
+  private compassArrow: HTMLElement;
   private partsEl: HTMLDivElement;
   private carryEl: HTMLDivElement;
   private timeEl: HTMLDivElement;
@@ -44,6 +46,7 @@ export class Hud {
         <div class="hud-right"><div class="pill time"></div></div>
       </div>
       <div class="tap-hint"></div><div class="controls-tip"></div>
+      <div class="gate-compass" hidden><span>➤</span></div>
       <div class="toast"></div>
       <div class="trick"></div>
       <button class="ride-btn" data-a="interact"></button>
@@ -58,6 +61,8 @@ export class Hud {
       </div>`;
     document.body.appendChild(this.el);
     const q = <T extends HTMLElement>(s: string) => this.el.querySelector(s) as T;
+    this.compassEl = q('.gate-compass');
+    this.compassArrow = q('.gate-compass span');
     this.partsEl = q('.parts .v');
     this.carryEl = q('.parts .carry');
     this.timeEl = q('.time');
@@ -125,7 +130,7 @@ export class Hud {
     if (v) this.lastShown = '';
   }
 
-  update(state: GameState, playerId: number, dt: number) {
+  update(state: GameState, playerId: number, dt: number, camYaw: number) {
     const p = state.players.find((x) => x.id === playerId);
     if (!p) return;
     const s = t();
@@ -140,7 +145,16 @@ export class Hud {
     if (carrying > 0) hint = s.hintBring;
     else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
     if (state.level === 2) hint = 'Level 2 · Assemble the scooter';
-    if (state.race.phase === 'open') hint = 'Gates open! Ride through the green arch →';
+    const gateOpen = state.level === 1 && state.race.phase === 'open';
+    if (gateOpen) hint = s.hintGate;
+    this.compassEl.hidden = !gateOpen || !riding;
+    if (gateOpen && riding) {
+      // Camera looks along (-sin(yaw), -cos(yaw)); CSS rotation is clockwise.
+      const angle = Math.atan2(5.5 - p.pos.x, p.pos.z - 10) + camYaw;
+      this.compassArrow.style.transform = `rotate(${angle - Math.PI / 2}rad)`;
+      this.compassEl.title = s.hintGate;
+      this.compassEl.setAttribute('aria-label', s.hintGate);
+    }
     if (state.race.phase === 'racing') hint = 'Race! ↑ Forward · steer around green pyshki';
     if (state.race.phase === 'racing') {
       this.toastTimer = 0; this.toastEl.classList.remove('on');
