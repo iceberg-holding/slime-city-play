@@ -1,3 +1,4 @@
+import { trackAt } from '../sim/track';
 import { buildRaceRoad } from './raceRoad';
 import { batchStatic } from './art/batch';
 import { buildSkyscraper } from './art/studio';
@@ -284,6 +285,10 @@ export class GameView {
     this.gate.visible = state.level === 1;
     // Race road only exists for the player once the gates are open (saves ~60k tris + draw calls in the city).
     this.road.visible = state.level === 1 && state.race.phase !== 'locked';
+    for (const chunk of this.road.children) {
+      const p = trackAt(chunk.userData.progress ?? 0);
+      chunk.visible = this.road.visible && Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z) < 120;
+    }
     this.gate.rotation.y = state.race.phase === 'locked' ? 0 : -Math.PI / 2;
     this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);
     const tower = this.scene.userData.studioTower as THREE.Group;

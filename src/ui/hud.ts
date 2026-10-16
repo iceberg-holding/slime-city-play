@@ -142,6 +142,11 @@ export class Hud {
     if (state.level === 2) hint = 'Level 2 · Assemble the scooter';
     if (state.race.phase === 'open') hint = 'Gates open! Ride through the green arch →';
     if (state.race.phase === 'racing') hint = 'Race! ↑ Forward · steer around green pyshki';
+    if (state.race.phase === 'racing') {
+      this.toastTimer = 0; this.toastEl.classList.remove('on');
+      this.trickTimer = 0; this.trickEl.classList.remove('on');
+      this.tapHintEl.classList.remove('on');
+    }
     const clock = state.race.phase === 'racing' ? state.race.remaining : state.time;
     const shown = [delivered, carrying, formatTime(clock), state.blocks.length, p.shape, hint, canMount, riding, nearLift].join('|');
     if (shown !== this.lastShown) {
@@ -198,6 +203,7 @@ export class Hud {
 
   onEvents(events: GameEvent[], state: GameState, playerId: number) {
     const s = t();
+    if (state.race.phase === 'racing') return;
     for (const e of events) {
       const mine = e.who === playerId;
       if (e.type === 'pickup' && mine) this.toast(`${s.got} ${s.partNames[e.info ?? ''] ?? e.info}`, 1.6);
