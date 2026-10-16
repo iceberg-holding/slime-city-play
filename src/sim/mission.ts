@@ -1,3 +1,4 @@
+import { trackNear, JUMPS, GAP } from './track';
 import { GRAVITY, PAD_LAUNCH } from './constants';
 import { Collider, moveBody } from './physics';
 import type { GameEvent, GameState, InputCommand, Player, Vehicle } from './types';
@@ -204,6 +205,31 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
   else if (wasGrounded && v.vel.y <= 0 && v.lastClimb > 1) {
     v.vel.y = v.lastClimb * 0.9; // launch off ramps
     v.vel.y += GRAVITY * dt;
+  }
+
+  if (state.race.phase === 'racing') {
+    const road = trackNear(v.pos.x, v.pos.z);
+    // Analytic rails follow the same polyline as the rendered road, including bends.
+    if (road.distance > 6.1) {
+      const scale = 6.1 / road.distance;
+      v.pos.x = road.x + (v.pos.x - road.x) * scale;
+      v.pos.z = road.z + (v.pos.z - road.z) * scale;
+      v.speed *= 0.96;
+    }
+    const lane = (v.pos.x - road.x) * -road.dz + (v.pos.z - road.z) * road.dx;
+    const ramp = JUMPS.find(d => road.progress >= d && road.progress <= d + 8);
+    if (ramp !== undefined && (ramp !== 350 || lane < -0.5)) {
+      const height = (road.progress - ramp) / 8 * 1.6;
+      if (v.pos.y <= height + 0.3 && v.vel.y <= 0) {
+        v.pos.y = height; v.grounded = true; v.lastClimb = Math.abs(v.speed) * 0.2;
+        if (road.progress > ramp + 7.7) { v.vel.y = Math.abs(v.speed) * 0.24 + 2; v.grounded = false; }
+      }
+    }
+    // A missed optional gap resets to its approach; the right half is a safe bypass.
+    if (road.progress > GAP.start && road.progress < GAP.end && lane < -0.5 && v.pos.y < 0.15) {
+      const back = trackNear(v.pos.x, v.pos.z + 10);
+      v.pos.x = back.x; v.pos.z = back.z; v.speed = 0;
+    }
   }
 
   // slime pads

@@ -23,11 +23,25 @@ try {
   racer.riding = vehicle.id; vehicle.rider = racer.id; race.garages[0].built = true;
   openGates(race); assert.equal(race.race.phase, 'open'); startRace(race);
   assert.equal(race.race.phase, 'racing');
-  for (let i = 0; i < 3610; i++) step(race, {}, DT);
+  for (let i = 0; i < (RACE.duration + 1) / DT; i++) step(race, {}, DT);
   assert.equal(race.race.phase, 'failed', 'race times out');
   startRace(race); assert.equal(race.race.remaining, RACE.duration, 'retry resets timer');
   vehicle.pos.z = RACE.finish - 1; step(race, {}, DT);
   assert.equal(race.race.phase, 'finished', 'crossing finish wins');
+  const { trackAt, trackNear, TRACK_LENGTH } = await load('/src/sim/track.ts');
+  assert.ok(TRACK_LENGTH > 550 && TRACK_LENGTH < 600);
+  startRace(race);
+  for (let i = 0; i < RACE.duration / DT && race.race.phase === 'racing'; i++) {
+    const near = trackNear(vehicle.pos.x, vehicle.pos.z), target = trackAt(near.progress + 9);
+    const desired = Math.atan2(-(target.x - vehicle.pos.x), -(target.z - vehicle.pos.z));
+    const error = Math.atan2(Math.sin(desired - vehicle.yaw), Math.cos(desired - vehicle.yaw));
+    const steer = Math.max(-0.65, Math.min(0.65, -error * 2));
+    const throttle = vehicle.speed < 9.75 ? 1 : 0.18;
+    const cmd = { ...emptyInput(), mx: -Math.sin(vehicle.yaw) * throttle + Math.cos(vehicle.yaw) * steer,
+      mz: -Math.cos(vehicle.yaw) * throttle - Math.sin(vehicle.yaw) * steer };
+    step(race, { [racer.id]: cmd }, DT);
+  }
+  assert.equal(race.race.phase, 'finished', '75% speed steering bot finishes curved road in time');
   const level2 = createGame(42, racer.look, 2);
   assert.equal(level2.garages[0].vehicle, 'scooter');
   assert.equal(level2.pickups.length, 4, 'next level has scooter parts');
