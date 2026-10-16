@@ -12,3 +12,4 @@
 3. Full level 2: scooter assembly in a new, varied area (e.g. seaside promenade / harbor district with piers, beach, lighthouse, boats — distinct palette from level 1), its own parts placement (all reachable on foot, add to reach test), own garage, then its own race track with different scenery (coastal road, pier boardwalk, lighthouse loop), scooter-specific handling (lighter, quicker turns, smaller jumps) via VehicleDef. Win -> level complete screen (level 3 drone teaser). Keep chunked culling and budgets (≤ level-1 numbers).
 4. Graphics polish pass on both levels: better materials/colour harmony, soft contact shadows, nicer sky gradient/clouds, water shading, small details; no perf regression (check __game.renderInfo()).
 Screenshots: shots/r9-l2-*.png (area, parts, garage scooter, race, finish).
+   - Known: 'Pit bike ready!' banner overlaps the gate compass at top centre; move compass or shorten banner.
