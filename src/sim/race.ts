@@ -1,7 +1,7 @@
 import { trackAt, trackNear, TRACK_LENGTH } from './track';
 import type { GameState } from './types';
 
-export const RACE = { x: 80, start: 15, finish: -535, duration: Math.ceil(TRACK_LENGTH / 9.75 * 1.35) };
+export const RACE = { x: 80, start: 15, finish: -535, duration: Math.ceil(TRACK_LENGTH / 9.75 * 1.35) + 6 };
 export const GATE = { minX: 2, maxX: 9, minY: 0, maxY: 3.5, minZ: 9.7, maxZ: 10.1 };
 export function openGates(s: GameState) {
   if (s.level === 1 && s.garages[0]?.built && s.race.phase === 'locked') s.race.phase = 'open';

@@ -270,7 +270,7 @@ function frame(now: number) {
   }
   ghostTimer -= dt;
   if (winDelay > 0) {
-    winDelay -= dt;
+    winDelay -= rawDt;
     if (winDelay <= 0 && mode === 'won' && state) {
       input.enabled = false;
       input.reset();

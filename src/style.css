@@ -884,3 +884,13 @@ button {
 .gate-compass { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); width: 58px; height: 58px; border: 2px solid #78ffa0; border-radius: 50%; background: #153e32e8; box-shadow: 0 0 18px #54ff8470; display: grid; place-items: center; }
 .gate-compass[hidden] { display: none; }
 .gate-compass span { display: block; font-size: 38px; line-height: 1; color: #8dffa7; }
+
+/* Keep assembly feedback between the objective row and the gate/Exit controls. */
+.toast { top: 106px; font-size: 22px; max-width: calc(100vw - 24px); white-space: normal; text-align: center; }
+@media (max-height: 500px) {
+  .creator { overflow-y: auto; }
+  .win-card { padding: 16px 24px; }
+}
+@media (pointer: coarse) {
+  .ride-btn { left: 12px; top: 142px; bottom: auto; }
+}
