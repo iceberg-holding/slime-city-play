@@ -13,8 +13,7 @@ import { HERO_SLOTS, heroStats, type HeroSlot } from './sim/hero';
 import { findWalkPaths } from './sim/reach';
 import { createGame, fire, makeCollider, placeBlock, step } from './sim/step';
 import { emptyInput, type GameState, type InputCommand, type Look, type ProjectileKind } from './sim/types';
-import { MISSION } from './sim/vehicles';
-import { PLAYER_SPAWN } from './sim/world';
+import { levelDef } from './sim/levels';
 import { Bubbles } from './ui/bubbles';
 import { CreatorScreen } from './ui/creator';
 import { Hud } from './ui/hud';
@@ -343,7 +342,7 @@ const api = {
     setClassic(v);
   },
   teleportTo(name: 'elevator' | 'pool' | 'spa' | 'garage') {
-    const spots = { elevator: [TOWER.liftX, state?.elevator.y ?? 0.26, -26], pool: [24.5, TOWER.roof, -28.1], spa: [27.755, TOWER.roof, -28.21], garage: [MISSION.garage.x, 0, MISSION.garage.z] };
+    const spots = { elevator: [TOWER.liftX, state?.elevator.y ?? 0.26, -26], pool: [24.5, TOWER.roof, -28.1], spa: [27.755, TOWER.roof, -28.21], garage: [levelDef(state?.level ?? 1).mission.garage.x, 0, levelDef(state?.level ?? 1).mission.garage.z] };
     const player = state?.players[0];
     if (player?.riding != null && state) {
       const vehicle = state.vehicles.find(v => v.id === player.riding);
@@ -378,7 +377,8 @@ const api = {
   /** walk-path check from the spawn to every mission part: true = reachable on foot */
   reach() {
     if (!state) return [];
-    return findWalkPaths(makeCollider(state), state.world.half, PLAYER_SPAWN, MISSION.partSpots).map((p) => p !== null);
+    const def = levelDef(state.level);
+    return findWalkPaths(makeCollider(state), state.world.half, def.spawn, def.mission.partSpots).map((p) => p !== null);
   },
   /** grab every bike part and bring it to the garage */
   collectAll() {

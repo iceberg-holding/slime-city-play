@@ -22,11 +22,13 @@ export interface VehicleDef {
   drag: number;
   turnRate: number;
   hopVel: number;
+  /** multiplier on race-ramp launch speed (light vehicles hop smaller) */
+  launch: number;
   /** can it leave the ground on its own (drone)? */
   flies: boolean;
 }
 
-const scooter: VehicleDef = { id: 'scooter', parts: [{ id: 'frontWheel' }, { id: 'rearWheel' }, { id: 'deck' }, { id: 'handlebar' }], radius: 0.5, height: 1.4, seatY: 0.15, maxSpeed: 15, reverseSpeed: 3, accel: 10, brake: 20, drag: 1, turnRate: 2.5, hopVel: 6, flies: false };
+const scooter: VehicleDef = { id: 'scooter', parts: [{ id: 'frontWheel' }, { id: 'rearWheel' }, { id: 'deck' }, { id: 'handlebar' }], radius: 0.5, height: 1.4, seatY: 0.15, maxSpeed: 15, reverseSpeed: 3, accel: 10, brake: 20, drag: 1, turnRate: 2.5, hopVel: 6, launch: 1, flies: false };
 
 export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   scooter,
@@ -43,6 +45,7 @@ export const VEHICLES: Record<VehicleKind, VehicleDef> = {
     drag: 1.1,
     turnRate: 2.6,
     hopVel: 6.5,
+    launch: 1,
     flies: false,
   },
 };

@@ -1,4 +1,5 @@
-import { GATE, updateRace } from './race';
+import { raceOf, updateRace } from './race';
+import { levelDef } from './levels';
 import { TOWER, liftSolid, updateLift } from './tower';
 import {
   BUBBLE_TIME,
@@ -26,10 +27,10 @@ import { heroStats } from './hero';
 import { Collider, blockSolid, moveBody, topAt } from './physics';
 import { rand, randRange } from './rng';
 import type { Block, Body, Creature, GameEvent, GameState, InputCommand, Look, Player, ProjectileKind } from './types';
-import { CREATURE_SPAWNS, PLAYER_SPAWN, createWorld } from './world';
 import { interact, missionComplete, setupMission, syncRider, updatePickups, updateVehicle } from './mission';
 
 export function createGame(seed: number, look: Look, level = 1): GameState {
+  const def = levelDef(level);
   const state: GameState = {
     level, race: { phase: 'locked', remaining: 60 },
     elevator: { y: 0.26, target: 0, wait: 2 },
@@ -37,7 +38,7 @@ export function createGame(seed: number, look: Look, level = 1): GameState {
     time: 0,
     rng: seed | 0,
     nextId: 1,
-    world: createWorld(),
+    world: def.createWorld(),
     players: [],
     creatures: [],
     projectiles: [],
@@ -54,7 +55,7 @@ export function createGame(seed: number, look: Look, level = 1): GameState {
     winTime: 0,
   };
   addPlayer(state, look);
-  for (const sp of CREATURE_SPAWNS) {
+  for (const sp of def.creatureSpawns) {
     const c: Creature = {
       id: state.nextId++,
       seed: Math.floor(rand(state) * 1e9),
@@ -91,7 +92,7 @@ export function addPlayer(state: GameState, look: Look): Player {
   const p: Player = {
     id: state.nextId++,
     look,
-    pos: { ...PLAYER_SPAWN },
+    pos: { ...levelDef(state.level).spawn },
     vel: { x: 0, y: 0, z: 0 },
     grounded: true,
     radius: PLAYER_RADIUS,
@@ -115,7 +116,8 @@ function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z
 }
 
 export function makeCollider(state: GameState): Collider {
-  return new Collider([...state.world.solids, ...(state.race.phase === 'locked' && state.level === 1 ? [GATE] : [])], [...state.blocks.map(blockSolid), liftSolid(state.elevator.y)]);
+  const def = levelDef(state.level), gate = raceOf(state)?.gate;
+  return new Collider([...state.world.solids, ...(state.race.phase === 'locked' && gate ? [gate] : [])], [...state.blocks.map(blockSolid), ...(def.tower ? [liftSolid(state.elevator.y)] : [])]);
 }
 
 /** Advance the simulation by dt seconds. `inputs` is keyed by player id. */
@@ -124,7 +126,7 @@ export function step(state: GameState, inputs: Record<number, InputCommand>, dt:
   state.tick++;
   // after winning the world keeps running (so the trick can land), but the clock stops
   if (state.status === 'playing') state.time += dt;
-  updateLift(state, inputs, dt);
+  if (levelDef(state.level).tower) updateLift(state, inputs, dt);
   const col = makeCollider(state);
 
   for (const p of state.players) {
@@ -337,7 +339,7 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
   }
   const control = p.stun > 0 ? 0 : 1;
   const accel = (p.grounded ? 40 : 12) * control;
-  const water = p.pos.y >= TOWER.roof - 0.2 && p.pos.y < TOWER.roof + 0.5 && ((p.pos.x > 22.5 && p.pos.x < 26.5 && p.pos.z > -29.2 && p.pos.z < -27) || Math.hypot(p.pos.x - 27.755, p.pos.z + 28.21) < 0.8);
+  const water = levelDef(state.level).tower && p.pos.y >= TOWER.roof - 0.2 && p.pos.y < TOWER.roof + 0.5 && ((p.pos.x > 22.5 && p.pos.x < 26.5 && p.pos.z > -29.2 && p.pos.z < -27) || Math.hypot(p.pos.x - 27.755, p.pos.z + 28.21) < 0.8);
   if (water && len > 0.1 && state.tick % 18 === 0) emit(state, 'splat', p.pos.x, p.pos.y + 0.2, p.pos.z);
   const tvx = mx * PLAYER_SPEED * st.speed * (water ? 0.4 : 1);
   const tvz = mz * PLAYER_SPEED * st.speed * (water ? 0.4 : 1);
@@ -360,7 +362,7 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
   checkPad(state, p, p.id, st.padLaunch);
   if (p.grounded) p.walkPhase += Math.hypot(p.vel.x, p.vel.z) * dt * 1.6;
   if (p.pos.y < -5) {
-    p.pos = { ...PLAYER_SPAWN };
+    p.pos = { ...levelDef(state.level).spawn };
     p.vel = { x: 0, y: 0, z: 0 };
   }
 }

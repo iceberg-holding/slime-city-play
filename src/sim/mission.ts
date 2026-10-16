@@ -1,8 +1,10 @@
-import { trackNear, JUMPS, GAP, RAMP_HEIGHT, RAMP_LENGTH } from './track';
+import { courseAt, courseNear } from './track';
+import { raceOf } from './race';
 import { GRAVITY, PAD_LAUNCH } from './constants';
 import { Collider, moveBody } from './physics';
 import type { GameEvent, GameState, InputCommand, Player, Vehicle } from './types';
-import { MISSION, SCOOTER_MISSION, VEHICLES, type VehicleKind } from './vehicles';
+import { levelDef } from './levels';
+import { VEHICLES, type VehicleKind } from './vehicles';
 
 const TAU = Math.PI * 2;
 const MOUNT_RANGE = 2.6;
@@ -14,7 +16,7 @@ function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z
 }
 
 export function setupMission(state: GameState) {
-  const mission = state.level === 2 ? SCOOTER_MISSION : MISSION;
+  const mission = levelDef(state.level).mission;
   const def = VEHICLES[mission.vehicle];
   def.parts.forEach((part, i) => {
     state.pickups.push({
@@ -207,27 +209,28 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
     v.vel.y += GRAVITY * dt;
   }
 
-  if (state.race.phase === 'racing') {
-    const road = trackNear(v.pos.x, v.pos.z);
+  const race = raceOf(state);
+  if (state.race.phase === 'racing' && race) {
+    const c = race.course, road = courseNear(c, v.pos.x, v.pos.z);
     // Analytic rails follow the same polyline as the rendered road, including bends.
-    if (road.distance > 6.1) {
-      const scale = 6.1 / road.distance;
+    if (road.distance > c.rail) {
+      const scale = c.rail / road.distance;
       v.pos.x = road.x + (v.pos.x - road.x) * scale;
       v.pos.z = road.z + (v.pos.z - road.z) * scale;
       v.speed *= 0.96;
     }
     const lane = (v.pos.x - road.x) * -road.dz + (v.pos.z - road.z) * road.dx;
-    const ramp = JUMPS.find(d => road.progress >= d && road.progress <= d + RAMP_LENGTH);
-    if (ramp !== undefined && (ramp !== 350 || lane < -0.5)) {
-      const height = (road.progress - ramp) / RAMP_LENGTH * RAMP_HEIGHT;
+    const ramp = c.jumps.find(d => road.progress >= d && road.progress <= d + c.rampLength);
+    if (ramp !== undefined && (ramp !== c.optionalJump || lane < -0.5)) {
+      const slope = c.rampHeight / c.rampLength, height = (road.progress - ramp) * slope;
       if (v.pos.y <= height + 0.3 && v.vel.y <= 0) {
-        v.pos.y = height; v.grounded = true; v.lastClimb = Math.abs(v.speed) * RAMP_HEIGHT / RAMP_LENGTH;
-        if (road.progress > ramp + 7.7) { v.vel.y = Math.abs(v.speed) * RAMP_HEIGHT / RAMP_LENGTH + 2; v.grounded = false; }
+        v.pos.y = height; v.grounded = true; v.lastClimb = Math.abs(v.speed) * slope;
+        if (road.progress > ramp + c.rampLength - 0.3) { v.vel.y = (Math.abs(v.speed) * slope + 2) * def.launch; v.grounded = false; }
       }
     }
     // A missed optional gap resets to its approach; the right half is a safe bypass.
-    if (road.progress > GAP.start && road.progress < GAP.end && lane < -0.5 && v.pos.y < 0.15) {
-      const back = trackNear(v.pos.x, v.pos.z + 10);
+    if (c.gap && road.progress > c.gap.start && road.progress < c.gap.end && lane < -0.5 && v.pos.y < 0.15) {
+      const back = courseAt(c, road.progress - 10);
       v.pos.x = back.x; v.pos.z = back.z; v.speed = 0;
     }
   }
@@ -272,7 +275,8 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
   if (v.rider !== null && Math.abs(v.speed) > 1.5) state.rideTime += dt;
 
   if (v.pos.y < -5) {
-    v.pos = { x: MISSION.garage.x, y: 0, z: MISSION.garage.z };
+    const g = levelDef(state.level).mission.garage;
+    v.pos = { x: g.x, y: 0, z: g.z };
     v.vel = { x: 0, y: 0, z: 0 };
     v.speed = 0;
   }
@@ -299,5 +303,5 @@ export function syncRider(state: GameState, p: Player) {
 }
 
 export function missionComplete(state: GameState): boolean {
-  return state.tricks > 0 || state.rideTime >= MISSION.rideGoal;
+  return state.tricks > 0 || state.rideTime >= levelDef(state.level).mission.rideGoal;
 }
