@@ -36,6 +36,14 @@ export function wet(state: GameState, x: number, y: number, z: number) {
   return true;
 }
 
+/** crates (w×d×h boxes) and barrels (w = diameter) by the jetty, shared with the renderer */
+export const HARBOR_GEAR = [
+  { kind: 'crate', x: 17, z: -13.1, w: 1.1, d: 1.1, h: 0.9 },
+  { kind: 'crate', x: 18.15, z: -13.1, w: 1, d: 1, h: 0.75 },
+  { kind: 'barrel', x: 16.1, z: -12.6, w: 0.8, d: 0.8, h: 1 },
+  { kind: 'barrel', x: 19.2, z: -12.9, w: 0.75, d: 0.75, h: 0.95 },
+] as const;
+
 export const HARBOR_SPAWN: Vec3 = { x: 0, y: 0, z: 6 };
 
 export const HARBOR_CREATURES = [
@@ -109,6 +117,9 @@ export function createHarbor(): World {
     props.push({ kind: 'umbrella', x, z });
     solids.push(box(x - 0.1, 0, z - 0.1, x + 0.1, 2.4, z + 0.1));
   }
+
+  // Fishing gear stacked against the seawall by the jetty.
+  for (const c of HARBOR_GEAR) solids.push(box(c.x - c.w / 2, 0, c.z - c.d / 2, c.x + c.w / 2, c.h, c.z + c.d / 2));
 
   // Promenade: palms, lamps, benches facing the sea.
   for (const x of [-12, 4, 14, 30]) {

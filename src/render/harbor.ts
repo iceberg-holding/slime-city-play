@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { batchStatic } from './art/batch';
 import { bench as studioBench, lamp as studioLamp } from './art/studio';
 import { buildBlobs, wedge, wedgeTransform, type BlobSpot } from './city';
-import { Kit, geo, lathe } from './materials';
-import { HARBOR } from '../sim/harbor';
+import { Kit, geo, lathe, waterMaterial } from './materials';
+import { HARBOR, HARBOR_GEAR } from '../sim/harbor';
 import type { Solid, World } from '../sim/types';
 
 // Level 2 look: whitewash, terracotta, sand, sea teal and sunny boat colours (level 1 is pastel Paris stone and slate).
@@ -251,6 +251,20 @@ export function buildHarbor(world: World): { root: THREE.Group; cameraBlockers: 
   edge.add(geo.cyl(0.03, 0.03, 6, 4), 0x2b2d3a, { p: [H.east - 6, 11, H.seawallZ - 2], cast: false });
   edge.add(geo.rbox(2.4, 1.2, 1.4, 0.1), 0xe63946, { p: [H.east - 6, 7.6, H.seawallZ - 2] });
 
+  // Fishing gear: crates with slats, banded barrels, a rope coil and a draped net.
+  for (const g of HARBOR_GEAR) {
+    if (g.kind === 'crate') {
+      main.add(geo.rbox(g.w, g.h, g.d, 0.05), 0xc99a62, { p: [g.x, g.h / 2, g.z] });
+      for (const y of [0.25, 0.65]) main.add(geo.box(), WOOD_DARK, { p: [g.x, g.h * y, g.z], s: [g.w + 0.02, 0.06, g.d + 0.02], cast: false });
+    } else {
+      main.add(geo.cyl(g.w / 2, g.w / 2 * 0.92, g.h, 14), 0x3d7cc9, { p: [g.x, g.h / 2, g.z] });
+      for (const y of [0.2, 0.8]) main.add(geo.torus(g.w / 2, 0.03, Math.PI * 2, 14), 0x23406e, { p: [g.x, g.h * y, g.z], r: [Math.PI / 2, 0, 0], finish: 'metal', cast: false });
+    }
+    blobs.push({ x: g.x, z: g.z, sx: g.w + 0.9, sz: g.d + 0.9 });
+  }
+  main.add(geo.torus(0.32, 0.09, Math.PI * 2, 18), 0xe8d6a4, { p: [17, 0.99, -13.1], r: [Math.PI / 2, 0, 0], cast: false });
+  main.add(geo.sphere(0.6, 12, 6), 0x2a9d8f, { p: [18.15, 0.78, -13.1], s: [1, 0.25, 1], cast: false });
+
   // Seagulls on the seawall and a few buoys bobbing out at sea.
   const bits = main;
   for (const [x, z] of [[-14, -14.2], [12, -14.2], [27, -16], [-24, -14.2]]) {
@@ -318,7 +332,8 @@ function sailboat(k: Kit, x: number, z: number) {
 /** Opaque sea with a cheap animated vertex-free shader: depth tint, fresnel to the sky, sparkles. */
 function buildWater(): THREE.Mesh {
   const g = new THREE.PlaneGeometry(320, 160, 1, 1).rotateX(-Math.PI / 2);
-  const m = new THREE.MeshStandardMaterial({ color: 0x2fb5c9, roughness: 0.25, metalness: 0.05 });
+  // shallow, lighter water right along the shore
+  const m = waterMaterial(0x1fa8c4);
   const mesh = new THREE.Mesh(g, m);
   mesh.position.set(0, 0.02, HARBOR.seawallZ - 0.4 - 80);
   mesh.receiveShadow = true;

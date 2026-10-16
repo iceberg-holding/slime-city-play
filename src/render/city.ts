@@ -3,7 +3,7 @@ import { tree as studioTree, bench as studioBench, lamp as studioLamp } from './
 import * as THREE from 'three';
 import type { Solid, World } from '../sim/types';
 import { mansardBox } from '../sim/world';
-import { Kit, blobMaterial, geo, lathe } from './materials';
+import { Kit, blobMaterial, geo, lathe, waterMaterial } from './materials';
 
 /** Rounded wedge rising toward +x, footprint centered on x/z, base at y=0. */
 export function wedge(w: number, h: number, d: number, bevel = Math.min(w, h, d) * 0.08): THREE.BufferGeometry {
@@ -47,7 +47,7 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   const blobs: BlobSpot[] = [];
 
   // Ground
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshStandardMaterial({ color: 0xa9b6c9, roughness: 0.9 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshStandardMaterial({ color: 0xb4b6bd, roughness: 0.9 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   root.add(ground);
@@ -94,6 +94,8 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   const winFrame = geo.rbox(1.2, 1.65, 0.14, 0.07, 1);
   const winGlass = geo.rbox(0.92, 1.36, 0.12, 0.06, 1);
   const unit = geo.box();
+  const flower = new THREE.IcosahedronGeometry(0.11, 0);
+  const FLOWERS = [0xff5d8f, 0xffd166, 0xffffff, 0xff8a5b, 0xc77dff];
 
   world.buildings.forEach((b, bi) => {
     const w = b.maxX - b.minX;
@@ -146,6 +148,11 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
           deco.add(unit, accent, { p: at(t - 0.82, 0.05, y), r: [0, ry, 0], s: [0.34, 1.5, 0.07], cast: false });
           deco.add(unit, accent, { p: at(t + 0.82, 0.05, y), r: [0, ry, 0], s: [0.34, 1.5, 0.07], cast: false });
           if (y < 6) deco.add(unit, 0x3b4a6b, { p: at(t, 0.3, y - 0.45), r: [0, ry, 0], s: [1.3, 0.08, 0.08], finish: 'metal', cast: false });
+          // flower boxes on the first floor of street-facing windows
+          if (y < 4 && inward && i % 2 === 0) {
+            deco.add(unit, 0xb5523b, { p: at(t, 0.2, y - 0.92), r: [0, ry, 0], s: [1.1, 0.26, 0.3], cast: false });
+            for (const f of [-1, 1]) deco.add(flower, FLOWERS[(bi + f + 1) % FLOWERS.length], { p: at(t + f * 0.25, 0.22, y - 0.72), r: [0, ry, 0], s: [1.6, 1, 1], cast: false });
+          }
         }
         if (inward && b.height >= 3) {
           const aw = spacing * 0.85;
@@ -211,6 +218,8 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
       const model = p.kind === 'tree' ? studioTree(0.85) : p.kind === 'bench' ? studioBench() : studioLamp();
       model.position.set(p.x, 0, p.z);
       if (p.kind === 'bench' && Math.abs(p.x) > Math.abs(p.z)) model.rotation.y = Math.PI / 2;
+      // keep the camera out of leafy crowns
+      if (p.kind === 'tree') cameraBlockers.push({ minX: p.x - 1, minY: 1.9, minZ: p.z - 1, maxX: p.x + 1, maxY: 3.6, maxZ: p.z + 1 });
       root.add(batchStatic(model));
       continue;
     }
@@ -229,7 +238,6 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   fk.groundAO = 0.25;
   fk.add(geo.rbox(f.stepHalf * 2, f.stepH, f.stepHalf * 2, 0.12), 0xeee3d0, { p: [f.x, f.stepH / 2, f.z], finish: 'soft' });
   fk.add(geo.rbox(f.basinHalf * 2, f.basinH, f.basinHalf * 2, 0.3), STONE, { p: [f.x, f.basinH / 2, f.z], finish: 'soft' });
-  fk.add(geo.rbox(f.basinHalf * 2 - 0.5, 0.08, f.basinHalf * 2 - 0.5, 0.04), 0x5cc8ff, { p: [f.x, f.basinH - 0.02, f.z], finish: 'glass', cast: false });
   fk.add(
     lathe([
       [0.001, 0],
@@ -249,6 +257,10 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
   fk.add(geo.cyl(f.pillarHalf * 1.15, f.pillarHalf * 1.15, 0.05, 40), 0x5cc8ff, { p: [f.x, f.pillarH - 0.02, f.z], finish: 'glass', cast: false });
   fk.add(geo.sphere(0.22), 0xffd166, { p: [f.x, f.pillarH + 0.25, f.z], finish: 'gloss' });
   root.add(fk.build(true));
+  const basin = new THREE.Mesh(geo.rbox(f.basinHalf * 2 - 0.5, 0.08, f.basinHalf * 2 - 0.5, 0.04), waterMaterial(0x3cc0e8, { scale: 3, sparkle: 0.6 }));
+  basin.position.set(f.x, f.basinH - 0.02, f.z);
+  basin.receiveShadow = true;
+  root.add(basin);
   // soft translucent water dome over the top bowl
   const spray = new THREE.Mesh(
     geo.sphere(0.9, 32, 16),

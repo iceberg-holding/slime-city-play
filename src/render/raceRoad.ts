@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Kit, geo } from './materials';
+import { Kit, geo, waterMaterial } from './materials';
 import { wedge } from './city';
 import { courseAt, COURSE2_SECTIONS } from '../sim/track';
 import type { RaceDef } from '../sim/levels';
@@ -34,7 +34,7 @@ const edges = TRACK.map((_, i) => {
   const RAIL = harbor ? 0xf4f7fb : 0xf6cc69;
   if (harbor) {
     // One sea plane under the whole coast; the road reads as a causeway.
-    const sea = new THREE.Mesh(new THREE.PlaneGeometry(700, 700).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x2fb5c9, roughness: 0.25 }));
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(700, 700).rotateX(-Math.PI / 2), waterMaterial(0x1fa8c4));
     sea.position.set(160, -0.3, -170); sea.name = 'race-sea'; sea.receiveShadow = true;
     root.add(sea);
   }
@@ -176,7 +176,7 @@ const edges = TRACK.map((_, i) => {
   for (let x = 0; x <= gw; x += 0.5) bars.add(geo.cyl(0.055, 0.055, 3.3), 0xffd166, { p: [x, 1.65, 0] });
   // Permanent posts so the open gate still reads as an entrance.
   const posts = new Kit();
-  for (const x of [G.minX, G.maxX]) posts.add(geo.rbox(0.5, 3.8, 0.5, 0.1), harbor ? 0xfffaf0 : 0xffd166, { p: [x, 1.9, gz], finish: 'gloss' });
+  for (const x of [G.minX, G.maxX]) posts.add(geo.rbox(0.5, 3.8, 0.5, 0.1), harbor ? 0xfffaf0 : 0xffd166, { p: [x, 1.9, gz], finish: 'gloss', cast: false });
   if (harbor) posts.add(geo.rbox(gw * 0.6, 0.9, 0.12, 0.08), 0x2f6fb5, { p: [gx, 3.4, gz], finish: 'gloss', cast: false });
   const gate = bars.build(); gate.position.set(G.minX, 0, gz);
   const entry = posts.build();

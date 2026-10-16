@@ -14,8 +14,8 @@ import { playEvent } from './audio';
 import { animateCharacter, buildCharacter, type CharacterRig } from './character';
 import { buildCity, wedge } from './city';
 import { buildCreature, type CreatureView } from './creature';
-import { SKY_HORIZON, addLights, buildSky, environment } from './env';
-import { Kit, blobMaterial, geo } from './materials';
+import { addLights, buildSky, environment, skyPalette } from './env';
+import { Kit, blobMaterial, geo, shaderTime } from './materials';
 import { STANDING, buildPart, buildVehicle, type VehicleModel } from './vehicleModels';
 
 /** Instanced pool for dynamic, short-lived things. */
@@ -113,13 +113,14 @@ export class GameView {
 
   constructor(state: GameState, aspect: number, renderer: THREE.WebGLRenderer) {
     this.camera = new THREE.PerspectiveCamera(62, aspect, 0.1, 400);
-    this.scene.background = new THREE.Color(SKY_HORIZON);
-    this.scene.fog = new THREE.Fog(SKY_HORIZON, 55, 150);
+    const sky = skyPalette(state.world.theme);
+    this.scene.background = new THREE.Color(sky.horizon);
+    this.scene.fog = new THREE.Fog(sky.horizon, 60, 150);
     this.scene.environment = environment(renderer);
     this.scene.environmentIntensity = 0.55;
     const coarse = window.matchMedia?.('(pointer: coarse)').matches;
     this.sun = addLights(this.scene, coarse ? 1024 : 2048).sun;
-    this.sky = buildSky();
+    this.sky = buildSky(state.world.theme);
     this.scene.add(this.sky);
 
     if (raceOf(state)) {
@@ -311,6 +312,7 @@ export class GameView {
     if (tower) tower.traverse(o => { if (o.userData.tick && o.visible) o.userData.tick(state.tick / 60); });
     this.time += dt;
     const t = this.time;
+    shaderTime.value = t;
     this.gateCues.visible = !!raceOf(state) && state.race.phase === 'open';
     if (this.gateCues.visible) {
       this.gateArrow.position.y = 6.4 + Math.sin(t * 3) * 0.45;

@@ -193,15 +193,18 @@ let blobTex: THREE.Texture | null = null;
 export function blobTexture(): THREE.Texture {
   if (blobTex) return blobTex;
   const c = document.createElement('canvas');
-  c.width = c.height = 64;
+  c.width = c.height = 128;
   const ctx = c.getContext('2d')!;
-  const grd = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0, 'rgba(0,0,0,0.55)');
-  grd.addColorStop(0.5, 'rgba(0,0,0,0.28)');
-  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  const grd = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  // Gaussian-like falloff: a firm core under the contact point that fades without a visible ring.
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10;
+    grd.addColorStop(t, `rgba(0,0,0,${(0.6 * Math.exp(-4.2 * t * t) * (1 - t * t)).toFixed(3)})`);
+  }
   ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillRect(0, 0, 128, 128);
   blobTex = new THREE.CanvasTexture(c);
+  blobTex.colorSpace = THREE.NoColorSpace;
   return blobTex;
 }
 
@@ -209,11 +212,55 @@ export function blobTexture(): THREE.Texture {
 export function blobMaterial(): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
     map: blobTexture(),
-    color: 0x1a2440,
+    color: 0x22305a,
     transparent: true,
     depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   });
+}
+
+/** Shared clock for animated materials (seconds); the view advances it. */
+export const shaderTime = { value: 0 };
+
+/**
+ * Sea / pool water: standard PBR (keeps fog, shadows and env reflections) with procedural wave normals
+ * in world space, a fresnel tint toward pale aqua at grazing angles and small sun sparkles. No textures.
+ */
+export function waterMaterial(color = 0x1fa8c4, opts: { scale?: number; sparkle?: number } = {}): THREE.MeshStandardMaterial {
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.12, metalness: 0.05, envMapIntensity: 1.2 });
+  const scale = (opts.scale ?? 1).toFixed(3), sparkle = (opts.sparkle ?? 1).toFixed(3);
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = shaderTime;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWaterPos;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvWaterPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform float uTime;
+varying vec3 vWaterPos;
+vec2 waveGrad(vec2 p, float t) {
+  vec2 g = vec2(0.0);
+  g += vec2(0.9, 0.4) * cos(dot(p, vec2(0.9, 0.4)) * 0.55 + t * 1.3) * 0.5;
+  g += vec2(-0.5, 0.85) * cos(dot(p, vec2(-0.5, 0.85)) * 0.9 + t * 1.7) * 0.3;
+  g += vec2(0.2, -1.0) * cos(dot(p, vec2(0.2, -1.0)) * 1.7 + t * 2.3) * 0.16;
+  g += vec2(-0.8, -0.6) * cos(dot(p, vec2(-0.8, -0.6)) * 3.1 + t * 3.1) * 0.08;
+  return g;
+}`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+vec2 wp = vWaterPos.xz * ${scale};
+vec2 wg = waveGrad(wp, uTime) * 0.32;
+vec3 wn = normalize(vec3(-wg.x, 1.0, -wg.y));
+normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
+float fres = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.9, 0.95), clamp(fres * 0.6 + wg.x * 0.25, 0.0, 0.55));
+// lighter crests
+diffuseColor.rgb += vec3(0.035, 0.06, 0.06) * smoothstep(0.15, 0.55, wg.x + wg.y);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+float glint = waveGrad(wp * 3.7 + 11.0, uTime * 1.6).x * waveGrad(wp * 2.3 - 7.0, uTime * 1.3).y;
+totalEmissiveRadiance += vec3(1.0, 0.97, 0.88) * smoothstep(0.09, 0.13, glint) * 0.8 * ${sparkle};`);
+  };
+  m.customProgramCacheKey = () => `water${scale}${sparkle}`;
+  return m;
 }

@@ -37,6 +37,8 @@ let ghostTimer = 0;
 let paused = false;
 let settingsOpen = false;
 let winDelay = 0;
+/** tests can pin the game seed so pyshki looks (and draw calls) are reproducible */
+let fixedSeed: number | null = null;
 
 const input = new InputController(canvas);
 const settings = new SettingsPanel((open) => {
@@ -163,7 +165,7 @@ function showCreator() {
 
 function startGame(look: Look, level = 1) {
   unlockAudio();
-  state = createGame((Date.now() & 0xffff) ^ 0x5eed, look, level);
+  state = createGame(fixedSeed ?? (Date.now() & 0xffff) ^ 0x5eed, look, level);
   playerId = state.players[0].id;
   view?.dispose();
   view = new GameView(state, window.innerWidth / window.innerHeight, renderer);
@@ -318,6 +320,9 @@ const api = {
   },
   start(look: Look = creator.look) {
     startGame(look);
+  },
+  setSeed(seed: number | null) {
+    fixedSeed = seed;
   },
   startLevel(level: number, look: Look = creator.look) {
     startGame(look, level);
