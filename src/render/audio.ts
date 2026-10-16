@@ -89,8 +89,11 @@ function pyshkaNote(e: GameEvent) {
   const now = ctx.currentTime;
   if (now - (lastNote.get(e.who) ?? -1) < 0.45 || now - lastAny < 0.09) return;
   lastNote.set(e.who, now); lastAny = now;
-  const f = scale[e.who % scale.length];
-  const notes = e.type === 'bounce' ? [f, f * 1.25, f * 1.5, f * 2] : [e.type === 'glue' ? f / 2 : f];
+  const index = e.who % scale.length;
+  const f = scale[index];
+  const notes = e.type === 'bounce' ? [0, 2, 4, 5].map(offset => {
+    const n = index + offset; return scale[n % scale.length] * 2 ** Math.floor(n / scale.length);
+  }) : [e.type === 'glue' ? f / 2 : f];
   notes.forEach((hz, i) => {
     const at = ctx!.currentTime + i * 0.09;
     for (const [ratio, volume] of [[1, 0.065], [2, 0.012]]) {

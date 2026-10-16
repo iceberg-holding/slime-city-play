@@ -92,7 +92,8 @@ async function run(viewport, touch, tag) {
     await page.touchscreen.tap(viewport.width * 0.75, viewport.height * 0.4);
     await page.waitForFunction(() => window.__game.state.projectiles.length > 0, null, { timeout: 5000 });
     assert.deepEqual(await kinds(), ['sticky'], 'single tap fires sticky');
-    await page.waitForFunction(() => window.__game.state.projectiles.length === 0, null, { timeout: 8000 });
+    await page.evaluate(() => window.__game.tick(200));
+    await page.waitForFunction(() => window.__game.state.projectiles.length === 0);
     // two quick taps (dispatched in-page so slow software-GL frames can't stretch the gap)
     await page.evaluate(([x, y]) => {
       const c = document.getElementById('game');
