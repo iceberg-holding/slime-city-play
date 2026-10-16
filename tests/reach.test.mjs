@@ -41,6 +41,36 @@ try {
     step(race, { [racer.id]: cmd }, DT);
   }
   assert.equal(race.race.phase, 'finished', '75% speed steering bot finishes curved road in time');
+  // Level 2: the scooter's own coastal course, same 75%-speed steering bot.
+  {
+    const { courseAt, courseNear } = await load('/src/sim/track.ts');
+    const { VEHICLES } = await load('/src/sim/vehicles.ts');
+    const def = levelDef(2), course = def.race.course, top = VEHICLES.scooter.maxSpeed * 0.75;
+    assert.ok(course.length > 450 && course.length < 600, `level 2 course length ${course.length}`);
+    for (const seed of [42, 7]) {
+      const s2 = createGame(seed, [0, 0, 0, 0], 2), p2 = s2.players[0];
+      const sc = spawnVehicle(s2, 'scooter', def.mission.garage.x, 0, def.mission.garage.z, 0);
+      p2.riding = sc.id; sc.rider = p2.id; s2.garages[0].built = true;
+      // Ride into the harbor gate trigger to start, as a player would.
+      step(s2, {}, DT); assert.equal(s2.race.phase, 'open');
+      const t = def.race.trigger; sc.pos = { x: (t.minX + t.maxX) / 2, y: 0, z: (t.minZ + t.maxZ) / 2 }; step(s2, {}, DT);
+      assert.equal(s2.race.phase, 'racing', 'harbor gate starts the coastal race');
+      let airborne = 0, maxY = 0;
+      for (let i = 0; i < (def.race.duration + 1) / DT && s2.race.phase === 'racing'; i++) {
+        const near = courseNear(course, sc.pos.x, sc.pos.z), target = courseAt(course, near.progress + 9);
+        const desired = Math.atan2(-(target.x - sc.pos.x), -(target.z - sc.pos.z));
+        const error = Math.atan2(Math.sin(desired - sc.yaw), Math.cos(desired - sc.yaw));
+        const steer = Math.max(-0.65, Math.min(0.65, -error * 2)), throttle = sc.speed < top ? 1 : 0.18;
+        step(s2, { [p2.id]: { ...emptyInput(), mx: -Math.sin(sc.yaw) * throttle + Math.cos(sc.yaw) * steer, mz: -Math.cos(sc.yaw) * throttle - Math.sin(sc.yaw) * steer } }, DT);
+        if (!sc.grounded) airborne++;
+        maxY = Math.max(maxY, sc.pos.y);
+        assert.ok(sc.pos.y > -1, 'scooter stays on the course');
+      }
+      assert.equal(s2.race.phase, 'finished', `scooter bot finishes level 2 (seed ${seed}, ${s2.race.remaining.toFixed(1)}s left, at ${JSON.stringify(sc.pos)})`);
+      assert.ok(airborne > 30 && maxY < 3, `scooter takes small jumps (air frames ${airborne}, max height ${maxY.toFixed(2)})`);
+      console.log(`ok level 2 race seed ${seed}: ${course.length.toFixed(1)}m in ${s2.winTime.toFixed(1)}s of ${def.race.duration}s, max jump ${maxY.toFixed(2)}m`);
+    }
+  }
   const level2 = createGame(42, racer.look, 2);
   assert.equal(level2.garages[0].vehicle, 'scooter');
   assert.equal(level2.pickups.length, 4, 'next level has scooter parts');

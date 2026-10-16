@@ -54,6 +54,14 @@ export const COURSE1 = makeCourse(
   { jumps: [45, 145, 245, 350, 455], optionalJump: 350, gap: { start: 358, end: 363 }, rampHeight: 2.7, rampLength: 8, rail: 6.1 },
 );
 
+// Level 2: coastal road, pier boardwalk with an optional gap, then a loop round the lighthouse. Smaller ramps for the scooter.
+export const COURSE2 = makeCourse(
+  [[120, 10], [120, -40], [135, -90], [120, -140], [135, -190], [135, -290], [135, -330], [150, -356], [180, -356], [195, -330], [205, -300], [205, -250]],
+  { jumps: [20, 120, 225, 255, 480], optionalJump: 255, gap: { start: 262, end: 267 }, rampHeight: 1.8, rampLength: 7, rail: 6.1 },
+);
+/** progress where the boardwalk starts and ends, and the lighthouse the loop goes round */
+export const COURSE2_SECTIONS = { boardwalk: [206.6, 306.6], lighthouse: { x: 167, z: -322 } };
+
 // Level 1 names kept for existing callers and tests.
 export const TRACK = COURSE1.points;
 export const TRACK_LENGTH = COURSE1.length;

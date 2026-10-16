@@ -1,4 +1,3 @@
-import { trackAt } from '../sim/track';
 import { raceOf } from '../sim/race';
 import { buildHarbor } from './harbor';
 import { buildRaceRoad } from './raceRoad';
@@ -124,7 +123,9 @@ export class GameView {
     this.scene.add(this.sky);
 
     if (raceOf(state)) {
-      const road = buildRaceRoad(); this.gateCues = road.cues; this.gateArrow = road.arrow; this.gateArchMaterial = road.archMaterial; this.scene.add(road.cues); this.road = road.root; this.scene.add(road.root); this.gate = road.gate; road.root.remove(road.gate); this.scene.add(road.gate); road.gate.position.set(2, 0, 10);
+      const road = buildRaceRoad(raceOf(state)!, state.world.theme);
+      this.gateCues = road.cues; this.gateArrow = road.arrow; this.gateArchMaterial = road.archMaterial; this.gate = road.gate; this.road = road.root;
+      this.scene.add(road.cues, road.root, road.gate, road.entry);
     }
     let blockers: Solid[] = [];
     if (state.world.theme === 'harbor') {
@@ -301,8 +302,8 @@ export class GameView {
     // Race road only exists for the player once the gates are open (saves ~60k tris + draw calls in the city).
     this.road.visible = !!raceOf(state) && state.race.phase !== 'locked';
     for (const chunk of this.road.children) {
-      const p = trackAt(chunk.userData.progress ?? 0);
-      chunk.visible = this.road.visible && Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z) < 120;
+      const c = chunk.userData.center;
+      chunk.visible = this.road.visible && (!c || Math.hypot(c.x - this.camera.position.x, c.z - this.camera.position.z) < 120);
     }
     this.gate.rotation.y = state.race.phase === 'locked' ? 0 : -Math.PI / 2;
     this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);

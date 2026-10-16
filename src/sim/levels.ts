@@ -1,4 +1,4 @@
-import { COURSE1, courseAt, type Course } from './track';
+import { COURSE1, COURSE2, courseAt, type Course } from './track';
 import type { Solid, Vec3, World } from './types';
 import { MISSION, SCOOTER_MISSION, VEHICLES, type MissionDef } from './vehicles';
 import { CREATURE_SPAWNS, PLAYER_SPAWN, createWorld } from './world';
@@ -56,7 +56,13 @@ const LEVEL2: LevelDef = {
   creatureSpawns: HARBOR_CREATURES,
   mission: SCOOTER_MISSION,
   tower: false,
-  race: null,
+  race: {
+    course: COURSE2,
+    gate: { minX: 26, maxX: 33, minY: 0, maxY: 3.5, minZ: 9.7, maxZ: 10.1 },
+    trigger: { minX: 26, maxX: 33, minZ: 7, maxZ: 10.3 },
+    gateAt: { x: 29.5, z: 10 },
+    duration: raceDuration(COURSE2, VEHICLES.scooter.maxSpeed),
+  },
 };
 
 export const LEVELS: Record<number, LevelDef> = { 1: LEVEL1, 2: LEVEL2 };
