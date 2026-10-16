@@ -204,7 +204,7 @@ export class Hud {
       else if (e.type === 'deliver' && mine) {
         const g = state.garages[0];
         this.toast(`${s.delivered} ${g.delivered.length}/${VEHICLES[g.vehicle].parts.length}`, 1.4);
-      } else if (e.type === 'built') this.toast(s.built, 2.2);
+      } else if (e.type === 'built') this.toast(e.info === 'scooter' ? 'Scooter ready!' : s.built, 2.2);
       else if (e.type === 'trick' && mine) this.trick(e.info ?? '');
       else if (e.type === 'glue') this.toast(s.glued, 0.9);
       else if (e.type === 'bonk' && mine) this.toast(s.bonk, 0.7);

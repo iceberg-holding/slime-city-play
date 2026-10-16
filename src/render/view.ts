@@ -275,6 +275,7 @@ export class GameView {
 
   /** Render-side sync. `playerId` is the local player the camera follows. */
   sync(state: GameState, camYaw: number, camPitch: number, dt: number, playerId?: number, ghostOn = false) {
+    this.gate.visible = state.level === 1;
     this.gate.rotation.y = state.race.phase === 'locked' ? 0 : -Math.PI / 2;
     this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);
     const tower = this.scene.userData.studioTower as THREE.Group;

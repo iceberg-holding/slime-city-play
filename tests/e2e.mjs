@@ -151,8 +151,8 @@ async function run(viewport, touch, tag) {
   }
 
   // settings toggle persists
-  await page.click('.hud .gear-btn');
   await page.evaluate(() => window.__game.setClassic(false));
+  await page.click('.hud .gear-btn');
   await page.locator('.settings .switch').check();
   const stored = await page.evaluate(() => localStorage.getItem('slimecity.controls.v3.classicButtons'));
   assert.equal(stored, '1', 'classic buttons setting persisted');
