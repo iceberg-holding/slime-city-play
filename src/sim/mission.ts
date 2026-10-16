@@ -1,4 +1,4 @@
-import { trackNear, JUMPS, GAP } from './track';
+import { trackNear, JUMPS, GAP, RAMP_HEIGHT, RAMP_LENGTH } from './track';
 import { GRAVITY, PAD_LAUNCH } from './constants';
 import { Collider, moveBody } from './physics';
 import type { GameEvent, GameState, InputCommand, Player, Vehicle } from './types';
@@ -217,12 +217,12 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
       v.speed *= 0.96;
     }
     const lane = (v.pos.x - road.x) * -road.dz + (v.pos.z - road.z) * road.dx;
-    const ramp = JUMPS.find(d => road.progress >= d && road.progress <= d + 8);
+    const ramp = JUMPS.find(d => road.progress >= d && road.progress <= d + RAMP_LENGTH);
     if (ramp !== undefined && (ramp !== 350 || lane < -0.5)) {
-      const height = (road.progress - ramp) / 8 * 1.6;
+      const height = (road.progress - ramp) / RAMP_LENGTH * RAMP_HEIGHT;
       if (v.pos.y <= height + 0.3 && v.vel.y <= 0) {
-        v.pos.y = height; v.grounded = true; v.lastClimb = Math.abs(v.speed) * 0.2;
-        if (road.progress > ramp + 7.7) { v.vel.y = Math.abs(v.speed) * 0.24 + 2; v.grounded = false; }
+        v.pos.y = height; v.grounded = true; v.lastClimb = Math.abs(v.speed) * RAMP_HEIGHT / RAMP_LENGTH;
+        if (road.progress > ramp + 7.7) { v.vel.y = Math.abs(v.speed) * RAMP_HEIGHT / RAMP_LENGTH + 2; v.grounded = false; }
       }
     }
     // A missed optional gap resets to its approach; the right half is a safe bypass.

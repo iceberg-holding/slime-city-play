@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Kit, geo } from './materials';
 import { wedge } from './city';
-import { trackAt, TRACK_LENGTH, JUMPS, GAP, TRACK } from '../sim/track';
+import { trackAt, TRACK_LENGTH, JUMPS, GAP, TRACK, RAMP_HEIGHT, RAMP_LENGTH } from '../sim/track';
 
 // Shared mitered edges: chunks and bends meet at identical vertices without overlapping faces.
 const distances = [0];
@@ -74,11 +74,31 @@ export function buildRaceRoad() {
       }
       if (section === 2) k.add(new THREE.BoxGeometry(17, 0.35, 1), 0xabb8d1, { p: [p.x, 7.5, p.z], r: [0, p.yaw, 0] });
     }
+    const bulbs: THREE.Vector3[] = [];
     for (const d of JUMPS.filter(d => d >= start && d < end)) {
       const p = trackAt(d + 4), optional = d === 350, lane = optional ? -3.5 : 0;
-      k.add(wedge(optional ? 5 : 10, 1.6, 8, 0), 0xffae50, { p: [p.x - p.dz * lane, 0, p.z + p.dx * lane], r: [0, Math.PI / 2 + p.yaw, 0] });
+      k.add(wedge(RAMP_LENGTH, RAMP_HEIGHT, optional ? 5 : 10, 0), 0xffae50, { p: [p.x - p.dz * lane, 0, p.z + p.dx * lane], r: [0, Math.PI / 2 + p.yaw, 0] });
+      for (const side of [-1, 1]) {
+        const points: THREE.Vector3[] = [];
+        for (let i = 0; i <= 24; i++) {
+          const t = i / 24, q = trackAt(d + t * RAMP_LENGTH);
+          const offset = lane + side * (optional ? 2.5 : 5);
+          const y = t * RAMP_HEIGHT + 1.8 + 0.55 * (Math.cosh(2 * t - 1) - 1);
+          const point = new THREE.Vector3(q.x - q.dz * offset, y, q.z + q.dx * offset);
+          points.push(point); if (i % 2 === 0) bulbs.push(point);
+        }
+        k.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 24, 0.025, 3, false), 0x675447, { cast: false });
+      }
     }
-    const chunk = k.build(); chunk.userData.progress = (start + end) / 2;
+    const chunk = k.build();
+    if (bulbs.length) {
+      const material = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.3, roughness: 0.35 });
+      const lights = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 6, 4), material, bulbs.length);
+      const colors = [0xffc875, 0xff8279, 0xffe6a0, 0xa8e4b5];
+      bulbs.forEach((p, i) => { lights.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.x, p.y, p.z)); lights.setColorAt(i, new THREE.Color(colors[i % colors.length])); });
+      lights.name = 'ramp-string-lights'; chunk.add(lights);
+    }
+     chunk.userData.progress = (start + end) / 2;
     root.add(chunk);
   }
   const finish = new Kit(), p = trackAt(TRACK_LENGTH);

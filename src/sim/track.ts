@@ -29,3 +29,7 @@ export function trackNear(x: number, z: number) {
 }
 export const JUMPS = [45, 145, 245, 350, 455];
 export const GAP = { start: 358, end: 363 }; // left lane jumps; right lane stays paved
+
+// Shared by collision sampling and rendered jump geometry.
+export const RAMP_HEIGHT = 2.7;
+export const RAMP_LENGTH = 8;
