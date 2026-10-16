@@ -1,7 +1,7 @@
 import { GRAVITY, PAD_LAUNCH } from './constants';
 import { Collider, moveBody } from './physics';
 import type { GameEvent, GameState, InputCommand, Player, Vehicle } from './types';
-import { MISSION, VEHICLES, type VehicleKind } from './vehicles';
+import { MISSION, SCOOTER_MISSION, VEHICLES, type VehicleKind } from './vehicles';
 
 const TAU = Math.PI * 2;
 const MOUNT_RANGE = 2.6;
@@ -13,13 +13,14 @@ function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z
 }
 
 export function setupMission(state: GameState) {
-  const def = VEHICLES[MISSION.vehicle];
+  const mission = state.level === 2 ? SCOOTER_MISSION : MISSION;
+  const def = VEHICLES[mission.vehicle];
   def.parts.forEach((part, i) => {
     state.pickups.push({
       id: state.nextId++,
       vehicle: def.id,
       part: part.id,
-      pos: { ...MISSION.partSpots[i] },
+      pos: { ...mission.partSpots[i] },
       status: 'world',
       carrier: null,
     });
@@ -27,9 +28,9 @@ export function setupMission(state: GameState) {
   state.garages.push({
     id: state.nextId++,
     vehicle: def.id,
-    x: MISSION.garage.x,
-    z: MISSION.garage.z,
-    radius: MISSION.garage.radius,
+    x: mission.garage.x,
+    z: mission.garage.z,
+    radius: mission.garage.radius,
     delivered: [],
     built: false,
   });

@@ -36,9 +36,15 @@ export class WinScreen {
     q('.hero').textContent = s.newHero;
   }
 
-  open(time: number) {
+  open(time: number, outcome: 'failed' | 'next' | 'won' = 'won') {
     this.time = time;
     this.refresh();
+    if (outcome !== 'won') {
+      this.el.querySelector('.win-icon')!.textContent = outcome === 'next' ? '🏁' : '⏱';
+      this.el.querySelector('.win-title')!.textContent = outcome === 'next' ? 'Finish!' : 'Time’s up';
+      this.el.querySelector('.win-sub')!.textContent = outcome === 'next' ? 'Level 2 · Assemble your scooter' : 'Steer around glued pyshki. Jump the ramps!';
+      this.el.querySelector('.again')!.textContent = outcome === 'next' ? 'Next level →' : 'Try again';
+    }
     this.show(true);
   }
 

@@ -21,7 +21,7 @@ export const CREATURE_SPAWNS: { x: number; z: number }[] = [
 ];
 
 export function createWorld(): World {
-  const half = 32;
+  const half = 180;
   const buildings: Building[] = [];
   let ci = 0;
   const b = (minX: number, minZ: number, maxX: number, maxZ: number, height: number, mansard = true) => {
@@ -141,6 +141,12 @@ export function createWorld(): World {
   solids.push(box(-fountain.basinHalf, 0, -fountain.basinHalf, fountain.basinHalf, fountain.basinH, fountain.basinHalf));
   solids.push(box(-fountain.pillarHalf, 0, -fountain.pillarHalf, fountain.pillarHalf, fountain.pillarH, fountain.pillarHalf));
 
+  // Separate northbound race road, with rails and two jump ramps.
+  solids.push(box(73, 0, -155, 73.5, 1.2, 24), box(86.5, 0, -155, 87, 1.2, 24));
+  for (const z of [-35, -90]) {
+    const r: Solid = { minX: 76, maxX: 84, minY: 0, maxY: 1.6, minZ: z - 8, maxZ: z, ramp: 3 };
+    ramps.push(r); solids.push(r);
+  }
   return { half, solids, buildings, ramps, platforms, cars, props, fountain, plazaRadius };
 }
 

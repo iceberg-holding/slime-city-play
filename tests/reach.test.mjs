@@ -15,6 +15,24 @@ try {
   const { PLAYER_SPAWN } = await load('/src/sim/world.ts');
   const { DT } = await load('/src/sim/constants.ts');
 
+  const { openGates, startRace, raceFinish, RACE } = await load('/src/sim/race.ts');
+  const { spawnVehicle } = await load('/src/sim/mission.ts');
+  const race = createGame(42, [0, 0, 0, 0]);
+  const racer = race.players[0];
+  const vehicle = spawnVehicle(race, 'pitbike', 5.5, 0, 15.5, 0);
+  racer.riding = vehicle.id; vehicle.rider = racer.id; race.garages[0].built = true;
+  openGates(race); assert.equal(race.race.phase, 'open'); startRace(race);
+  assert.equal(race.race.phase, 'racing');
+  for (let i = 0; i < 3610; i++) step(race, {}, DT);
+  assert.equal(race.race.phase, 'failed', 'race times out');
+  startRace(race); assert.equal(race.race.remaining, RACE.duration, 'retry resets timer');
+  vehicle.pos.z = RACE.finish - 1; step(race, {}, DT);
+  assert.equal(race.race.phase, 'finished', 'crossing finish wins');
+  const level2 = createGame(42, racer.look, 2);
+  assert.equal(level2.garages[0].vehicle, 'scooter');
+  assert.equal(level2.pickups.length, 4, 'next level has scooter parts');
+  startRace(race); // finished races can be replayed through the test hook
+  raceFinish(race); assert.equal(race.status, 'won');
   const voices = createGame(777, [0, 0, 0, 0]);
   const bun = voices.creatures[0];
   voices.creatures = [bun];

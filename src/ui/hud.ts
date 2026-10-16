@@ -138,12 +138,16 @@ export class Hud {
     let hint = s.hintFind;
     if (carrying > 0) hint = s.hintBring;
     else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
-    const shown = [delivered, carrying, formatTime(state.time), state.blocks.length, p.shape, hint, canMount, riding, nearLift].join('|');
+    if (state.level === 2) hint = 'Level 2 · Assemble the scooter';
+    if (state.race.phase === 'open') hint = 'Gates open! Ride through the green arch →';
+    if (state.race.phase === 'racing') hint = 'Race! ↑ Forward · steer around green pyshki';
+    const clock = state.race.phase === 'racing' ? state.race.remaining : state.time;
+    const shown = [delivered, carrying, formatTime(clock), state.blocks.length, p.shape, hint, canMount, riding, nearLift].join('|');
     if (shown !== this.lastShown) {
       this.lastShown = shown;
       this.partsEl.textContent = `${delivered}/${total}`;
       this.carryEl.textContent = carrying ? `+${carrying}` : '';
-      this.timeEl.textContent = formatTime(state.time);
+      this.timeEl.textContent = formatTime(clock);
       this.hintEl.textContent = hint;
       this.blocksEl.textContent = `${p.stats.maxBlocks - state.blocks.length}`;
       this.rideBtn.style.display = canMount || riding || nearLift ? '' : 'none';

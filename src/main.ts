@@ -1,3 +1,4 @@
+import { openGates, startRace, raceFinish } from './sim/race';
 import { TOWER } from './sim/tower';
 import * as THREE from 'three';
 import './style.css';
@@ -141,7 +142,10 @@ creator.el.querySelector('.creator-top')?.prepend(settings.gearButton());
 setPreview(creator.look);
 
 const win = new WinScreen(
-  () => startGame(creator.look),
+  () => {
+    if (state?.race.phase === 'failed') { startRace(state); resumePlay(); }
+    else startGame(creator.look, state?.level === 1 ? 2 : 1);
+  },
   () => showCreator(),
 );
 
@@ -158,9 +162,9 @@ function showCreator() {
   resize();
 }
 
-function startGame(look: Look) {
+function startGame(look: Look, level = 1) {
   unlockAudio();
-  state = createGame((Date.now() & 0xffff) ^ 0x5eed, look);
+  state = createGame((Date.now() & 0xffff) ^ 0x5eed, look, level);
   playerId = state.players[0].id;
   view?.dispose();
   view = new GameView(state, window.innerWidth / window.innerHeight, renderer);
@@ -216,11 +220,13 @@ function simStep(cmd: InputCommand) {
   step(state, { [playerId]: cmd }, DT);
   view.handleEvents(state.events);
   hud.onEvents(state.events, state, playerId);
-  if (state.status === 'won' && mode === 'play') {
+  if ((state.status === 'won' || state.race.phase === 'failed') && mode === 'play') {
     mode = 'won';
     winDelay = 2.2; // let the trick popup play first
   }
 }
+
+function resumePlay() { mode = 'play'; winDelay = 0; win.show(false); hud.show(true); bubbles.show(true); input.enabled = true; input.reset(); }
 
 /** While riding, swing the camera behind the vehicle unless the player is steering the camera. */
 function followVehicle(dt: number) {
@@ -269,7 +275,7 @@ function frame(now: number) {
       input.reset();
       hud.show(false);
       bubbles.show(false);
-      win.open(state.winTime);
+      win.open(state.winTime, state.race.phase === 'failed' ? 'failed' : state.level === 1 ? 'next' : 'won');
     }
   }
   followVehicle(dt);
@@ -311,6 +317,10 @@ const api = {
   start(look: Look = creator.look) {
     startGame(look);
   },
+  openGates() { if (state) openGates(state); },
+  startRace() { if (state) { startRace(state); resumePlay(); input.camYaw = 0; } },
+  raceFinish() { if (state) { raceFinish(state); api.tick(); } },
+  get raceState() { return state?.race; },
   showCreator,
   /** hero builder: pick part `i` for slot 0..3 (head, body, legs, gun) */
   pickPart(slot: number, i: number) {

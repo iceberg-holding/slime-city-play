@@ -1,3 +1,4 @@
+import { GATE, updateRace } from './race';
 import { TOWER, liftSolid, updateLift } from './tower';
 import {
   BUBBLE_TIME,
@@ -28,8 +29,9 @@ import type { Block, Body, Creature, GameEvent, GameState, InputCommand, Look, P
 import { CREATURE_SPAWNS, PLAYER_SPAWN, createWorld } from './world';
 import { interact, missionComplete, setupMission, syncRider, updatePickups, updateVehicle } from './mission';
 
-export function createGame(seed: number, look: Look): GameState {
+export function createGame(seed: number, look: Look, level = 1): GameState {
   const state: GameState = {
+    level, race: { phase: 'locked', remaining: 60 },
     elevator: { y: 0.26, target: 0, wait: 2 },
     tick: 0,
     time: 0,
@@ -113,7 +115,7 @@ function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z
 }
 
 export function makeCollider(state: GameState): Collider {
-  return new Collider(state.world.solids, [...state.blocks.map(blockSolid), liftSolid(state.elevator.y)]);
+  return new Collider([...state.world.solids, ...(state.race.phase === 'locked' && state.level === 1 ? [GATE] : [])], [...state.blocks.map(blockSolid), liftSolid(state.elevator.y)]);
 }
 
 /** Advance the simulation by dt seconds. `inputs` is keyed by player id. */
@@ -148,7 +150,8 @@ export function step(state: GameState, inputs: Record<number, InputCommand>, dt:
   for (const s of state.splats) s.life -= dt;
   state.splats = state.splats.filter((s) => s.life > 0);
 
-  if (state.status === 'playing' && missionComplete(state)) {
+  updateRace(state, dt);
+  if (state.level === 2 && state.status === 'playing' && missionComplete(state)) {
     state.status = 'won';
     state.winTime = state.time;
     emit(state, 'win', 0, 0, 0);
@@ -170,6 +173,7 @@ function handlePlayerActions(state: GameState, p: Player, inp: InputCommand, col
 }
 
 export function fire(state: GameState, p: Player, kind: ProjectileKind, aimYaw: number) {
+  if (p.riding !== null) aimYaw = state.vehicles.find(v => v.id === p.riding)?.yaw ?? aimYaw;
   const st = p.stats;
   p.fireCd = st.fireCooldown;
   p.yaw = aimYaw;
@@ -528,8 +532,7 @@ function pyshkaContact(state: GameState, c: Creature, p: Player, col: Collider) 
     ride.speed = (nx * -Math.sin(ride.yaw) + nz * -Math.cos(ride.yaw)) * KNOCKBACK * p.stats.knockback;
     ride.vel.y = 4;
     ride.grounded = false;
-    c.vel.x = -nx * 3;
-    c.vel.z = -nz * 3;
+    if (c.stuck <= 0) { c.vel.x = -nx * 3; c.vel.z = -nz * 3; }
     emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
     return;
   }

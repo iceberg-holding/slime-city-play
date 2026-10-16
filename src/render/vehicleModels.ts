@@ -68,7 +68,11 @@ const PITBIKE: Record<string, PartBuilder> = {
   },
 };
 
-const BUILDERS: Record<VehicleKind, Record<string, PartBuilder>> = { pitbike: PITBIKE };
+const BUILDERS: Record<VehicleKind, Record<string, PartBuilder>> = { pitbike: PITBIKE, scooter: {
+  frontWheel: () => wheel(-0.72, false), rearWheel: () => wheel(0.7, false),
+  handlebar: PITBIKE.handlebar,
+  deck: () => { const k = new Kit(); k.add(geo.rbox(0.48, 0.16, 1.65, 0.07), 0x39d9c4, { p: [0, 0.35, 0], finish: 'gloss' }); const g = new THREE.Group(); g.add(k.build()); return g; },
+} };
 
 export function buildPart(kind: VehicleKind, partId: string): THREE.Group {
   return BUILDERS[kind][partId]();

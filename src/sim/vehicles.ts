@@ -2,7 +2,7 @@ import type { Vec3 } from './types';
 
 // Data-driven vehicle definitions. Adding a scooter or drone = add a VehicleDef (+ a render builder keyed by id/part).
 
-export type VehicleKind = 'pitbike';
+export type VehicleKind = 'pitbike' | 'scooter';
 
 export interface VehiclePartDef {
   id: string;
@@ -26,7 +26,10 @@ export interface VehicleDef {
   flies: boolean;
 }
 
+const scooter: VehicleDef = { id: 'scooter', parts: [{ id: 'frontWheel' }, { id: 'rearWheel' }, { id: 'deck' }, { id: 'handlebar' }], radius: 0.5, height: 1.4, seatY: 0.15, maxSpeed: 15, reverseSpeed: 3, accel: 10, brake: 20, drag: 1, turnRate: 2.5, hopVel: 6, flies: false };
+
 export const VEHICLES: Record<VehicleKind, VehicleDef> = {
+  scooter,
   pitbike: {
     id: 'pitbike',
     parts: [{ id: 'frontWheel' }, { id: 'rearWheel' }, { id: 'frame' }, { id: 'handlebar' }, { id: 'engine' }],
@@ -65,4 +68,9 @@ export const MISSION: MissionDef = {
     { x: 19.8, y: 6.9, z: -19.8 }, // engine: east rooftop landing, up the east ramp
   ],
   rideGoal: 10,
+};
+
+export const SCOOTER_MISSION: MissionDef = {
+  vehicle: 'scooter', garage: { x: 5.5, z: 15.5, radius: 2.6 }, rideGoal: 10,
+  partSpots: [{ x: 1, y: 0.9, z: 12 }, { x: 10, y: 0.9, z: 12 }, { x: 2, y: 0.9, z: 17 }, { x: 10, y: 0.9, z: 17 }],
 };

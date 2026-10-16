@@ -1,3 +1,4 @@
+import { buildRaceRoad } from './raceRoad';
 import { batchStatic } from './art/batch';
 import { buildSkyscraper } from './art/studio';
 import { buildRooftop } from './rooftop';
@@ -93,6 +94,7 @@ export class GameView {
   private particles: Particle[] = [];
   private col: Collider;
   private camDist = 7;
+  private gate = new THREE.Group();
   private time = 0;
   private lift = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.2, 24), new THREE.MeshStandardMaterial({ color: 0xffcf4a }));
 
@@ -107,6 +109,7 @@ export class GameView {
     this.sky = buildSky();
     this.scene.add(this.sky);
 
+    const road = buildRaceRoad(); this.scene.add(road.root); this.gate = road.gate;
     const city = buildCity(state.world);
     this.scene.add(city.root);
     this.scene.add(this.lift, buildRooftop());
@@ -267,6 +270,7 @@ export class GameView {
 
   /** Render-side sync. `playerId` is the local player the camera follows. */
   sync(state: GameState, camYaw: number, camPitch: number, dt: number, playerId?: number, ghostOn = false) {
+    this.gate.rotation.y = state.race.phase === 'locked' ? 0 : -Math.PI / 2;
     this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);
     const tower = this.scene.userData.studioTower as THREE.Group;
     tower?.traverse(o => { if (o.userData.tick && o.visible) o.userData.tick(state.tick / 60); });

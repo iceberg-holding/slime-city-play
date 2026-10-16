@@ -222,6 +222,8 @@ export interface GameEvent {
 }
 
 export interface GameState {
+  level: number;
+  race: { phase: 'locked' | 'open' | 'racing' | 'finished' | 'failed'; remaining: number };
   elevator: { y: number; target: number; wait: number };
   tick: number;
   time: number;
