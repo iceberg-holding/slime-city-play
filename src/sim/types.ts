@@ -208,7 +208,8 @@ export type GameEventType =
   | 'jump'
   | 'win'
   | 'splat'
-  | 'babble';
+  | 'babble'
+  | 'note';
 
 export interface GameEvent {
   type: GameEventType;

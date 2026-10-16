@@ -82,3 +82,4 @@ Tests:
 
 - Validation complete: npm run test:e2e passes desktop and mobile with no console errors (7 crowding/talking pyshki; bike 7.43 m/s). Latest npm run build && npm test pass, including all 5 walking routes, glue/flight/chat regressions and elevator stops. No pushes.
 - R3.1: Classic Sticky/Bouncy buttons now default on; versioned storage resets old gesture preferences, with gestures still opt-in. Build and sim tests pass.
+- R3.2: Replaced voiced drone-like chatter with per-pyshka pentatonic marimba/bell notes on contact, lower glue notes and rising launch arpeggios; global and per-creature audio cooldowns keep crowds quiet. Build and sim tests pass.

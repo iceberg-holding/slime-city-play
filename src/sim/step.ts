@@ -517,6 +517,7 @@ function pyshkaContact(state: GameState, c: Creature, p: Player, col: Collider) 
   const minD = p.radius + c.radius + 0.05;
   if (d > minD) return;
   if (p.pos.y > c.pos.y + c.height - 0.2 || p.pos.y + p.height < c.pos.y) return;
+  if (c.hitCd <= 0) emit(state, 'note', c.pos.x, c.pos.y, c.pos.z, c.id);
   const nx = d > 0.01 ? dx / d : 1;
   const nz = d > 0.01 ? dz / d : 0;
   const ride = p.riding !== null ? state.vehicles.find((v) => v.id === p.riding) : undefined;

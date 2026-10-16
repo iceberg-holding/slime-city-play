@@ -35,21 +35,17 @@ export function playEvent(e: GameEvent) {
       blip(500, 200, 0.12, 'triangle', 0.08);
       break;
     case 'babble':
-      voice('chat');
-      break;
+      break; // Conversations stay visual; no droning vowel synth.
+    case 'note':
     case 'glue':
-      voice('blub');
-      blip(200, 80, 0.3, 'sawtooth', 0.06);
+    case 'bounce':
+      pyshkaNote(e);
       break;
     case 'splat':
       blip(160, 90, 0.1, 'triangle', 0.05);
       break;
     case 'pad':
       blip(300, 600, 0.15, 'sine', 0.1);
-      break;
-    case 'bounce':
-      voice('whee');
-      blip(200, 900, 0.35, 'sine', 0.15);
       break;
     case 'bonk':
       blip(120, 60, 0.25, 'square', 0.06);
@@ -84,25 +80,25 @@ export function playEvent(e: GameEvent) {
   }
 }
 
-// Pitch slides through two resonant formants: little vowel-like syllables.
-function voice(kind: 'chat' | 'whee' | 'blub') {
-  if (!ctx || ctx.state !== 'running') return;
-  const ac = ctx;
-  const count = kind === 'chat' ? 5 : 3;
-  for (let i = 0; i < count; i++) {
-    const at = ac.currentTime + i * 0.095;
-    const o = ac.createOscillator(), gain = ac.createGain();
-    o.type = 'sawtooth';
-    const pitch = kind === 'blub' ? 110 : kind === 'whee' ? 420 + i * 110 : 210 + (i % 3) * 90;
-    o.frequency.setValueAtTime(pitch, at);
-    o.frequency.exponentialRampToValueAtTime(pitch * (kind === 'blub' ? 0.55 : 1.4), at + 0.12);
-    gain.gain.setValueAtTime(0, at);
-    gain.gain.linearRampToValueAtTime(0.035, at + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.001, at + 0.14);
-    for (const hz of [650 + i * 130, 1600 + (i % 2) * 600]) {
-      const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = hz; f.Q.value = 5;
-      o.connect(f); f.connect(gain);
+// C major pentatonic, C4–A5. Every creature keeps its own pitch.
+const scale = [261.63, 293.66, 329.63, 392, 440, 523.25, 587.33, 659.25, 784, 880];
+const lastNote = new Map<number, number>();
+let lastAny = -1;
+function pyshkaNote(e: GameEvent) {
+  if (!ctx || e.who === undefined) return;
+  const now = ctx.currentTime;
+  if (now - (lastNote.get(e.who) ?? -1) < 0.45 || now - lastAny < 0.09) return;
+  lastNote.set(e.who, now); lastAny = now;
+  const f = scale[e.who % scale.length];
+  const notes = e.type === 'bounce' ? [f, f * 1.25, f * 1.5, f * 2] : [e.type === 'glue' ? f / 2 : f];
+  notes.forEach((hz, i) => {
+    const at = ctx!.currentTime + i * 0.09;
+    for (const [ratio, volume] of [[1, 0.065], [2, 0.012]]) {
+      const o = ctx!.createOscillator(), g = ctx!.createGain();
+      o.type = 'sine'; o.frequency.value = hz * ratio;
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(volume, at + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.65);
+      o.connect(g).connect(ctx!.destination); o.start(at); o.stop(at + 0.7);
     }
-    gain.connect(ac.destination); o.start(at); o.stop(at + 0.15);
-  }
+  });
 }
