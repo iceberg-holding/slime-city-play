@@ -112,7 +112,7 @@ try {
     await page.waitForTimeout(200);
     await page.evaluate(()=>{const el=document.querySelector('.toast');el.textContent='Pit bike ready!';el.classList.add('on');});
     await page.waitForTimeout(250);
-    await layout(['.parts','.hint','.hud-right','.ride-btn','.gate-compass','.toast.on','.act','.shape-btn']);
+    await layout(['.parts','.hint','.hud-right','.ride-btn','.gate-compass','.toast.on','.act','.shape-btn','.controls-tip','.objective','.race-hint']);
     await page.evaluate(()=>{const g=window.__game;g.startRace();g.setPaused(true);});
     await page.waitForTimeout(200);
     await page.locator('canvas').first().dispatchEvent('pointerdown',{pointerId:81,pointerType:'touch',clientX:72,clientY:height-85,bubbles:true});

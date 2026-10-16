@@ -894,3 +894,6 @@ button {
 @media (pointer: coarse) {
   .ride-btn { left: 12px; top: 142px; bottom: auto; }
 }
+
+/* Never show the control tip under a toast/banner */
+body:has(.toast.on) .controls-tip { visibility: hidden; }

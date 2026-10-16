@@ -300,7 +300,11 @@ export class GameView {
     const t = this.time;
     this.gateCues.visible = state.level === 1 && state.race.phase === 'open';
     if (this.gateCues.visible) {
-      this.gateArrow.position.y = 6.4 + Math.sin(t * 3) * 0.45;
+      // Close to the gate a 6 m-high arrow leaves the top of a portrait screen: drop it toward the arch and shrink it.
+      const cd = Math.hypot(this.camera.position.x - 5.5, this.camera.position.z - 10);
+      const near = Math.min(1, Math.max(0, (cd - 4) / 12));
+      this.gateArrow.position.y = 4.9 + near * 1.5 + Math.sin(t * 3) * (0.25 + near * 0.2);
+      this.gateArrow.scale.setScalar(0.65 + near * 0.35);
       this.gateArrow.rotation.y = t * 1.7;
       this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
     }
