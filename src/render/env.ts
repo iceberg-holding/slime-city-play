@@ -7,7 +7,7 @@ import { Kit, geo } from './materials';
 export const SKY_TOP = 0x248eff;
 export const SKY_HORIZON = 0x70c8ff;
 
-const MAX_DPR = 2.5;
+const MAX_DPR = 2;
 
 export function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
   const dpr = window.devicePixelRatio || 1;
@@ -130,9 +130,8 @@ export class AdaptiveResolution {
     let next = this.ratio;
     if (this.fps < 50) {
       next = Math.max(0.75, this.ratio - (this.fps < 35 ? 0.5 : 0.25));
-      this.max = Math.max(next, this.ratio - 0.125); // don't climb back to a ratio that was too slow
     }
-    else if (this.fps > 58 && this.ratio < this.max) next = Math.min(this.max, this.ratio + 0.125);
+    else if (this.fps > 56 && this.ratio < this.max) next = Math.min(this.max, this.ratio + 0.125);
     if (next !== this.ratio) {
       this.ratio = next;
       this.renderer.setPixelRatio(next);

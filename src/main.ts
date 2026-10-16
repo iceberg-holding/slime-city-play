@@ -244,9 +244,10 @@ function followVehicle(dt: number) {
 let last = performance.now();
 function frame(now: number) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.1, (now - last) / 1000);
+  const rawDt = Math.min(1, (now - last) / 1000);
+  const dt = Math.min(0.1, rawDt);
   last = now;
-  adaptive.update(dt);
+  adaptive.update(rawDt);
   if (mode === 'creator') {
     turntable.rotation.y += dt * 0.6;
     pop = Math.max(0, pop - dt * 3);
@@ -285,8 +286,10 @@ function frame(now: number) {
   const h = window.innerHeight;
   const v = view;
   bubbles.update(state, (x, y, z) => v.toScreen(x, y, z, w, h), v.camera.position);
-  renderer.render(view.scene, view.camera);
+  const cpuT = performance.now(); renderer.render(view.scene, view.camera); cpuMs.render = cpuMs.render * 0.9 + (performance.now() - cpuT) * 0.1;
+  cpuMs.total = cpuMs.total * 0.9 + (performance.now() - now) * 0.1;
 }
+const cpuMs = { total: 0, render: 0 };
 requestAnimationFrame(frame);
 
 // --- Test hooks ---
@@ -331,7 +334,7 @@ const api = {
   },
   slots: HERO_SLOTS,
   renderInfo() {
-    return { ...renderer.info.render, geometries: renderer.info.memory.geometries, pixelRatio: renderer.getPixelRatio(), fps: adaptive.fps };
+    return { ...renderer.info.render, geometries: renderer.info.memory.geometries, pixelRatio: renderer.getPixelRatio(), cpuTotalMs: +cpuMs.total.toFixed(2), cpuRenderMs: +cpuMs.render.toFixed(2), fps: adaptive.fps };
   },
   setPaused(v: boolean) {
     paused = v;

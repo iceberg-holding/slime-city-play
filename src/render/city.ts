@@ -128,7 +128,7 @@ export function buildCity(world: World): { root: THREE.Group; cameraBlockers: So
       { alongX: false, fixed: b.minX, n: -1, from: b.minZ, to: b.maxZ },
     ];
     for (const f of faces) {
-      if (Math.abs(f.fixed) >= world.half - 0.01) continue; // outer wall nobody sees
+      if (Math.abs(f.fixed) >= 32 - 0.01) continue; // outer wall nobody sees
       const len = f.to - f.from;
       const n = Math.max(1, Math.floor(len / 2.6));
       const spacing = len / n;

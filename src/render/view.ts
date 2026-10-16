@@ -97,6 +97,12 @@ export class GameView {
   private cameraRay = new THREE.Raycaster();
   private camDist = 7;
   private gate = new THREE.Group();
+  private road: THREE.Object3D = new THREE.Group();
+  private rayO = new THREE.Vector3();
+  private rayD = new THREE.Vector3();
+  private rayHits: THREE.Intersection[] = [];
+  private camFrame = 0;
+  private meshHit = Infinity;
   private time = 0;
   private lift = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.2, 24), new THREE.MeshStandardMaterial({ color: 0xffcf4a }));
 
@@ -111,7 +117,7 @@ export class GameView {
     this.sky = buildSky();
     this.scene.add(this.sky);
 
-    const road = buildRaceRoad(); this.scene.add(road.root); this.gate = road.gate;
+    const road = buildRaceRoad(); this.road = road.root; this.scene.add(road.root); this.gate = road.gate; road.root.remove(road.gate); this.scene.add(road.gate); road.gate.position.set(2, 0, 10);
     const city = buildCity(state.world);
     this.scene.add(city.root);
     const rooftop = buildRooftop();
@@ -123,7 +129,7 @@ export class GameView {
     // Remove the showcase-only elevator cabin: the sim owns the real platform.
     const cabin = tower.getObjectByName('showcase-cabin'); if (cabin) cabin.visible = false;
     batchStatic(tower);
-    this.occluders = [city.root, tower, rooftop];
+    this.occluders = [rooftop];
     this.scene.updateMatrixWorld(true);
     this.scene.userData.studioTower = tower;
     this.spray = city.root.getObjectByName('spray');
@@ -276,6 +282,8 @@ export class GameView {
   /** Render-side sync. `playerId` is the local player the camera follows. */
   sync(state: GameState, camYaw: number, camPitch: number, dt: number, playerId?: number, ghostOn = false) {
     this.gate.visible = state.level === 1;
+    // Race road only exists for the player once the gates are open (saves ~60k tris + draw calls in the city).
+    this.road.visible = state.level === 1 && state.race.phase !== 'locked';
     this.gate.rotation.y = state.race.phase === 'locked' ? 0 : -Math.PI / 2;
     this.lift.position.set(TOWER.liftX, state.elevator.y - 0.1, TOWER.z);
     const tower = this.scene.userData.studioTower as THREE.Group;
@@ -464,12 +472,16 @@ export class GameView {
       const dz = Math.cos(camYaw) * Math.cos(camPitch);
       const want = 7.5;
       let hit = this.col.raycast(tx, ty, tz, dx, dy, dz, want);
-      // Sample a small camera volume against the real rooftop/pergola meshes.
-      for (const offset of [-0.18, 0, 0.18]) {
-        this.cameraRay.set(new THREE.Vector3(tx + Math.cos(camYaw) * offset, ty, tz - Math.sin(camYaw) * offset), new THREE.Vector3(dx, dy, dz));
-        this.cameraRay.far = want;
-        const meshHit = this.cameraRay.intersectObjects(this.occluders, true)[0];
-        if (meshHit) hit = Math.min(hit, meshHit.distance);
+      // Mesh occlusion only matters on the rooftop (pergola etc.); one reused ray, every 3rd frame.
+      if (ty > 8) {
+        if (this.camFrame++ % 3 === 0) {
+          this.rayO.set(tx, ty, tz); this.rayD.set(dx, dy, dz);
+          this.cameraRay.set(this.rayO, this.rayD); this.cameraRay.far = want;
+          this.rayHits.length = 0;
+          const h = this.cameraRay.intersectObjects(this.occluders, true, this.rayHits)[0];
+          this.meshHit = h ? h.distance : Infinity;
+        }
+        hit = Math.min(hit, this.meshHit);
       }
       const target = Math.max(0.35, Math.min(want, hit - 0.3));
       // pull in instantly, ease out
