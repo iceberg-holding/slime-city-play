@@ -867,3 +867,9 @@ button {
 .act-block {
   background: linear-gradient(180deg, #ffb35c, #ff8a3c);
 }
+
+/* Brief control reminder; mission objectives remain available in the HUD. */
+.playing .controls-tip { animation: r3-tip 4.5s forwards; }
+@keyframes r3-tip { 0%, 88% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+
+.controls-tip { position: absolute; top: 125px; left: 20px; right: 20px; text-align: center; font-size: 12px; color: #34455b; pointer-events: none; }

@@ -82,6 +82,8 @@ async function run(viewport, touch, tag) {
   await shot('04-glued');
 
   if (touch) {
+    assert.equal(await page.isVisible('.act-sticky'), true, 'classic is default');
+    await page.evaluate(() => window.__game.setClassic(false));
     // right half: single tap = sticky, double tap = bouncy; buttons hidden in the default layout
     assert.equal(await page.isVisible('.act-sticky'), false, 'no sticky button in tap layout');
     const kinds = async () => page.evaluate(() => window.__game.state.projectiles.map((p) => p.kind));
@@ -150,8 +152,9 @@ async function run(viewport, touch, tag) {
 
   // settings toggle persists
   await page.click('.hud .gear-btn');
-  await page.click('.settings .switch');
-  const stored = await page.evaluate(() => localStorage.getItem('slimecity.classicButtons'));
+  await page.evaluate(() => window.__game.setClassic(false));
+  await page.locator('.settings .switch').check();
+  const stored = await page.evaluate(() => localStorage.getItem('slimecity.controls.v3.classicButtons'));
   assert.equal(stored, '1', 'classic buttons setting persisted');
   await shot('06-settings');
   await page.click('.settings-close');

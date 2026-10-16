@@ -43,7 +43,7 @@ export class Hud {
         </div>
         <div class="hud-right"><div class="pill time"></div></div>
       </div>
-      <div class="tap-hint"></div>
+      <div class="tap-hint"></div><div class="controls-tip"></div>
       <div class="toast"></div>
       <div class="trick"></div>
       <button class="ride-btn" data-a="interact"></button>
@@ -111,11 +111,12 @@ export class Hud {
     for (const l of this.labels) l.el.textContent = s[l.key];
     this.shapeBtn.textContent = this.shape === 'cube' ? `■ ${s.cube}` : `◢ ${s.ramp}`;
     this.tapHintEl.textContent = s.tapHint;
+    this.el.querySelector('.controls-tip')!.textContent = window.matchMedia('(pointer: coarse)').matches ? 'Left thumb: move · Drag: look · Sticky / Bouncy: shoot' : s.desktopHelp;
   }
 
   /** Remind touch players how the right half works (modern layout only). */
   showTapHint() {
-    this.tapHintTimer = 5;
+    this.tapHintTimer = 4;
     this.tapHintEl.classList.add('on');
   }
 

@@ -93,6 +93,8 @@ export class GameView {
   private ghost: THREE.Mesh;
   private particles: Particle[] = [];
   private col: Collider;
+  private occluders: THREE.Object3D[] = [];
+  private cameraRay = new THREE.Raycaster();
   private camDist = 7;
   private gate = new THREE.Group();
   private time = 0;
@@ -112,7 +114,8 @@ export class GameView {
     const road = buildRaceRoad(); this.scene.add(road.root); this.gate = road.gate;
     const city = buildCity(state.world);
     this.scene.add(city.root);
-    this.scene.add(this.lift, buildRooftop());
+    const rooftop = buildRooftop();
+    this.scene.add(this.lift, rooftop);
     const tower = buildSkyscraper();
     tower.scale.setScalar(0.65);
     tower.position.set(26, 0, -26);
@@ -120,6 +123,8 @@ export class GameView {
     // Remove the showcase-only elevator cabin: the sim owns the real platform.
     const cabin = tower.getObjectByName('showcase-cabin'); if (cabin) cabin.visible = false;
     batchStatic(tower);
+    this.occluders = [city.root, tower, rooftop];
+    this.scene.updateMatrixWorld(true);
     this.scene.userData.studioTower = tower;
     this.spray = city.root.getObjectByName('spray');
     this.col = new Collider([...state.world.solids, ...city.cameraBlockers]);
@@ -457,8 +462,15 @@ export class GameView {
       const dy = Math.sin(camPitch);
       const dz = Math.cos(camYaw) * Math.cos(camPitch);
       const want = 7.5;
-      const hit = this.col.raycast(tx, ty, tz, dx, dy, dz, want);
-      const target = Math.max(1.2, Math.min(want, hit - 0.3));
+      let hit = this.col.raycast(tx, ty, tz, dx, dy, dz, want);
+      // Sample a small camera volume against the real rooftop/pergola meshes.
+      for (const offset of [-0.18, 0, 0.18]) {
+        this.cameraRay.set(new THREE.Vector3(tx + Math.cos(camYaw) * offset, ty, tz - Math.sin(camYaw) * offset), new THREE.Vector3(dx, dy, dz));
+        this.cameraRay.far = want;
+        const meshHit = this.cameraRay.intersectObjects(this.occluders, true)[0];
+        if (meshHit) hit = Math.min(hit, meshHit.distance);
+      }
+      const target = Math.max(0.35, Math.min(want, hit - 0.3));
       // pull in instantly, ease out
       this.camDist = target < this.camDist ? target : this.camDist + (target - this.camDist) * Math.min(1, dt * 4);
       this.camera.position.set(tx + dx * this.camDist, Math.max(0.3, ty + dy * this.camDist), tz + dz * this.camDist);
