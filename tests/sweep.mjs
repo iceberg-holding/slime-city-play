@@ -33,7 +33,12 @@ try {
       if (y === TOWER.mid) floorTargets.push(...lift.map(i=>s.pickups[i].pos));
       assert.ok(findWalkPaths(makeCollider(s),35,{x:TOWER.liftX,y,z:-26},floorTargets).every(Boolean), `floor ${y}, pool/spa`);
     }
-    if (raceDef) {
+    if (raceDef?.course.air) {
+      // flight course: the drone's whole body fits along the guide line between the course scenery
+      s.race.phase='racing'; const fc=makeCollider(s); s.race.phase='locked';
+      const course=raceDef.course, {courseHeightAt}=await load('track');
+      for(let d=0;d<=course.length;d+=1) { const p=courseAt(course,d), y=courseHeightAt(course,d); for(const lane of [-1.2,0,1.2]) { const x=p.x-p.dz*lane, z=p.z+p.dx*lane; assert.ok(!fc.blocked(x,z,y,VEHICLES.drone.radius,VEHICLES.drone.height)&&fc.groundAt(x,z,y+0.4,VEHICLES.drone.radius)<=y+0.01,`level 3 route clear at ${d} lane ${lane}`); } }
+    } else if (raceDef) {
       const course=raceDef.course, start=courseAt(course,0), end=courseAt(course,course.length);
       const corridor={groundAt:col.groundAt.bind(col),blocked:(x,z,y,r,h)=>courseNear(course,x,z).distance>5.5||col.blocked(x,z,y,r,h)};
       assert.ok(findWalkPaths(corridor,900,{x:start.x,y:0,z:start.z},[{x:end.x,y:0.9,z:end.z}])[0],`level ${level} finish reachable from race entry by road flood fill`);
@@ -67,7 +72,7 @@ try {
       }
     }
     // Drive the full centerline with several seeds; rails and jumps must not trap a vehicle.
-    for (const seed of !raceDef ? [] : level === 1 ? [11, 27, 93] : [11, 27, 93, 5]) {
+    for (const seed of !raceDef ? [] : level === 1 ? [11, 27, 93] : level === 3 ? [11, 27, 93] : [11, 27, 93, 5]) {
       const def=levelDef(level), course=def.race.course, kind=def.mission.vehicle;
       const trackAt=d=>courseAt(course,d);
       const race=createGame(seed,[0,0,0,0],level), p=race.players[0];
@@ -75,6 +80,20 @@ try {
       v.rider=p.id;p.riding=v.id;race.garages[0].built=true;race.garages[0].delivered=VEHICLES[kind].parts.map(q=>q.id);openGates(race);startRace(race);
       let stuck=0, previous=0;
       const trackNear=(x,z)=>courseNear(course,x,z), top=def===levelDef(1)?9.75:14*0.75;
+      if (course.air) {
+        // flying bot: heading to a point ahead, altitude to the guide; must never stall or touch the ground
+        const {courseHeightAt}=await load('track');
+        for(let frame=0;frame<(def.race.duration+1)*60&&race.race.phase==='racing';frame++) {
+          const near=trackNear(v.pos.x,v.pos.z), target=trackAt(near.progress+8), want=courseHeightAt(course,near.progress+5);
+          const desired=Math.atan2(-(target.x-v.pos.x),-(target.z-v.pos.z)), error=Math.atan2(Math.sin(desired-v.yaw),Math.cos(desired-v.yaw));
+          const steer=Math.max(-1,Math.min(1,-error*2.5)), throttle=Math.hypot(v.vel.x,v.vel.z)<VEHICLES.drone.maxSpeed*0.75?1:0.2;
+          step(race,{[p.id]:{...emptyInput(),up:v.pos.y<want-0.15,down:v.pos.y>want+0.15,mx:-Math.sin(v.yaw)*throttle+Math.cos(v.yaw)*steer,mz:-Math.cos(v.yaw)*throttle-Math.sin(v.yaw)*steer}},1/60);
+          stuck=near.progress-previous<0.001?stuck+1:0;previous=near.progress;
+          assert.ok(stuck<180,'flight >3s stall');assert.ok(v.pos.y>0.5,'drone stays airborne along the route');
+        }
+        assert.equal(race.race.phase,'finished',`level 3 flight bot finish seed ${seed}: ${JSON.stringify(v.pos)}, ${race.race.remaining}s`);
+        continue;
+      }
       for(let frame=0;frame<(def.race.duration+1)*60&&race.race.phase==='racing';frame++) {
         const near=trackNear(v.pos.x,v.pos.z), target=trackAt(near.progress+9);
         const desired=Math.atan2(-(target.x-v.pos.x),-(target.z-v.pos.z));
@@ -95,14 +114,18 @@ try {
     // Vertical drops over every solid, roofs, ramp edges, and the entire course.
     const points=s.world.solids.flatMap(b=>[{x:(b.minX+b.maxX)/2,z:(b.minZ+b.maxZ)/2,y:b.maxY+8}, {x:b.maxX+0.6,z:b.maxZ+0.6,y:b.maxY+8}]);
     const dropCourse=raceDef?.course;
-    for(let d=0;dropCourse&&d<=dropCourse.length;d+=4) { const p=courseAt(dropCourse,d); for(const lane of [-6,0,6]) points.push({x:p.x-p.dz*lane,z:p.z+p.dx*lane,y:8}); }
+    for(let d=0;dropCourse&&d<=dropCourse.length;d+=4) { const p=courseAt(dropCourse,d); for(const lane of [-6,0,6]) points.push({x:p.x-p.dz*lane,z:p.z+p.dx*lane,y:dropCourse.air?24:8}); }
+    // flight course scenery (roofs, trees, aqueduct, cathedral) is collision during the race
+    const raceSolids=s.world.raceSolids??[];
+    points.push(...raceSolids.flatMap(b=>[{x:(b.minX+b.maxX)/2,z:(b.minZ+b.maxZ)/2,y:b.maxY+8},{x:b.maxX+0.6,z:b.maxZ+0.6,y:b.maxY+8}]));
+    s.race.phase='racing'; const dropCol=makeCollider(s); s.race.phase='locked';
     for(const pos of points) for(const radius of [0.4,0.55]) {
       const body={pos:{...pos},vel:{x:0,y:-40,z:0},radius,height:1.4,grounded:false};
-      for(let i=0;i<180;i++) {moveBody(body,1/60,col,s.world.half);assert.ok(body.pos.y>=-1,'drop through floor');}
-      assert.ok(!col.pointInside(body.pos.x,body.pos.y+0.1,body.pos.z),'drop penetration');
+      for(let i=0;i<180;i++) {moveBody(body,1/60,dropCol,s.world.half);assert.ok(body.pos.y>=-1,'drop through floor');}
+      assert.ok(!dropCol.pointInside(body.pos.x,body.pos.y+0.1,body.pos.z),'drop penetration');
     }
   }
-  console.log('ok sweep: reach graph, 24 seeded walks, creatures, solid/roof/track drops, 7 race bots on both levels');
+  console.log('ok sweep: reach graph, 36 seeded walks, creatures, solid/roof/track drops, 7 race bots and 3 flight bots on three levels, level-3 route clearance');
   web=await preview({preview:{port:4188},logLevel:'error'});
   browser=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   const page=await browser.newPage({viewport:{width:360,height:740},isMobile:true,hasTouch:true});
@@ -157,6 +180,9 @@ try {
     await page.locator('canvas').first().dispatchEvent('pointerdown',{pointerId:82,pointerType:'touch',clientX:72,clientY:height-85,bubbles:true});
     await layout(['.parts','.hint','.hud-right','.ride-btn','.toast.on','.act','.shape-btn','.joy-base']);
     await page.evaluate(()=>window.dispatchEvent(new PointerEvent('pointerup',{pointerId:82,pointerType:'touch'})));
+    await page.evaluate(()=>{const g=window.__game;g.startRace();g.setPaused(true);g.tick(2);});
+    await page.waitForTimeout(200);
+    await layout(['.parts','.hint','.hud-right','.ride-btn','.act','.shape-btn','.bonus-pop.on']);
     console.log(`ok sweep layout ${width}x${height}`);
   }
   console.log('ok sweep: creator, gate, race, win, level-complete and drone-flight layouts at four touch viewports');

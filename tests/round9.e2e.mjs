@@ -1,5 +1,5 @@
 // Level 2 (harbor scooter) browser flow on a 412x915 phone: area, parts, garage scooter, race, finish screen.
-// Checks budgets against level-1 numbers, the harbor gate cues/compass, localized hints and the drone teaser.
+// Checks budgets against level-1 numbers, the harbor gate cues/compass, localized hints, the drone teaser and Next level → 3.
 // Saves shots/r9-l2-{area,parts,garage-scooter,race,finish}.png. Run: npm run build && node tests/round9.e2e.mjs
 import { preview, createServer } from 'vite';
 import { chromium } from 'playwright';
@@ -99,9 +99,11 @@ try {
   const card = await page.locator('.win-card').boundingBox();
   assert.ok(card.x >= 0 && card.y >= 0 && card.x + card.width <= 412 && card.y + card.height <= 915, 'finish card inside phone viewport');
   await shot('finish', 900);
-  // Race again restarts level 2.
+  // Level 2 now leads on to level 3 (the drone in the old town).
+  await text('.again', 'Next level →');
   await page.locator('.again').click();
-  assert.equal(await page.evaluate(() => window.__game.state.level), 2);
+  assert.equal(await page.evaluate(() => window.__game.state.level), 3);
+  assert.equal(await page.evaluate(() => window.__game.state.world.theme), 'oldtown');
   assert.deepEqual(errors, []);
-  console.log('ok round9: harbor level flow, budgets, gate cues, coastal race finish, drone teaser; five 412x915 shots');
+  console.log('ok round9: harbor level flow, budgets, gate cues, coastal race finish, drone teaser, next level 3; five 412x915 shots');
 } finally { await browser.close(); await loader.close(); await new Promise(r => server.httpServer.close(r)); }

@@ -207,6 +207,8 @@ export interface World {
   props: Prop[];
   fountain?: { x: number; z: number; stepHalf: number; stepH: number; basinHalf: number; basinH: number; pillarHalf: number; pillarH: number };
   plazaRadius: number;
+  /** collision for race-course scenery far from the area (flight course houses, trees, arches); active in races */
+  raceSolids?: Solid[];
 }
 
 export type GameEventType =

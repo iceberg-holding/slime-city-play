@@ -120,8 +120,9 @@ function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z
 }
 
 export function makeCollider(state: GameState): Collider {
-  const def = levelDef(state.level), gate = raceOf(state)?.gate;
-  return new Collider([...state.world.solids, ...(state.race.phase === 'locked' && gate ? [gate] : [])], [...state.blocks.map(blockSolid), ...(def.tower ? [liftSolid(state.elevator.y)] : [])]);
+  const def = levelDef(state.level), gate = raceOf(state)?.gate, ph = state.race.phase;
+  const course = ph === 'racing' || ph === 'finished' || ph === 'failed' ? state.world.raceSolids ?? [] : [];
+  return new Collider([...state.world.solids, ...course, ...(ph === 'locked' && gate ? [gate] : [])], [...state.blocks.map(blockSolid), ...(def.tower ? [liftSolid(state.elevator.y)] : [])]);
 }
 
 /** Advance the simulation by dt seconds. `inputs` is keyed by player id. */
@@ -434,6 +435,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       }
     }
     const dash = state.race.phase === 'racing' ? c.dash : undefined;
+    const airRace = state.race.phase === 'racing' && !!raceOf(state)?.course.air;
     const hinting = !!c.hinter && td < 12 && hintPending(state);
     if (hinting) {
       // the lobby pyshka gossips about the flashlight upstairs every few seconds
@@ -445,7 +447,20 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
         emit(state, 'babble', c.pos.x, c.pos.y + 1.4, c.pos.z, c.id);
       }
     }
-    if (dash) {
+    if (dash?.bounce) {
+      // rooftop hooligan: springs up into the drone's path when it comes close
+      c.mode = 'wander';
+      if (target && td < 26 && c.grounded && c.hopCd <= 0) {
+        c.vel.y = 11.5;
+        c.grounded = false;
+        c.hopCd = 1.4;
+        c.twirl = 0.5;
+        if (c.talk <= 0) { c.phrase = Math.floor(rand(state) * PHRASE_COUNT); c.talk = 1.4; }
+      }
+    } else if (airRace) {
+      // the other pyshki on the flight course just stand on their roofs and lawns and watch
+      c.mode = 'wander';
+    } else if (dash) {
       // hooligan: when a rider closes in, dash to the far kerb and back again
       c.mode = 'wander';
       if (target && td < 30) {

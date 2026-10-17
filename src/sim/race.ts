@@ -1,4 +1,5 @@
-import { RING_RADIUS, STAR_RADIUS, courseAt, courseNear, courseRings, courseStars } from './track';
+import { STAR_RADIUS, courseAt, courseHeightAt, courseNear, courseRings, courseStars, ringRadius } from './track';
+import { Collider } from './physics';
 import { levelDef, raceStart } from './levels';
 import { newRaceState, type Creature, type GameState } from './types';
 import { VEHICLES } from './vehicles';
@@ -23,7 +24,7 @@ export function startRace(s: GameState) {
   if (!r || !v || s.race.phase === 'locked') return;
   const start = raceStart(r);
   s.status = 'playing'; s.race = newRaceState('racing', r.duration);
-  v.pos = { x: start.x, y: 0, z: start.z }; v.vel = { x: 0, y: 0, z: 0 }; v.speed = 0; v.yaw = start.yaw;
+  v.pos = { x: start.x, y: courseHeightAt(r.course, 0), z: start.z }; v.vel = { x: 0, y: 0, z: 0 }; v.speed = 0; v.yaw = start.yaw;
   p.pos = { ...v.pos }; s.projectiles = []; s.pads = [];
   s.creatures.forEach(c => { c.chatUntil = 0; c.stuck = 0; c.talk = 0; c.slot = undefined; });
   populateRace(s, true);
@@ -71,11 +72,11 @@ export function updateRace(s: GameState, dt: number) {
 
 /** +3 s for flying through a ring: crossing its plane this tick, within the ring's radius. */
 function passRings(s: GameState, progress: number, x: number, y: number, z: number) {
-  const rings = courseRings(raceOf(s)!.course), from = s.race.progress;
+  const course = raceOf(s)!.course, rings = courseRings(course), from = s.race.progress, R = ringRadius(course);
   for (let i = 0; i < rings.length; i++) {
     const g = rings[i];
     if (from >= g.d || progress < g.d || progress - from > 5 || s.race.rings.includes(i)) continue;
-    if ((g.x - x) ** 2 + (g.y - y) ** 2 + (g.z - z) ** 2 > RING_RADIUS ** 2) continue;
+    if ((g.x - x) ** 2 + (g.y - y) ** 2 + (g.z - z) ** 2 > R ** 2) continue;
     s.race.rings.push(i);
     addBonus(s, 3, g.x, g.y, g.z, 'ring');
   }
@@ -101,6 +102,8 @@ function populateRace(s: GameState, force = false) {
   if (!Number.isFinite(progress)) return;
   const section = Math.floor(progress / 70);
   const spot = (slot: number, i: number) => Math.max(8, Math.min(course.length - 10, slot * 70 + 18 + Math.floor(i / 3) * 19));
+  // flight course: pyshki stand on the roofs and lawns under the route; hooligans spring up at the drone
+  const air = !!course.air, ground = air ? new Collider(s.world.raceSolids ?? []) : null;
   s.creatures.forEach((c, i) => {
     const slot = section - 1 + ((((i - (section - 1)) % 3) + 3) % 3);
     if (c.slot === slot) return;
@@ -108,14 +111,15 @@ function populateRace(s: GameState, force = false) {
     const d = spot(slot, i);
     const p = courseAt(course, d), hooligan = Math.floor(i / 3) === 1, side = (slot + i) % 2 ? 1 : -1;
     // hooligans lurk at the kerb and dash across; the rest stand about in the lanes
-    const lane = hooligan ? side * 5.4 : ((i * 7 + slot * 3) % 5 - 2) * 1.7;
+    const lane = air ? (hooligan ? side * 3.6 : ((i * 7 + slot * 3) % 5 - 2) * 2.4) : hooligan ? side * 5.4 : ((i * 7 + slot * 3) % 5 - 2) * 1.7;
     const x = p.x - p.dz * lane, z = p.z + p.dx * lane;
+    const y = ground ? ground.groundAt(x, z, courseHeightAt(course, d) - 1.5, 0.5) : 0;
     c.slot = slot;
     {
-      c.pos = { x, y: 0, z }; c.home = { x, z }; c.target = { x, z };
+      c.pos = { x, y, z }; c.home = { x, z }; c.target = { x, z };
       c.vel = { x: 0, y: 0, z: 0 }; c.stuck = 0; c.chatUntil = 0; c.talk = 0;
       c.paid = false;
-      c.dash = hooligan ? { ax: x, az: z, bx: p.x + p.dz * side * 2.2, bz: p.z - p.dx * side * 2.2, toB: false } : undefined;
+      c.dash = !hooligan ? undefined : air ? { ax: x, az: z, bx: x, bz: z, toB: false, bounce: true } : { ax: x, az: z, bx: p.x + p.dz * side * 2.2, bz: p.z - p.dx * side * 2.2, toB: false };
     }
   });
 }

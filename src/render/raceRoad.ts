@@ -159,6 +159,13 @@ const edges = TRACK.map((_, i) => {
   for (const x of [-6.5, 6.5]) finish.add(geo.cyl(0.18, 0.18, 6), 0xff5d73, { p: [p.x - p.dz * x, 3, p.z + p.dx * x] });
   finish.add(new THREE.BoxGeometry(13.5, 1, 0.3), 0xff5d73, { p: [p.x, 5.5, p.z], r: [0, p.yaw, 0] });
   const arch = finish.build(); arch.userData.center = { x: p.x, z: p.z }; root.add(arch);
+  return { root, ...buildEntrance(race, theme) };
+}
+
+/** The race entrance in the level area: bars (closed until the vehicle is ready), permanent posts, a glowing arch
+ *  and a bouncing arrow cue while it is open. */
+export function buildEntrance(race: RaceDef, theme: RoadTheme) {
+  const harbor = theme === 'harbor';
   const G = race.gate, gz = (G.minZ + G.maxZ) / 2, gw = G.maxX - G.minX, gx = (G.minX + G.maxX) / 2;
   const entrance = new Kit();
   for (const x of [G.minX, G.maxX]) entrance.add(geo.capsule(0.24, 4.5), 0x57ff83, { p: [x, 2.25, gz], cast: false });
@@ -178,9 +185,10 @@ const edges = TRACK.map((_, i) => {
   const posts = new Kit();
   for (const x of [G.minX, G.maxX]) posts.add(geo.rbox(0.5, 3.8, 0.5, 0.1), harbor ? 0xfffaf0 : 0xffd166, { p: [x, 1.9, gz], finish: 'gloss', cast: false });
   if (harbor) posts.add(geo.rbox(gw * 0.6, 0.9, 0.12, 0.08), 0x2f6fb5, { p: [gx, 3.4, gz], finish: 'gloss', cast: false });
+  if (theme === 'oldtown') posts.add(geo.rbox(gw * 0.6, 0.9, 0.12, 0.08), 0xd8693e, { p: [gx, 3.4, gz], finish: 'gloss', cast: false });
   const gate = bars.build(); gate.position.set(G.minX, 0, gz);
   const entry = posts.build();
-  return { root, gate, cues, arrow, archMaterial, entry, gatePos: { x: G.minX, z: gz } };
+  return { gate, cues, arrow, archMaterial, entry, gatePos: { x: G.minX, z: gz } };
 }
 
 /** Coastal road: sea on the left, grassy cliffs and pines on the right. Boardwalk: pilings, lamps. Loop: rocks and buoys. */

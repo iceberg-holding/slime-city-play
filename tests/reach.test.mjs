@@ -336,6 +336,60 @@ try {
     console.log('ok drone flight: climb, hover, soft ceiling, land, turn, forward, wall bounce, soft walls, get off mid-air');
   }
 
+  // Level 3 flight race: a flying steering bot (heading + altitude along the guide) finishes, flies through the
+  // rings and collects stars; hooligans spring up from the roofs; medals ladder; route is clear of scenery.
+  {
+    const { courseAt, courseNear, courseHeightAt, courseRings, courseStars } = await load('/src/sim/track.ts');
+    const def = levelDef(3), course = def.race.course;
+    assert.ok(course.air && course.length > 700 && course.length < 820, `flight course ${course.length}`);
+    const s3 = createGame(42, [0, 0, 0, 0], 3), p3 = s3.players[0];
+    assert.ok(s3.world.raceSolids.length > 200, 'flight course has scenery collision');
+    // the guide line is flyable: no solid in the drone's way anywhere along it
+    s3.race.phase = 'racing';
+    const col = makeCollider(s3);
+    for (let d = 0; d <= course.length; d += 1.5) {
+      const p = courseAt(course, d), y = courseHeightAt(course, d);
+      assert.ok(!col.blocked(p.x, p.z, y, V.drone.radius, V.drone.height) && col.groundAt(p.x, p.z, y + 0.4, V.drone.radius) <= y + 0.01, `route clear at ${d.toFixed(1)} m`);
+    }
+    s3.race.phase = 'locked';
+    for (const r of courseRings(course)) assert.ok(!col.pointInside(r.x, r.y, r.z), 'ring in open air');
+    const stars = courseStars(course);
+    assert.ok(stars.length >= 18 && stars.some(st => st.high) && stars.some(st => st.y < courseHeightAt(course, st.d)), `stars high and low (${stars.length})`);
+    const dr = spawnVehicle(s3, 'drone', def.mission.garage.x, 0, def.mission.garage.z, 0);
+    p3.riding = dr.id; dr.rider = p3.id; ready(s3);
+    step(s3, {}, DT); assert.equal(s3.race.phase, 'open', 'gate opens once the drone is ready');
+    const t = def.race.trigger; dr.pos = { x: (t.minX + t.maxX) / 2, y: 4, z: (t.minZ + t.maxZ) / 2 }; step(s3, {}, DT);
+    assert.equal(s3.race.phase, 'racing', 'flying through the gate starts the flight race');
+    assert.ok(Math.abs(dr.pos.y - courseHeightAt(course, 0)) < 0.5, 'race starts hovering at the start line');
+    let sprang = 0;
+    const top = V.drone.maxSpeed * 0.75;
+    for (let i = 0; i < (def.race.duration + 1) / DT && s3.race.phase === 'racing'; i++) {
+      const near = courseNear(course, dr.pos.x, dr.pos.z), target = courseAt(course, near.progress + 8), want = courseHeightAt(course, near.progress + 5);
+      const desired = Math.atan2(-(target.x - dr.pos.x), -(target.z - dr.pos.z));
+      const error = Math.atan2(Math.sin(desired - dr.yaw), Math.cos(desired - dr.yaw));
+      const steer = Math.max(-1, Math.min(1, -error * 2.5)), throttle = Math.hypot(dr.vel.x, dr.vel.z) < top ? 1 : 0.2;
+      step(s3, { [p3.id]: { ...emptyInput(), up: dr.pos.y < want - 0.15, down: dr.pos.y > want + 0.15,
+        mx: -Math.sin(dr.yaw) * throttle + Math.cos(dr.yaw) * steer, mz: -Math.cos(dr.yaw) * throttle - Math.sin(dr.yaw) * steer } }, DT);
+      sprang = Math.max(sprang, ...s3.creatures.filter(c => c.dash?.bounce).map(c => c.vel.y));
+    }
+    assert.equal(s3.race.phase, 'finished', `flying bot finishes (${s3.race.remaining.toFixed(1)} s left, at ${JSON.stringify(dr.pos)})`);
+    const rings = courseRings(course).length;
+    assert.ok(s3.race.rings.length >= rings - 1, `bot flies through the rings (${s3.race.rings.length}/${rings})`);
+    assert.ok(s3.race.stars.length >= 6, `bot collects stars (${s3.race.stars.length}/${stars.length})`);
+    assert.ok(sprang > 5, 'rooftop hooligans spring up at the drone');
+    const m = def.race.medals;
+    assert.ok(m.gold < m.silver && m.silver < def.race.duration, `medal ladder ${JSON.stringify(m)} < ${def.race.duration}`);
+    console.log(`ok level 3 flight race: ${course.length.toFixed(1)}m in ${s3.winTime.toFixed(1)}s of ${def.race.duration}s, rings ${s3.race.rings.length}/${rings}, stars ${s3.race.stars.length}/${stars.length}, medals ${m.gold}/${m.silver}`);
+    // a hooligan hit pays bonus seconds once
+    startRace(s3);
+    const c = s3.creatures.find(k => k.dash?.bounce);
+    assert.ok(c, 'flight race has hooligans');
+    const before = s3.race.bonus;
+    s3.projectiles.push({ id: s3.nextId++, kind: 'bouncy', owner: p3.id, pos: { x: c.pos.x, y: c.pos.y + 0.6, z: c.pos.z }, vel: { x: 0, y: 0, z: 0 }, life: 2, scale: 1 });
+    step(s3, {}, DT);
+    assert.equal(s3.race.bonus - before, 2, 'slime hit on a rooftop hooligan: +2 s');
+  }
+
   // Try a few hero builds, including the slowest / lowest-jumping legs, on all levels.
   for (const [level, look] of [
     [1, [0, 0, 0, 0]],

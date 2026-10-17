@@ -24,6 +24,7 @@ export class WinScreen {
   private time = 0;
   private outcome: Outcome = 'won';
   private summary: RaceSummary | null = null;
+  private level = 1;
 
   constructor(onAgain: () => void, onNewHero: () => void) {
     this.el = document.createElement('div');
@@ -39,6 +40,7 @@ export class WinScreen {
         <div class="win-stats" hidden></div>
         <div class="teaser" hidden>
           <div class="drone" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
+          <div class="car" aria-hidden="true"><b></b><u></u><i></i><i></i></div>
           <div class="teaser-text"><div class="teaser-title"></div><div class="teaser-sub"></div></div>
         </div>
         <div class="win-buttons">
@@ -61,7 +63,7 @@ export class WinScreen {
     q('.win-time').textContent = `${s.time}: ${formatTime(this.time)}`;
     q('.again').textContent = s.again;
     q('.hero').textContent = s.newHero;
-    const L = levelText(), R = raceText(), o = this.outcome, sum = this.summary;
+    const L = levelText(this.level === 3 ? 3 : 2), R = raceText(), o = this.outcome, sum = this.summary;
     const medal = q('.win-medal') as HTMLElement, best = q('.win-best') as HTMLElement, stats = q('.win-stats') as HTMLElement;
     medal.hidden = best.hidden = stats.hidden = !sum || o === 'failed';
     medal.className = `win-medal ${sum?.medal ?? ''}`;
@@ -83,9 +85,13 @@ export class WinScreen {
         stats.append(chip);
       }
     }
-    q('.win-icon').textContent = o === 'next' ? '🏁' : o === 'failed' ? '⏱' : o === 'complete' ? '🛴' : '🏍️';
+    q('.win-icon').textContent = o === 'next' ? '🏁' : o === 'failed' ? '⏱' : o === 'complete' ? (this.level === 3 ? '🚁' : '🛴') : '🏍️';
     (q('.teaser') as HTMLElement).hidden = o !== 'complete';
+    // the teaser shows the next level's vehicle: the drone after level 2, a car after level 3
+    (q('.drone') as HTMLElement).hidden = this.level === 3;
+    (q('.car') as HTMLElement).hidden = this.level !== 3;
     this.el.classList.toggle('complete', o === 'complete');
+    this.el.classList.toggle('level3', this.level === 3);
     if (o === 'next') {
       q('.win-title').textContent = R.finish;
       q('.win-sub').textContent = L.nextSub;
@@ -97,13 +103,15 @@ export class WinScreen {
     } else if (o === 'complete') {
       q('.win-title').textContent = L.complete;
       q('.win-sub').textContent = L.completeSub;
-      q('.again').textContent = L.again;
+      // level 2 leads on to level 3; level 3 is the last one so far: fly again
+      q('.again').textContent = this.level === 2 ? L.nextLevel : L.again;
       q('.teaser-title').textContent = L.teaser;
       q('.teaser-sub').textContent = L.teaserSub;
     }
   }
 
-  open(time: number, outcome: Outcome = 'won', summary: RaceSummary | null = null) {
+  open(time: number, outcome: Outcome = 'won', summary: RaceSummary | null = null, level = 1) {
+    this.level = level;
     this.time = time;
     this.outcome = outcome;
     this.summary = summary;

@@ -15,7 +15,24 @@ export interface Course {
   rail: number;
   /** fire rings hang this far above the ramp top, where a typical jump's vehicle centre passes */
   ringLift: number;
+  /** flight courses: guide altitude keys [progress, height] for the drone's feet, ring positions, ring size */
+  air?: { heights: [number, number][]; rings: number[]; ringRadius: number };
 }
+
+/** Guide altitude (drone feet) at progress d: piecewise linear through the course's height keys (0 on the ground). */
+export function courseHeightAt(c: Course, d: number) {
+  const H = c.air?.heights;
+  if (!H) return 0;
+  if (d <= H[0][0]) return H[0][1];
+  for (let i = 1; i < H.length; i++) if (d <= H[i][0]) {
+    const [d0, h0] = H[i - 1], [d1, h1] = H[i];
+    return h0 + ((h1 - h0) * (d - d0)) / (d1 - d0);
+  }
+  return H[H.length - 1][1];
+}
+
+/** Height of a flight item (star, ring) above the guide: where the drone body's centre passes. */
+export const AIR_ITEM_LIFT = 0.6;
 
 export function makeCourse(pts: [number, number][], o: Omit<Course, 'points' | 'length'>): Course {
   const points = pts.map(([x, z]) => ({ x, z }));
@@ -59,6 +76,18 @@ export function courseStars(c: Course): Star[] {
   let stars = starCache.get(c);
   if (stars) return stars;
   stars = [];
+  if (c.air) {
+    // flight course: stars along the guide line in three lanes; every fourth one high above it, some low under it
+    for (let d = 20, i = 0; d < c.length - 12; d += 28, i++) {
+      if (c.air.rings.some((r) => Math.abs(r - d) < 9)) continue;
+      // pattern of four: on the line, high above it, on the line, then off to one side (low under the line if there's room)
+      const p = courseAt(c, d), lane = i % 4 === 3 ? (i % 8 === 3 ? -2.5 : 2.5) : 0, g = courseHeightAt(c, d) + AIR_ITEM_LIFT;
+      const kind = i % 4 === 1 ? 'high' : i % 4 === 3 && g > 6 ? 'low' : 'mid';
+      stars.push({ x: p.x - p.dz * lane, y: kind === 'high' ? g + 3.2 : kind === 'low' ? g - 1.8 : g, z: p.z + p.dx * lane, d, high: kind === 'high' });
+    }
+    starCache.set(c, stars);
+    return stars;
+  }
   const lanes = [-3, 0, 3];
   for (let d = 30, i = 0; d < c.length - 15; d += 40, i++) {
     if (c.jumps.some((j) => d > j - 12 && d < j + c.rampLength + 14)) continue;
@@ -78,10 +107,19 @@ export function courseStars(c: Course): Star[] {
 /** Flaming rings just past each ramp's lip (framing its high star): fly through for bonus seconds. */
 export interface Ring { x: number; y: number; z: number; d: number; yaw: number }
 export const RING_RADIUS = 1.6;
+export const ringRadius = (c: Course) => c.air?.ringRadius ?? RING_RADIUS;
 const ringCache = new WeakMap<Course, Ring[]>();
 export function courseRings(c: Course): Ring[] {
   let rings = ringCache.get(c);
   if (rings) return rings;
+  if (c.air) {
+    rings = c.air.rings.map((d) => {
+      const p = courseAt(c, d);
+      return { x: p.x, y: courseHeightAt(c, d) + AIR_ITEM_LIFT, z: p.z, d, yaw: p.yaw };
+    });
+    ringCache.set(c, rings);
+    return rings;
+  }
   rings = c.jumps.map((j) => {
     const d = j + c.rampLength + 1.5, p = courseAt(c, d), lane = j === c.optionalJump ? -3.5 : 0;
     return { x: p.x - p.dz * lane, y: c.rampHeight + c.ringLift, z: p.z + p.dx * lane, d, yaw: p.yaw };

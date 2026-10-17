@@ -1,5 +1,6 @@
 import { raceOf } from '../sim/race';
-import { RING_RADIUS, courseRings, courseStars, type Ring, type Star } from '../sim/track';
+import { courseRings, courseStars, ringRadius, type Ring, type Star } from '../sim/track';
+import { buildAirCourse } from './airCourse';
 
 /** flame tongues per fire ring */
 const FLAMES = 12;
@@ -15,6 +16,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Collider, blockSolid } from '../sim/physics';
 import { computePlacement, makeCollider } from '../sim/step';
 import type { GameEvent, GameState, Solid } from '../sim/types';
+import { levelDef } from '../sim/levels';
 import { VEHICLES } from '../sim/vehicles';
 import { playEvent } from './audio';
 import { GHOST_HZ } from '../sim/constants';
@@ -125,6 +127,7 @@ export class GameView {
   private rings: THREE.InstancedMesh | null = null;
   private flames: THREE.InstancedMesh | null = null;
   private ringList: Ring[] = [];
+  private ringR = 1.6;
   private tmpE = new THREE.Euler();
   /** red bandanas worn by race hooligans (created on first use) */
   private bandanas = new Map<number, THREE.Object3D>();
@@ -139,7 +142,7 @@ export class GameView {
   private tmpS = new THREE.Vector3();
   private yAxis = new THREE.Vector3(0, 1, 0);
   /** translucent replay of the best run (one mesh) and its decoded [x, y, z, yaw] path at GHOST_HZ */
-  private ghostBike = buildGhostBike();
+  private ghostBike: THREE.Mesh;
   private ghostPath: Float32Array | null = null;
   /** warm glow in the tower's mid-floor windows while the flashlight is still up there */
   private windowGlow: THREE.Mesh | null = null;
@@ -162,7 +165,7 @@ export class GameView {
     this.scene.add(this.sky);
 
     if (raceOf(state)) {
-      const road = buildRaceRoad(raceOf(state)!, state.world.theme);
+      const race = raceOf(state)!, road = race.course.air ? buildAirCourse(race) : buildRaceRoad(race, state.world.theme);
       this.gateCues = road.cues; this.gateArrow = road.arrow; this.gateArchMaterial = road.archMaterial; this.gate = road.gate; this.road = road.root;
       this.scene.add(road.cues, road.root, road.gate, road.entry);
       this.starList = courseStars(raceOf(state)!.course);
@@ -172,7 +175,8 @@ export class GameView {
       this.scene.add(this.stars);
       this.ringList = courseRings(raceOf(state)!.course);
       const ringMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff5a00, emissiveIntensity: 1.6, roughness: 0.4 });
-      this.rings = new THREE.InstancedMesh(new THREE.TorusGeometry(RING_RADIUS, 0.13, 10, 40), ringMat, this.ringList.length);
+      this.ringR = ringRadius(race.course);
+      this.rings = new THREE.InstancedMesh(new THREE.TorusGeometry(this.ringR, 0.13, 10, 40), ringMat, this.ringList.length);
       this.flames = new THREE.InstancedMesh(new THREE.ConeGeometry(0.2, 0.7, 7, 1, true).translate(0, 0.35, 0),
         new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
         this.ringList.length * FLAMES);
@@ -221,7 +225,7 @@ export class GameView {
         { minX: x0, maxX: x1, minY: TOWER.mid + 1.88, maxY: TOWER.mid + 2.2, minZ: z0, maxZ: z1 }];
     }
     this.scene.updateMatrixWorld(true);
-    this.col = new Collider([...state.world.solids, ...blockers]);
+    this.col = new Collider([...state.world.solids, ...(state.world.raceSolids ?? []), ...blockers]);
 
     this.projectiles = new Pool(geo.sphere(0.5, 24, 16), glossy(), 32, true);
     const padGeo = new THREE.SphereGeometry(0.5, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -243,6 +247,7 @@ export class GameView {
     );
     this.ghost.visible = false;
     this.scene.add(this.ghost);
+    this.ghostBike = buildGhostBike(levelDef(state.level).mission.vehicle === 'drone');
     this.ghostBike.visible = false;
     this.scene.add(this.ghostBike);
 
@@ -375,7 +380,7 @@ export class GameView {
       // flames lick up from the upper part of the ring, each flickering on its own beat
       for (let f = 0; f < FLAMES; f++) {
         const a = -0.5 + (f / (FLAMES - 1)) * (Math.PI + 1), j = i * FLAMES + f;
-        const cx = Math.cos(a) * RING_RADIUS, cy = Math.sin(a) * RING_RADIUS;
+        const cx = Math.cos(a) * this.ringR, cy = Math.sin(a) * this.ringR;
         const h = k * (0.6 + 0.5 * Math.abs(Math.sin(t * 11 + j * 1.7)) + 0.2 * Math.sin(t * 23 + j));
         this.tmpQ.setFromEuler(this.tmpE.set(0, g.yaw, (a - Math.PI / 2) * 0.35));
         this.tmpV.set(cx, cy, 0).applyAxisAngle(this.yAxis, g.yaw).add(this.tmpS.set(g.x, g.y, g.z));
@@ -479,7 +484,7 @@ export class GameView {
       if (lost) (this.windowGlow.material as THREE.MeshBasicMaterial).opacity = 0.75 + Math.sin(t * 2.1) * 0.12 + Math.sin(t * 13.7) * 0.05;
     }
     this.ensureEntities(state);
-    const ground = new Collider(state.world.solids, state.blocks.map(blockSolid));
+    const ground = new Collider(state.race.phase === 'locked' || state.race.phase === 'open' ? state.world.solids : [...state.world.solids, ...(state.world.raceSolids ?? [])], state.blocks.map(blockSolid));
     this.shadows.begin();
     const shadow = (x: number, y: number, z: number, size: number) => {
       const g = ground.groundAt(x, z, y + 0.3, 0.05);
@@ -798,8 +803,15 @@ function starGeometry(): THREE.BufferGeometry {
 }
 
 /** Ghost rider: bike + hunched rider silhouette merged into one translucent, unlit mesh. */
-function buildGhostBike(): THREE.Mesh {
-  const parts = [
+function buildGhostBike(drone = false): THREE.Mesh {
+  const parts = drone ? [
+    new THREE.BoxGeometry(0.8, 0.28, 1.05).translate(0, 0.7, 0),
+    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => new THREE.TorusGeometry(0.5, 0.06, 6, 20).rotateX(Math.PI / 2).translate(x * 0.85, 0.95, z * 0.85)),
+    new THREE.BoxGeometry(2.3, 0.06, 0.12).rotateY(Math.PI / 4).translate(0, 0.75, 0),
+    new THREE.BoxGeometry(2.3, 0.06, 0.12).rotateY(-Math.PI / 4).translate(0, 0.75, 0),
+    new THREE.CapsuleGeometry(0.22, 0.6, 3, 8).translate(0, 1.55, 0),
+    new THREE.SphereGeometry(0.24, 10, 8).translate(0, 2.2, 0),
+  ] : [
     new THREE.TorusGeometry(0.32, 0.1, 6, 16).rotateY(Math.PI / 2).translate(0, 0.4, -0.72),
     new THREE.TorusGeometry(0.32, 0.1, 6, 16).rotateY(Math.PI / 2).translate(0, 0.4, 0.7),
     new THREE.BoxGeometry(0.3, 0.32, 1.3).translate(0, 0.85, 0),

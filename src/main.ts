@@ -152,7 +152,8 @@ setPreview(creator.look);
 const win = new WinScreen(
   () => {
     if (state?.race.phase === 'failed') { startRace(state); resumePlay(); }
-    else startGame(creator.look, state?.level === 1 ? 2 : state?.level ?? 1);
+    // level 1 → 2 → 3; the last level replays itself
+    else startGame(creator.look, Math.min(3, (state?.level ?? 0) + 1));
   },
   () => showCreator(),
 );
@@ -314,7 +315,7 @@ function frame(now: number) {
       input.reset();
       hud.show(false);
       bubbles.show(false);
-      win.open(state.winTime, state.race.phase === 'failed' ? 'failed' : state.level === 1 ? 'next' : state.level === 2 ? 'complete' : 'won', raceSummary(state));
+      win.open(state.winTime, state.race.phase === 'failed' ? 'failed' : state.level === 1 ? 'next' : 'complete', raceSummary(state), state.level);
     }
   }
   followVehicle(dt);
@@ -369,7 +370,7 @@ const api = {
   startRace() { if (state) { startRace(state); resumePlay(); input.camYaw = 0; } },
   raceFinish() { if (state) { raceFinish(state); api.tick(); } },
   get raceState() { return state?.race; },
-  /** current level's race course polyline (for test drivers) */
+  /** current level's race course polyline (for test drivers); flight courses carry `air` altitude keys */
   get raceCourse() { return state ? raceOf(state)?.course ?? null : null; },
   showCreator,
   /** hero builder: pick part `i` for slot 0..3 (head, body, legs, gun) */
@@ -389,8 +390,13 @@ const api = {
   setClassic(v: boolean) {
     setClassic(v);
   },
-  teleportTo(name: 'elevator' | 'pool' | 'spa' | 'garage') {
-    const spots = { elevator: [TOWER.liftX, state?.elevator.y ?? 0.26, -26], pool: [24.5, TOWER.roof, -28.1], spa: [27.755, TOWER.roof, -28.21], garage: [levelDef(state?.level ?? 1).mission.garage.x, 0, levelDef(state?.level ?? 1).mission.garage.z] };
+  /** named spots; 'hidden' (alias 'battery') is the level's hidden part: on level 3 just inside the clock-room hatch,
+   *  facing the battery; on level 1 right at the flashlight */
+  teleportTo(name: 'elevator' | 'pool' | 'spa' | 'garage' | 'hidden' | 'battery') {
+    const m = levelDef(state?.level ?? 1).mission, hi = (m.hint ?? m.liftOnly ?? [])[0];
+    const h = hi !== undefined ? m.partSpots[hi] : null;
+    const hidden = h ? [h.x, h.y - 0.9, h.z + (state?.level === 3 ? 1.6 : 0)] : null;
+    const spots: Record<string, number[] | null> = { elevator: [TOWER.liftX, state?.elevator.y ?? 0.26, -26], pool: [24.5, TOWER.roof, -28.1], spa: [27.755, TOWER.roof, -28.21], garage: [m.garage.x, 0, m.garage.z], hidden, battery: hidden };
     const player = state?.players[0];
     if (player?.riding != null && state) {
       const vehicle = state.vehicles.find(v => v.id === player.riding);

@@ -180,8 +180,10 @@ function updateDrone(state: GameState, v: Vehicle, inp: InputCommand | undefined
   const want = throttle > 0 ? throttle * def.maxSpeed * (rider ? rider.stats.rideSpeed : 1) : throttle * def.reverseSpeed;
   // steer the whole horizontal velocity toward the heading: a bounce or a drift dies out on its own
   const rate = (Math.abs(throttle) > 0.05 ? def.accel : def.brake * 0.5) * dt;
-  v.vel.x += clampMag(fx * want - v.vel.x, rate);
-  v.vel.z += clampMag(fz * want - v.vel.z, rate);
+  const dvx = fx * want - v.vel.x, dvz = fz * want - v.vel.z, dv = Math.hypot(dvx, dvz);
+  const k = dv > rate ? rate / dv : 1;
+  v.vel.x += dvx * k;
+  v.vel.z += dvz * k;
 
   // altitude: climb / descend / hover; the ceiling softly takes away climb and nudges you back down
   const climb = def.climb ?? 5, ceil = def.ceiling ?? 25;

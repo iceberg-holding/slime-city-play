@@ -999,3 +999,16 @@ body:has(.toast.on) .controls-tip { visibility: hidden; }
 .hud.flying .act-up, .hud.flying .act-down { display: flex; }
 .hud.flying .act-jump, .hud.flying .act-trick { display: none; }
 .hud.flying .act-bouncy { right: 104px; bottom: 96px; }
+
+/* ---------- Level 3 complete: car teaser (level 4) ---------- */
+.drone[hidden], .car[hidden] { display: none; }
+.car { position: relative; flex: 0 0 68px; height: 44px; animation: car-bump 0.5s ease-in-out infinite; }
+.car b { position: absolute; left: 2px; top: 16px; width: 64px; height: 18px; border-radius: 9px 12px 6px 6px; background: #ff5d73; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18); }
+.car u { position: absolute; left: 16px; top: 4px; width: 32px; height: 16px; border-radius: 10px 10px 2px 2px; background: #8ee3ff; border: 3px solid #ff5d73; border-bottom: none; }
+.car i { position: absolute; top: 28px; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle, #e6ebf2 0 30%, #2b2d3a 34%); animation: car-wheel 0.4s linear infinite; }
+.car i:nth-of-type(1) { left: 8px; }
+.car i:nth-of-type(2) { right: 8px; }
+@keyframes car-wheel { to { transform: rotate(360deg); } }
+@keyframes car-bump { 50% { transform: translateY(-2px); } }
+.win.complete.level3 .win-card { box-shadow: 0 10px 0 #ffd23f, 0 20px 40px rgba(0, 0, 0, 0.3); }
+.win.complete.level3 .win-title { color: #e07b00; }

@@ -4,6 +4,7 @@ import { DRONE_MISSION, MISSION, SCOOTER_MISSION, VEHICLES, type MissionDef } fr
 import { CREATURE_SPAWNS, PLAYER_SPAWN, createWorld } from './world';
 import { HARBOR_CREATURES, HARBOR_SPAWN, createHarbor } from './harbor';
 import { OLDTOWN, OLDTOWN_CREATURES, OLDTOWN_HINT, OLDTOWN_SPAWN, createOldTown } from './oldtown';
+import { COURSE3, flightScenery } from './flight';
 
 // Everything that differs between levels. The simulation reads only this, never level numbers directly.
 
@@ -28,7 +29,7 @@ export function medalFor(r: RaceDef, time: number): Medal {
 /** Gold: ~85% of stock top speed over the course and every main-ramp fire ring (+3 s each);
  *  silver: ~80% of top speed and three quarters of the ring bonus. Any finish is bronze. */
 function medals(course: Course, topSpeed: number) {
-  const rings = 3 * (course.jumps.length - (course.optionalJump !== null ? 1 : 0));
+  const rings = 3 * (course.air ? course.air.rings.length : course.jumps.length - (course.optionalJump !== null ? 1 : 0));
   return { gold: Math.ceil(course.length / (topSpeed * 0.85) - rings), silver: Math.ceil(course.length / (topSpeed * 0.8) - rings * 0.75) };
 }
 
@@ -90,14 +91,21 @@ const LEVEL2: LevelDef = {
 
 const LEVEL3: LevelDef = {
   id: 3,
-  createWorld: createOldTown,
+  createWorld: () => ({ ...createOldTown(), raceSolids: flightScenery(COURSE3).solids }),
   spawn: OLDTOWN_SPAWN,
   creatureSpawns: OLDTOWN_CREATURES,
   hintSpawn: OLDTOWN_HINT,
   mission: DRONE_MISSION,
   tower: false,
   bounds: { minX: OLDTOWN.west - 6, maxX: OLDTOWN.east + 6, minZ: OLDTOWN.north - 6, maxZ: OLDTOWN.south + 6 },
-  race: null,
+  race: {
+    course: COURSE3,
+    gate: { minX: 30, maxX: 37, minY: 0, maxY: 3.5, minZ: 9.7, maxZ: 10.1 },
+    trigger: { minX: 30, maxX: 37, minZ: 7, maxZ: 10.3 },
+    gateAt: { x: 33.5, z: 10 },
+    duration: raceDuration(COURSE3, VEHICLES.drone.maxSpeed),
+    medals: medals(COURSE3, VEHICLES.drone.maxSpeed),
+  },
 };
 
 export const LEVELS: Record<number, LevelDef> = { 1: LEVEL1, 2: LEVEL2, 3: LEVEL3 };
