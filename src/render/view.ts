@@ -113,6 +113,8 @@ export class GameView {
   private camFrame = 0;
   private meshHit = Infinity;
   private time = 0;
+  /** red bandanas worn by race hooligans (created on first use) */
+  private bandanas = new Map<number, THREE.Object3D>();
   /** race stars: one spinning InstancedMesh for the whole course */
   private stars: THREE.InstancedMesh | null = null;
   private starList: Star[] = [];
@@ -417,6 +419,14 @@ export class GameView {
       const v = this.creatures.get(c.id)!;
       v.root.position.set(c.pos.x, c.pos.y, c.pos.z);
       v.root.rotation.y = c.yaw;
+      const hooligan = !!c.dash && state.race.phase === 'racing';
+      let band = this.bandanas.get(c.id);
+      if (hooligan && !band) {
+        band = bandana();
+        v.blob.add(band);
+        this.bandanas.set(c.id, band);
+      }
+      if (band) band.visible = hooligan;
       const stuck = c.stuck > 0;
       v.goo.visible = stuck;
       v.blob.traverse(o => {
@@ -638,6 +648,22 @@ function makeBeam(color: number): THREE.Mesh {
       fog: false,
     }),
   );
+}
+
+let bandanaKit: THREE.Group | null = null;
+/** Hooligan look: red polka headband with tails flying out the back (one shared merged mesh, cloned per pyshka). */
+function bandana(): THREE.Object3D {
+  if (!bandanaKit) {
+    const k = new Kit();
+    k.add(geo.torus(0.5, 0.075, Math.PI * 2, 32), 0xe63946, { p: [0, 0.66, 0], r: [Math.PI / 2, 0, 0], s: [1.04, 1.04, 1], finish: 'soft' });
+    for (const a of [-0.45, 0.45]) k.add(geo.capsule(0.06, 0.34, 8), 0xe63946, { p: [a * 0.25, 0.6, 0.6], r: [-1.1, 0, a], finish: 'soft' });
+    k.add(geo.sphere(0.09, 12, 8), 0xe63946, { p: [0, 0.66, 0.52], finish: 'soft' });
+    for (let i = 0; i < 8; i++) k.add(geo.sphere(0.035, 8, 6), 0xffffff, { p: [Math.cos(i * 0.785) * 0.565, 0.66, Math.sin(i * 0.785) * 0.565], finish: 'matte', cast: false });
+    bandanaKit = k.build();
+  }
+  const g = bandanaKit.clone();
+  g.name = 'hooligan-bandana';
+  return g;
 }
 
 /** Chunky five-point star, centered, facing +z. */

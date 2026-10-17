@@ -1,6 +1,6 @@
 import { STAR_RADIUS, courseAt, courseNear, courseStars } from './track';
 import { levelDef, raceStart } from './levels';
-import { newRaceState, type GameState } from './types';
+import { newRaceState, type Creature, type GameState } from './types';
 import { VEHICLES } from './vehicles';
 
 // Level 1 values kept for existing callers and tests.
@@ -42,6 +42,13 @@ export function addBonus(s: GameState, seconds: number, x: number, y: number, z:
   s.race.remaining += seconds;
   s.events.push({ type: 'bonus', x, y, z, who: s.players[0]?.id, info: `${info}:${seconds}` });
 }
+/** A forward slime shot hit a hooligan: +1 s for sticky, +2 s for bouncy, once per hooligan spot. */
+export function hooliganHit(s: GameState, c: Creature, kind: 'sticky' | 'bouncy') {
+  if (s.race.phase !== 'racing' || !c.dash || c.paid) return;
+  c.paid = true;
+  s.race.hits++;
+  addBonus(s, kind === 'sticky' ? 1 : 2, c.pos.x, c.pos.y + 1.4, c.pos.z, 'hit');
+}
 export function updateRace(s: GameState, dt: number) {
   const r = raceOf(s);
   if (!r) return;
@@ -78,11 +85,15 @@ function populateRace(s: GameState) {
   s.creatures.forEach((c, i) => {
     const slot = section + (i % 3) - 1;
     const d = Math.max(8, Math.min(course.length - 10, slot * 70 + 18 + Math.floor(i / 3) * 19));
-    const p = courseAt(course, d), lane = ((i * 7 + slot * 3) % 5 - 2) * 1.7;
+    const p = courseAt(course, d), hooligan = i % 3 === 2, side = (slot + i) % 2 ? 1 : -1;
+    // hooligans lurk at the kerb and dash across; the rest stand about in the lanes
+    const lane = hooligan ? side * 5.4 : ((i * 7 + slot * 3) % 5 - 2) * 1.7;
     const x = p.x - p.dz * lane, z = p.z + p.dx * lane;
     if (Math.hypot(c.home.x - x, c.home.z - z) > 1) {
       c.pos = { x, y: 0, z }; c.home = { x, z }; c.target = { x, z };
       c.vel = { x: 0, y: 0, z: 0 }; c.stuck = 0; c.chatUntil = 0; c.talk = 0;
+      c.paid = false;
+      c.dash = hooligan ? { ax: x, az: z, bx: p.x + p.dz * side * 2.2, bz: p.z - p.dx * side * 2.2, toB: false } : undefined;
     }
   });
 }

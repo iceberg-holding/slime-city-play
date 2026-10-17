@@ -77,6 +77,10 @@ export interface Creature extends Body {
   twirl: number;
   /** stays near its home and hints at the elevator-only part */
   hinter?: boolean;
+  /** race hooligan: dashes across the road between two kerb points when a rider comes close */
+  dash?: { ax: number; az: number; bx: number; bz: number; toB: boolean };
+  /** bonus for slime-hitting this hooligan was already paid at this spot */
+  paid?: boolean;
 }
 
 export type ProjectileKind = 'sticky' | 'bouncy';

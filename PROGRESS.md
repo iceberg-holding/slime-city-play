@@ -131,3 +131,10 @@ Tests:
   - Sim test: the L1 bot collects 13/23 (7/8 high), and a standing hop under a high star cannot reach it.
   - The headlight beam is softened (narrower, lower opacity).
   - Build, sim and sweep pass.
+- R13.6 (item 6): Pyshki hooligans.
+  - In each race section, every third pooled pyshka is a hooligan (`Creature.dash`). It waits at a kerb (lane ±5.4) and, once a rider is within 30 m, dashes across to the far lane and back, chattering. It never pairs up to chat.
+  - It wears a red polka-dot bandana (one shared merged mesh, cloned on first use).
+  - Forward slime shots while riding hit it non-violently (sticky glues, bouncy launches) and pay a bonus once per spot through `hooliganHit`: +1 s sticky, +2 s bouncy. A green "+2s Gotcha!" popup shows and `race.hits` counts up.
+  - Sim test: a hooligan runs onto the road as the rider approaches, a bouncy hit pays +2 s, and a second hit pays nothing.
+  - Bots still finish: L1 in 115.8 s of 130 s, L2 in 74–76 s of 106 s, and all 7 sweep bots.
+  - Build, sim and sweep pass.

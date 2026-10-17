@@ -109,6 +109,28 @@ try {
     step(race, {}, DT); raceFinish(race);
     assert.ok(Math.abs(race.winTime - (race.race.elapsed - 3)) < 1e-9, `finish time subtracts bonus (${race.winTime})`);
   }
+  // Hooligans dash onto the road when a rider comes close; a slime hit pays a one-time bonus.
+  {
+    const h = createGame(31, [0, 0, 0, 0]), hp = h.players[0];
+    const hv = spawnVehicle(h, 'pitbike', 5.5, 0, 15.5, 0);
+    hp.riding = hv.id; hv.rider = hp.id; ready(h); openGates(h); startRace(h);
+    const at = trackAt(138); hv.pos = { x: at.x, y: 0, z: at.z }; hv.yaw = at.yaw; step(h, {}, DT); // hooligans of this section sit at 158 m
+    const hool = h.creatures.filter(c => c.dash);
+    assert.ok(hool.length >= 2, `race has hooligans (${hool.length})`);
+    const c = hool.reduce((a, b) => (Math.hypot(a.pos.x - hv.pos.x, a.pos.z - hv.pos.z) < Math.hypot(b.pos.x - hv.pos.x, b.pos.z - hv.pos.z) ? a : b));
+    const kerb = { ...c.pos };
+    for (let i = 0; i < 40; i++) step(h, {}, DT);
+    const road = trackNear(c.pos.x, c.pos.z), was = trackNear(kerb.x, kerb.z);
+    assert.ok(road.distance < was.distance - 1, `hooligan runs onto the road (${was.distance.toFixed(1)} → ${road.distance.toFixed(1)} m from centre)`);
+    const shoot = (kind) => { h.projectiles.push({ id: h.nextId++, kind, owner: hp.id, pos: { x: c.pos.x, y: c.pos.y + 0.6, z: c.pos.z }, vel: { x: 0, y: 0, z: 0 }, life: 2, scale: 1 }); step(h, {}, DT); };
+    const before = h.race.bonus;
+    shoot('bouncy');
+    assert.equal(h.race.bonus - before, 2, 'bouncy hit on a hooligan: +2 s');
+    assert.equal(h.race.hits, 1);
+    shoot('sticky');
+    assert.equal(h.race.bonus - before, 2, 'each hooligan pays only once per spot');
+    console.log('ok hooligans: dash onto the road, +2 s bouncy hit, paid once');
+  }
   const level2 = createGame(42, racer.look, 2);
   assert.equal(level2.garages[0].vehicle, 'scooter');
   assert.equal(level2.pickups.length, 4, 'next level has scooter parts');

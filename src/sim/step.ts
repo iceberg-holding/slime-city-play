@@ -1,4 +1,4 @@
-import { raceOf, updateRace } from './race';
+import { hooliganHit, raceOf, updateRace } from './race';
 import { levelDef } from './levels';
 import { wet } from './harbor';
 import { TOWER, liftSolid, updateLift } from './tower';
@@ -433,6 +433,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
         c.thinkTimer = 0;
       }
     }
+    const dash = state.race.phase === 'racing' ? c.dash : undefined;
     const hinting = !!c.hinter && td < 12 && hintPending(state);
     if (hinting) {
       // the lobby pyshka gossips about the flashlight upstairs every few seconds
@@ -444,7 +445,18 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
         emit(state, 'babble', c.pos.x, c.pos.y + 1.4, c.pos.z, c.id);
       }
     }
-    if (c.mode === 'crowd' && target) {
+    if (dash) {
+      // hooligan: when a rider closes in, dash to the far kerb and back again
+      c.mode = 'wander';
+      if (target && td < 30) {
+        const gx = dash.toB ? dash.bx : dash.ax, gz = dash.toB ? dash.bz : dash.az;
+        dirX = gx - c.pos.x;
+        dirZ = gz - c.pos.z;
+        if (Math.hypot(dirX, dirZ) < 0.5) dash.toB = !dash.toB;
+        speed = 4.6;
+        if (c.talk <= 0 && rand(state) < dt * 0.4) { c.phrase = Math.floor(rand(state) * PHRASE_COUNT); c.talk = 1.4; }
+      }
+    } else if (c.mode === 'crowd' && target) {
       // pick a spot on a ring around the player; "blockers" prefer the spot right in the player's path
       c.orbit += c.orbitDir * dt * 0.5;
       let ang = c.orbit;
@@ -482,7 +494,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       const oz = c.pos.z - o.pos.z;
       const od = Math.hypot(ox, oz);
       if (od > 1.15 || od < 0.001 || Math.abs(c.pos.y - o.pos.y) > 1) continue;
-      if (c.id < o.id && c.grounded && o.grounded && c.stuck <= 0 && o.stuck <= 0 && c.chatUntil + 6 < state.tick / 60 && o.chatUntil + 6 < state.tick / 60) {
+      if (!dash && !(state.race.phase === 'racing' && o.dash) && c.id < o.id && c.grounded && o.grounded && c.stuck <= 0 && o.stuck <= 0 && c.chatUntil + 6 < state.tick / 60 && o.chatUntil + 6 < state.tick / 60) {
         c.chatPartner = o.id; o.chatPartner = c.id;
         c.chatUntil = o.chatUntil = state.tick / 60 + 4.8;
         c.twirl = o.twirl = 0.25;
@@ -609,6 +621,7 @@ function updateProjectiles(state: GameState, dt: number, col: Collider) {
         const dz = pr.pos.z - c.pos.z;
         const hr = 0.85 * pr.scale;
         if (dx * dx + dy * dy + dz * dz > hr * hr) continue;
+        hooliganHit(state, c, pr.kind);
         if (pr.kind === 'sticky') {
           const owner = state.players.find((p) => p.id === pr.owner);
           c.stuck = owner ? owner.stats.glueTime : 5;
