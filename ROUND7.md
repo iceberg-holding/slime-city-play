@@ -1,0 +1,11 @@
+# Round 7 (user approved). Small steps; after EACH: npm run build && npm test && node tests/sweep.mjs; git commit (no push); line in PROGRESS.md. Finish with all tests/*.e2e.mjs + e2e.mjs passing.
+Perf budget on phone viewport: city ≤ ~410 draw calls / ~610k tris; race ≤ ~300 calls. Instancing for stars/rings; no per-frame allocations.
+1. Level 1: a 6th required part, FLASHLIGHT (bike headlight), hidden on a skyscraper floor reachable ONLY via the elevator (mid floor or a new floor stop). Intrigue: soft glow visible through windows, a pyshka near the lobby occasionally says a hint line (localized EN/RU/PL/LT/DE, e.g. RU "Говорят, наверху кто-то фонарик потерял…"). The bike can be assembled but the gate stays locked until flashlight is fitted (headlight visibly on). Update objectives/hints/HUD counts (6/6) in all languages, reachability test (flashlight reachable via elevator stop, not by walking), sweep.
+2. Lengthen race tracks ~1.5x (level 1 and level 2, where sensible) keeping chunked culling; rebalance timers so bots pass and there is room for the extras below.
+3. Medals bronze/silver/gold by finish time per level; best time + best medal saved in localStorage per level; finish screen shows medal, time, best, stars count, bonuses.
+4. Ghost replay of best run: record vehicle pos/yaw at ~10 Hz during race; on later races show a translucent ghost bike (single cheap mesh) following it; saved in localStorage (compact).
+5. Stars along tracks (InstancedMesh, spin), some high up reachable only via ramps/jumps; collected count shown in HUD and finish.
+6. Pyshki-hooligans run onto the road: forward slime shots while riding (sticky glues, bouncy launches, non-violent) — each hit gives +1–2 s bonus with a small popup.
+7. Flip tricks: a dedicated TRICK button while airborne (no double-tap) triggers flip/spin; landing it gives points + time bonus and a funny localized phrase.
+8. Glowing/flaming rings above ramps (emissive torus with flicker, instanced); passing through gives +3 s with popup.
+Screenshots at 412x915: shots/r13-flashlight-floor.png, r13-gate-locked.png, r13-race-stars-rings.png, r13-trick.png, r13-ghost.png, r13-hooligan-hit.png, r13-finish-medal.png, r13-l2-race.png.
