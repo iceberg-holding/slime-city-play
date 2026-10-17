@@ -4,6 +4,7 @@ import { RING_RADIUS, courseRings, courseStars, type Ring, type Star } from '../
 /** flame tongues per fire ring */
 const FLAMES = 12;
 import { buildHarbor } from './harbor';
+import { buildOldTown } from './oldtown';
 import { buildRaceRoad } from './raceRoad';
 import { batchStatic } from './art/batch';
 import { buildSkyscraper } from './art/studio';
@@ -142,6 +143,10 @@ export class GameView {
   private ghostPath: Float32Array | null = null;
   /** warm glow in the tower's mid-floor windows while the flashlight is still up there */
   private windowGlow: THREE.Mesh | null = null;
+  /** electric flicker in the clock-room hatch while the drone battery is still up there (level 3) */
+  private batteryGlow: THREE.Mesh | null = null;
+  /** level-3 area statics (hidden during the flight race, which is far away) */
+  private area: THREE.Object3D | null = null;
   private lift = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.2, 24), new THREE.MeshStandardMaterial({ color: 0xffcf4a }));
 
   constructor(state: GameState, aspect: number, renderer: THREE.WebGLRenderer) {
@@ -177,7 +182,13 @@ export class GameView {
       for (const m of [this.rings, this.flames]) { m.frustumCulled = false; m.castShadow = false; this.scene.add(m); }
     }
     let blockers: Solid[] = [];
-    if (state.world.theme === 'harbor') {
+    if (state.world.theme === 'oldtown') {
+      const town = buildOldTown(state.world);
+      this.scene.add(town.root, town.batteryGlow);
+      this.area = town.root;
+      this.batteryGlow = town.batteryGlow;
+      blockers = town.cameraBlockers;
+    } else if (state.world.theme === 'harbor') {
       const harbor = buildHarbor(state.world);
       this.scene.add(harbor.root);
       this.harborSea = harbor.water;
@@ -456,6 +467,12 @@ export class GameView {
         this.stars.instanceMatrix.needsUpdate = true;
       }
     }
+    if (this.batteryGlow) {
+      const lost = state.pickups.some((pk) => pk.part === 'battery' && pk.status === 'world');
+      this.batteryGlow.visible = lost && state.race.phase !== 'racing';
+      if (lost) (this.batteryGlow.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(t * 3.3) * 0.15 + (Math.sin(t * 29) > 0.6 ? 0.25 : 0);
+    }
+    if (this.area) this.area.visible = state.race.phase !== 'racing';
     if (this.windowGlow) {
       const lost = state.pickups.some((pk) => pk.part === 'flashlight' && pk.status === 'world');
       this.windowGlow.visible = lost;

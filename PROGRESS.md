@@ -179,3 +179,13 @@ Tests:
   - Screenshots shots/r13-{flashlight-floor,gate-locked,race-stars-rings,trick,ghost,hooligan-hit,finish-medal,l2-race}.png at 412×915, all visually inspected.
   - Probe scripts: `tests/_perf13.mjs` (draw calls along both courses), `tests/_look13.mjs` (race view shot at a distance), `tests/_rings.mjs` (ring/star heights vs bot trajectories).
   - No push.
+- R15.1 (Round 8 items 1–2): Level 3 old town (`sim/oldtown.ts`, `render/oldtown.ts`), theme `oldtown`.
+  - Warm late-afternoon sky with ochre/cream/salmon plaster houses, terracotta tile roofs with ribs, ridge caps and chimneys, green shutters and flower boxes, and a honey-stone clock tower with a copper-green spire and four clock faces.
+  - Park: pond with lily pads and ducks, a fenced island over a footbridge, a striped bandstand, trees, hedges, flower beds, lamps and benches. The square has café umbrellas, market stalls and two walkable roof terraces (outside stair to A, railed ramp from A to the pergola terrace B).
+  - Pond water splashes you back to the spawn. Gable roofs have stacked collision slabs so a drone will land on them, not inside.
+  - Data-driven `drone` VehicleDef (flies, climb 5.5 m/s, ceiling 26 m) with 6 parts and toy models: front/rear rotor pairs with spinning rotors and guards, lemon frame with a grip deck, battery, gimbal camera, skids.
+  - Hidden part: the battery is in the clock room at the top of the tower's outside spiral stair (4 flights + landings), through a hatch door left ajar. An electric-blue flicker shows in the hatch and behind the clock faces while it is up there.
+  - A clock-tower pyshka (`MissionDef.hint`) gossips "Something buzzes up in the clock tower… a battery?" in EN/RU/PL/LT/DE. All level-3 HUD/part/toast texts are localized in the same five languages.
+  - Reach test: all 6 parts are walked and delivered by two hero builds. The battery is unreachable without the stair ramps and the path goes through the hatch. The pond is not walkable, a fall splashes back, and the hint pyshka talks until the battery is found. The sweep covers level-3 reachability, walks and drops.
+  - Area views 173–233 calls / 416–544k tris.
+  - Build, sim and sweep pass.

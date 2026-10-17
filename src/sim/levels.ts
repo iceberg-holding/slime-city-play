@@ -1,8 +1,9 @@
 import { COURSE1, COURSE2, courseAt, type Course } from './track';
 import type { Solid, Vec3, World } from './types';
-import { MISSION, SCOOTER_MISSION, VEHICLES, type MissionDef } from './vehicles';
+import { DRONE_MISSION, MISSION, SCOOTER_MISSION, VEHICLES, type MissionDef } from './vehicles';
 import { CREATURE_SPAWNS, PLAYER_SPAWN, createWorld } from './world';
 import { HARBOR_CREATURES, HARBOR_SPAWN, createHarbor } from './harbor';
+import { OLDTOWN, OLDTOWN_CREATURES, OLDTOWN_HINT, OLDTOWN_SPAWN, createOldTown } from './oldtown';
 
 // Everything that differs between levels. The simulation reads only this, never level numbers directly.
 
@@ -42,6 +43,8 @@ export interface LevelDef {
   race: RaceDef | null;
   /** northeast tower with the elevator and rooftop pool */
   tower: boolean;
+  /** flying vehicles stay inside this box outside races (soft walls) */
+  bounds?: { minX: number; maxX: number; minZ: number; maxZ: number };
 }
 
 /** Timer: course length at 75% of stock top speed, 30% slack, plus ~1 s per 70 m for weaving through pyshki.
@@ -85,7 +88,19 @@ const LEVEL2: LevelDef = {
   },
 };
 
-export const LEVELS: Record<number, LevelDef> = { 1: LEVEL1, 2: LEVEL2 };
+const LEVEL3: LevelDef = {
+  id: 3,
+  createWorld: createOldTown,
+  spawn: OLDTOWN_SPAWN,
+  creatureSpawns: OLDTOWN_CREATURES,
+  hintSpawn: OLDTOWN_HINT,
+  mission: DRONE_MISSION,
+  tower: false,
+  bounds: { minX: OLDTOWN.west - 6, maxX: OLDTOWN.east + 6, minZ: OLDTOWN.north - 6, maxZ: OLDTOWN.south + 6 },
+  race: null,
+};
+
+export const LEVELS: Record<number, LevelDef> = { 1: LEVEL1, 2: LEVEL2, 3: LEVEL3 };
 export const levelDef = (level: number) => LEVELS[level] ?? LEVEL1;
 
 export function raceStart(r: RaceDef) {

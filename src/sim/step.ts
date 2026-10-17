@@ -374,7 +374,7 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
 
 /** An elevator-only mission part is still lying where it was lost. */
 function hintPending(state: GameState) {
-  const lift = levelDef(state.level).mission.liftOnly ?? [];
+  const m = levelDef(state.level).mission, lift = m.hint ?? m.liftOnly ?? [];
   return lift.some((i) => state.pickups[i]?.status === 'world');
 }
 

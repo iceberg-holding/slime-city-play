@@ -1,6 +1,6 @@
 import { HINT_PHRASE } from '../sim/constants';
 import type { GameState } from '../sim/types';
-import { flightPhrase, t } from './i18n';
+import { flightPhrase, levelText, t } from './i18n';
 
 type Project = (x: number, y: number, z: number) => { x: number; y: number } | null;
 
@@ -35,7 +35,7 @@ export class Bubbles {
       const sp = project(c.pos.x, c.pos.y + 1.2 + (c.id % 3) * 0.32, c.pos.z); // staggered so a crowd's bubbles overlap less
       if (!sp) continue;
       live.add(c.id);
-      const text = glued ? 'z z z' : c.phrase === HINT_PHRASE ? s.hintPhrase : c.phrase >= 100 ? flightPhrase(c.phrase - 100) : s.phrases[c.phrase % s.phrases.length];
+      const text = glued ? 'z z z' : c.phrase === HINT_PHRASE ? (state.level === 3 ? levelText(3).hintPhrase! : s.hintPhrase) : c.phrase >= 100 ? flightPhrase(c.phrase - 100) : s.phrases[c.phrase % s.phrases.length];
       let b = this.els.get(c.id);
       if (!b) {
         const el = document.createElement('div');

@@ -18,7 +18,7 @@ const WHITE = 0xfffaf0;
 const NAVY = 0x23406e;
 
 /** Triangular gable roof prism: width along x, ridge along z. */
-function gable(w: number, h: number, d: number): THREE.BufferGeometry {
+export function gable(w: number, h: number, d: number): THREE.BufferGeometry {
   const s = new THREE.Shape();
   s.moveTo(-w / 2, 0);
   s.lineTo(w / 2, 0);

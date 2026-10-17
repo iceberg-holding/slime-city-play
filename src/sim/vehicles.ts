@@ -2,7 +2,7 @@ import type { Vec3 } from './types';
 
 // Data-driven vehicle definitions. Adding a scooter or drone = add a VehicleDef (+ a render builder keyed by id/part).
 
-export type VehicleKind = 'pitbike' | 'scooter';
+export type VehicleKind = 'pitbike' | 'scooter' | 'drone';
 
 export interface VehiclePartDef {
   id: string;
@@ -28,6 +28,9 @@ export interface VehicleDef {
   launch: number;
   /** can it leave the ground on its own (drone)? */
   flies: boolean;
+  /** flying vehicles: climb / descend speed (m/s) and the soft altitude ceiling (m) */
+  climb?: number;
+  ceiling?: number;
 }
 
 // Light and nimble: quicker acceleration and turns, a little faster, smaller hops and ramp jumps.
@@ -37,8 +40,16 @@ const scooter: VehicleDef = {
   turnRate: 3.4, hopVel: 5.2, launch: 0.75, flies: false,
 };
 
+// Toy quadcopter you stand on: hovers when idle, climbs and descends on its own buttons, bounces off walls.
+const drone: VehicleDef = {
+  id: 'drone', parts: [{ id: 'propFront' }, { id: 'propRear' }, { id: 'frame' }, { id: 'battery' }, { id: 'camera' }, { id: 'skids' }],
+  radius: 0.62, height: 1.9, seatY: 0.62, maxSpeed: 12, reverseSpeed: 4, accel: 9, brake: 14, drag: 1.2,
+  turnRate: 2.4, hopVel: 0, launch: 0, flies: true, climb: 5.5, ceiling: 26,
+};
+
 export const VEHICLES: Record<VehicleKind, VehicleDef> = {
   scooter,
+  drone,
   pitbike: {
     id: 'pitbike',
     parts: [{ id: 'frontWheel' }, { id: 'rearWheel' }, { id: 'frame' }, { id: 'handlebar' }, { id: 'engine' }, { id: 'flashlight', accessory: true }],
@@ -66,6 +77,8 @@ export interface MissionDef {
   rideGoal: number;
   /** part indices that can only be reached by riding the tower elevator (never on foot) */
   liftOnly?: number[];
+  /** part indices the hint pyshka gossips about while they are still lying around (default: liftOnly) */
+  hint?: number[];
 }
 
 export const MISSION: MissionDef = {
@@ -93,5 +106,19 @@ export const SCOOTER_MISSION: MissionDef = {
     { x: 23.5, y: 4.75, z: -32 }, // rear wheel: lighthouse gallery, up the jetty ramp
     { x: -1, y: 1.95, z: -25.5 }, // deck: aboard the moored fishing boat
     { x: -25.5, y: 3.35, z: -4.5 }, // handlebar: lifeguard tower on the beach
+  ],
+};
+
+// Old town level (see sim/oldtown.ts). Every spot is reachable on foot via steps, ramps and the tower stair;
+// the battery is hidden in the clock room at the top of the clock tower's spiral stair, behind a hatch.
+export const DRONE_MISSION: MissionDef = {
+  vehicle: 'drone', garage: { x: 8, z: 14, radius: 2.6 }, rideGoal: 10, hint: [3],
+  partSpots: [
+    { x: -26, y: 1.95, z: 14 }, // front propellers: on the park bandstand, up its steps
+    { x: 6, y: 5.1, z: -32 }, // rear propellers: roof terrace A, up the outside stair
+    { x: -22, y: 1.75, z: -10 }, // frame: pond island, over the footbridge
+    { x: 23, y: 10.55, z: -23.4 }, // battery: inside the clock room, round the tower stair and through the hatch
+    { x: 16, y: 8.1, z: -32.5 }, // camera: roof terrace B, up the ramp from terrace A
+    { x: 30, y: 1.15, z: -3 }, // landing skids: by the market stalls
   ],
 };

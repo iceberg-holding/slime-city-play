@@ -78,7 +78,7 @@ export interface Creature extends Body {
   /** stays near its home and hints at the elevator-only part */
   hinter?: boolean;
   /** race hooligan: dashes across the road between two kerb points when a rider comes close */
-  dash?: { ax: number; az: number; bx: number; bz: number; toB: boolean };
+  dash?: { ax: number; az: number; bx: number; bz: number; toB: boolean; bounce?: boolean };
   /** race section slot this pooled creature currently represents */
   slot?: number;
   /** bonus for slime-hitting this hooligan was already paid at this spot */
@@ -197,7 +197,7 @@ export interface Prop {
 }
 
 export interface World {
-  theme: 'city' | 'harbor';
+  theme: 'city' | 'harbor' | 'oldtown';
   half: number;
   solids: Solid[];
   buildings: Building[];
@@ -304,8 +304,11 @@ export interface InputCommand {
   interact: boolean;
   /** riding and airborne: start a flip / roll / twist */
   trick?: boolean;
+  /** flying a drone: held climb / descend */
+  up?: boolean;
+  down?: boolean;
 }
 
 export function emptyInput(aimYaw = 0): InputCommand {
-  return { mx: 0, mz: 0, aimYaw, jump: false, sticky: false, bouncy: false, place: false, toggleShape: false, interact: false, trick: false };
+  return { mx: 0, mz: 0, aimYaw, jump: false, sticky: false, bouncy: false, place: false, toggleShape: false, interact: false, trick: false, up: false, down: false };
 }

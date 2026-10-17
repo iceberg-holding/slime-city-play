@@ -4,7 +4,7 @@ import { wedge } from './city';
 import { courseAt, COURSE2_SECTIONS } from '../sim/track';
 import type { RaceDef } from '../sim/levels';
 
-export type RoadTheme = 'city' | 'harbor';
+export type RoadTheme = 'city' | 'harbor' | 'oldtown';
 
 export function buildRaceRoad(race: RaceDef, theme: RoadTheme) {
   const course = race.course, TRACK = course.points, TRACK_LENGTH = course.length;

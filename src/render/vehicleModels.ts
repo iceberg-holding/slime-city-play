@@ -161,10 +161,98 @@ const SCOOTER: Record<string, PartBuilder> = {
   },
 };
 
-const BUILDERS: Record<VehicleKind, Record<string, PartBuilder>> = { pitbike: PITBIKE, scooter: SCOOTER };
+const LEMON = 0xffd23f;
+const DRONE_TEAL = 0x2ec4b6;
+/** rotor arm tips: front pair at -z, rear pair at +z */
+const ROTOR_AT = 0.68;
 
-/** Riders stand on scooters and sit on bikes. */
-export const STANDING: Record<VehicleKind, boolean> = { pitbike: false, scooter: true };
+/** Two rotor pods on one side of the frame: motor bell, guard ring and a two-blade rotor named 'rotor'. */
+function rotorPair(z: number, color: number): THREE.Group {
+  const g = new THREE.Group();
+  for (const x of [-ROTOR_AT, ROTOR_AT]) {
+    const pod = new Kit();
+    pod.add(geo.cyl(0.11, 0.13, 0.16, 20), 0xf4f6fb, { p: [x, 0.66, z], finish: 'gloss' });
+    pod.add(geo.cyl(0.06, 0.06, 0.06, 16), GRAPHITE, { p: [x, 0.76, z], finish: 'metal' });
+    pod.add(geo.torus(0.4, 0.03, Math.PI * 2, 40), color, { p: [x, 0.74, z], r: [Math.PI / 2, 0, 0], finish: 'gloss' });
+    for (let a = 0; a < 3; a++) {
+      const ang = a * 2.094 + 0.5;
+      pod.add(geo.capsule(0.018, 0.32, 6), 0xf4f6fb, { p: [x + Math.cos(ang) * 0.24, 0.72, z + Math.sin(ang) * 0.24], r: [Math.PI / 2, Math.atan2(-Math.cos(ang), -Math.sin(ang)), 0], finish: 'gloss' });
+    }
+    g.add(pod.build());
+    const blades = new Kit();
+    for (const s of [-1, 1]) blades.add(geo.rbox(0.34, 0.016, 0.07, 0.008), 0x3a3f55, { p: [s * 0.18, 0, 0], r: [0, 0, s * 0.12], finish: 'gloss' });
+    blades.add(geo.sphere(0.035, 10, 8), color, { finish: 'gloss' });
+    const rotor = blades.build();
+    rotor.name = 'rotor';
+    rotor.position.set(x, 0.8, z);
+    rotor.rotation.y = x * 3 + z;
+    g.add(rotor);
+  }
+  return g;
+}
+
+// Toy quadcopter: lemon body with a grippy standing deck, white X-arms, coloured rotor guards, a gimbal camera.
+const DRONE: Record<string, PartBuilder> = {
+  propFront: () => rotorPair(-ROTOR_AT, DRONE_TEAL),
+  propRear: () => rotorPair(ROTOR_AT, CORAL),
+  frame: () => {
+    const k = new Kit();
+    k.add(geo.rbox(0.62, 0.22, 0.84, 0.1), LEMON, { p: [0, 0.56, 0], finish: 'gloss' });
+    k.add(geo.rbox(0.5, 0.025, 0.7, 0.012), 0x2b2d3a, { p: [0, 0.68, 0.02], finish: 'rubber' }); // grip deck
+    for (const z of [-0.22, 0, 0.22]) k.add(geo.rbox(0.36, 0.006, 0.04, 0.003), 0xffffff, { p: [0, 0.695, z], finish: 'matte' });
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const len = Math.hypot(ROTOR_AT, ROTOR_AT) - 0.12;
+      k.add(geo.capsule(0.045, len, 10), 0xf4f6fb, { p: [x * ROTOR_AT / 2, 0.6, z * ROTOR_AT / 2], r: [Math.PI / 2, Math.atan2(-x, -z) + Math.PI, 0], finish: 'gloss' });
+    }
+    k.add(geo.sphere(0.05, 12, 8), 0x7bff9a, { p: [-0.33, 0.58, -0.38], finish: 'glow' }); // nav lights
+    k.add(geo.sphere(0.05, 12, 8), 0xff4d6d, { p: [0.33, 0.58, -0.38], finish: 'glow' });
+    k.add(geo.rbox(0.3, 0.06, 0.08, 0.03), 0x2b2d3a, { p: [0, 0.6, -0.43], finish: 'gloss' });
+    const g = new THREE.Group();
+    g.add(k.build());
+    return g;
+  },
+  battery: () => {
+    const k = new Kit();
+    k.add(geo.rbox(0.42, 0.16, 0.56, 0.06), 0x3a86ff, { p: [0, 0.37, 0.04], finish: 'gloss' });
+    k.add(geo.rbox(0.44, 0.04, 0.5, 0.02), 0xf4f6fb, { p: [0, 0.38, 0.04], finish: 'gloss' }); // label band
+    k.add(geo.rbox(0.3, 0.035, 0.1, 0.015), 0x7bf7ff, { p: [0, 0.455, 0.2], finish: 'glow' }); // charge strip
+    // lightning bolt on the side
+    for (const s of [-1, 1]) {
+      k.add(geo.rbox(0.012, 0.09, 0.03, 0.005), LEMON, { p: [s * 0.215, 0.39, -0.02], r: [0.5, 0, 0], finish: 'glow' });
+      k.add(geo.rbox(0.012, 0.09, 0.03, 0.005), LEMON, { p: [s * 0.215, 0.35, 0.03], r: [0.5, 0, 0], finish: 'glow' });
+    }
+    const g = new THREE.Group();
+    g.add(k.build());
+    return g;
+  },
+  camera: () => {
+    const k = new Kit();
+    k.add(geo.cyl(0.03, 0.03, 0.1, 10), GRAPHITE, { p: [0, 0.42, -0.36], finish: 'metal' });
+    k.add(geo.sphere(0.12, 20, 14), 0xf4f6fb, { p: [0, 0.34, -0.38], finish: 'gloss' });
+    k.add(geo.cyl(0.065, 0.075, 0.06, 20), 0x2b2d3a, { p: [0, 0.33, -0.48], r: [Math.PI / 2, 0, 0], finish: 'gloss' });
+    k.add(geo.sphere(0.05, 16, 10), 0x5fb8ff, { p: [0, 0.33, -0.5], s: [1, 1, 0.5], finish: 'glass' });
+    k.add(geo.sphere(0.022, 8, 6), 0xff2d55, { p: [0.08, 0.4, -0.46], finish: 'glow' }); // REC light
+    const g = new THREE.Group();
+    g.add(k.build());
+    return g;
+  },
+  skids: () => {
+    const k = new Kit();
+    for (const x of [-0.3, 0.3]) {
+      k.add(geo.capsule(0.035, 0.95, 10), 0xf4f6fb, { p: [x, 0.04, 0], r: [Math.PI / 2, 0, 0], finish: 'gloss' });
+      for (const z of [-0.22, 0.22]) k.add(geo.capsule(0.025, 0.46, 8), 0x3a3f55, { p: [x * 0.8, 0.24, z], r: [0, 0, x > 0 ? 0.35 : -0.35], finish: 'metal' });
+      for (const z of [-0.47, 0.47]) k.add(geo.sphere(0.05, 10, 8), CORAL, { p: [x, 0.05, z], finish: 'gloss' });
+    }
+    const g = new THREE.Group();
+    g.add(k.build());
+    return g;
+  },
+};
+
+const BUILDERS: Record<VehicleKind, Record<string, PartBuilder>> = { pitbike: PITBIKE, scooter: SCOOTER, drone: DRONE };
+
+/** Riders stand on scooters and drones and sit on bikes. */
+export const STANDING: Record<VehicleKind, boolean> = { pitbike: false, scooter: true, drone: true };
 
 export function buildPart(kind: VehicleKind, partId: string): THREE.Group {
   return BUILDERS[kind][partId]();
@@ -178,8 +266,11 @@ export interface VehicleModel {
   seat: THREE.Group;
   parts: Map<string, THREE.Group>;
   wheels: THREE.Object3D[];
-  /** smoothed cornering lean (radians) */
+  /** drone rotors (spin about y) */
+  rotors: THREE.Object3D[];
+  /** smoothed cornering lean (radians) and, for drones, forward tilt */
   lean: number;
+  pitch: number;
 }
 
 export function buildVehicle(kind: VehicleKind, partIds: string[]): VehicleModel {
@@ -192,16 +283,19 @@ export function buildVehicle(kind: VehicleKind, partIds: string[]): VehicleModel
   pivot.add(body);
   const parts = new Map<string, THREE.Group>();
   const wheels: THREE.Object3D[] = [];
+  const rotors: THREE.Object3D[] = [];
   for (const id of partIds) {
     const g = buildPart(kind, id);
     body.add(g);
     parts.set(id, g);
     const s = g.getObjectByName('spin');
     if (s) wheels.push(s);
+    g.traverse((o) => o.name === 'rotor' && rotors.push(o));
   }
   const seat = new THREE.Group();
-  if (STANDING[kind]) seat.position.set(0, 0.31, 0.12);
+  if (kind === 'drone') seat.position.set(0, 0.7, 0.05);
+  else if (STANDING[kind]) seat.position.set(0, 0.31, 0.12);
   else seat.position.set(0, 0.25, 0.15);
   body.add(seat);
-  return { root, pivot, seat, parts, wheels, lean: 0 };
+  return { root, pivot, seat, parts, wheels, rotors, lean: 0, pitch: 0 };
 }

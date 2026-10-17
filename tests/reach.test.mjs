@@ -250,13 +250,52 @@ try {
     console.log('ok flashlight: elevator-only, bike builds with 5/6, gate locked until headlight, hint pyshka talks');
   }
 
-  // Try a few hero builds, including the slowest / lowest-jumping legs, on both levels.
+  // Level 3 (old town): the battery is hidden in the clock room; only the tower's spiral stair leads up to it.
+  {
+    const { towerStair, OLDTOWN, inPond } = await load('/src/sim/oldtown.ts');
+    const { Collider } = await load('/src/sim/physics.ts');
+    const s3 = createGame(42, [0, 0, 0, 0], 3), def = levelDef(3), bi = def.mission.hint[0];
+    assert.equal(s3.world.theme, 'oldtown');
+    assert.equal(s3.garages[0].vehicle, 'drone');
+    assert.equal(s3.pickups.length, 6, 'drone has six parts');
+    assert.equal(s3.pickups[bi].part, 'battery');
+    const T = OLDTOWN.tower, b = def.mission.partSpots[bi];
+    assert.ok(b.x > T.minX && b.x < T.maxX && b.z > T.minZ && b.z < T.maxZ && b.y > T.floor, 'battery sits inside the clock room');
+    const all = findWalkPaths(makeCollider(s3), s3.world.half, def.spawn, def.mission.partSpots);
+    assert.ok(all.every(Boolean), `all six drone parts walkable: ${all.map(Boolean)}`);
+    const ramps = towerStair().ramps.map(r => JSON.stringify(r)), noStair = new Collider(s3.world.solids.filter(x => !ramps.includes(JSON.stringify(x))));
+    assert.equal(findWalkPaths(noStair, s3.world.half, def.spawn, [b])[0], null, 'without the spiral stair the battery is out of reach');
+    // the hatch is the only way in: the walk path enters the room through the door gap on the south side
+    const path = all[bi], inRoom = path.findIndex(p => p.z < T.maxZ - 0.4 && p.y > T.floor - 0.1);
+    assert.ok(inRoom > 0 && path[inRoom - 1].x > T.door[0] && path[inRoom - 1].x < T.door[1], 'path goes through the hatch');
+    assert.ok(inPond(-26, 0, -12) && !inPond(-22, 0.8, -10), 'pond water vs island');
+    const pond = [[-27, -13], [-17, -6], [-16, -14]].map(([x, z]) => ({ x, y: 0.9, z }));
+    assert.deepEqual(findWalkPaths(makeCollider(s3), 60, def.spawn, pond).map(Boolean), pond.map(() => false), 'pond water is not walkable');
+    const swimmer = s3.players[0]; swimmer.pos = { x: -27, y: 0.1, z: -13 }; step(s3, {}, DT);
+    assert.ok(Math.hypot(swimmer.pos.x - def.spawn.x, swimmer.pos.z - def.spawn.z) < 0.5, 'falling into the pond splashes back to the spawn');
+    // the clock-tower pyshka gossips about the buzzing battery
+    const hs = createGame(5, [0, 0, 0, 0], 3), hinter = hs.creatures.find(c => c.hinter);
+    assert.ok(hinter, 'level 3 has a hint pyshka');
+    hs.players[0].pos = { x: hinter.pos.x - 4, y: 0, z: hinter.pos.z };
+    let said = false;
+    for (let i = 0; i < 60 * 12 && !said; i++) { step(hs, {}, DT); said = hinter.phrase === HINT_PHRASE && hinter.talk > 0; }
+    assert.ok(said, 'hint pyshka says the battery line');
+    hs.pickups[bi].status = 'delivered'; hinter.talk = 0;
+    let again = false;
+    for (let i = 0; i < 60 * 12; i++) { step(hs, {}, DT); again ||= hinter.phrase === HINT_PHRASE && hinter.talk > 0; }
+    assert.ok(!again, 'hint stops once the battery is found');
+    console.log('ok level 3: six drone parts walkable, battery only via the tower stair and hatch, pond splash, hint pyshka');
+  }
+
+  // Try a few hero builds, including the slowest / lowest-jumping legs, on all levels.
   for (const [level, look] of [
     [1, [0, 0, 0, 0]],
     [1, [3, 2, 5, 2]],
     [1, [5, 2, 4, 1]],
     [2, [0, 0, 0, 0]],
     [2, [5, 2, 4, 1]],
+    [3, [0, 0, 0, 0]],
+    [3, [5, 2, 4, 1]],
   ]) {
     const { spawn: PLAYER_SPAWN, mission: MISSION } = levelDef(level);
     const state = createGame(1234, look, level);

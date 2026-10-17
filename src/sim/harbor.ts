@@ -1,4 +1,5 @@
 import type { Building, GameState, Prop, Solid, Vec3, World } from './types';
+import { pondWet } from './oldtown';
 
 // Level 2: a seaside harbor. Sea to the north behind a seawall, a wooden pier with a moored boat,
 // a stone jetty out to the lighthouse, a beach with a lifeguard tower in the west, harbor houses to the south.
@@ -31,6 +32,7 @@ export function inSea(x: number, y: number, z: number) {
 
 /** Harbor water: splash and swim back to shore. */
 export function wet(state: GameState, x: number, y: number, z: number) {
+  if (state.world.theme === 'oldtown') return pondWet(state, x, y, z);
   if (state.world.theme !== 'harbor' || state.race.phase === 'racing' || !inSea(x, y, z)) return false;
   state.events.push({ type: 'splat', x, y: 0.2, z });
   return true;

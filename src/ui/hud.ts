@@ -157,7 +157,7 @@ export class Hud {
     const total = garage ? VEHICLES[garage.vehicle].parts.length : 0;
     const delivered = garage ? garage.delivered.length : 0;
     const carrying = state.pickups.filter((pk) => pk.status === 'carried' && pk.carrier === p.id).length;
-    const def = levelDef(state.level), L2 = levelText(), harbor = state.world.theme === 'harbor';
+    const def = levelDef(state.level), L2 = state.level >= 2 ? levelText(state.level) : null;
     const nearLift = def.tower && Math.hypot(p.pos.x - TOWER.liftX, p.pos.z - TOWER.z) < 3;
     const canMount = mountable(state, p) !== null;
     const riding = p.riding !== null;
@@ -166,9 +166,9 @@ export class Hud {
     if (carrying > 0) hint = s.hintBring;
     else if (garage?.built && !ready && def.race) hint = s.hintLight;
     else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
-    if (harbor) hint = carrying > 0 ? L2.hintBring : garage?.built ? L2.hintMount : L2.hintFind;
+    if (L2) hint = carrying > 0 ? L2.hintBring : garage?.built ? (riding && L2.hintFly ? L2.hintFly : L2.hintMount) : L2.hintFind;
     const gateOpen = !!def.race && state.race.phase === 'open';
-    if (gateOpen) hint = s.hintGate;
+    if (gateOpen) hint = L2?.hintGate ?? s.hintGate;
     this.compassEl.hidden = !gateOpen || !riding;
     if (gateOpen && riding) {
       // Camera looks along (-sin(yaw), -cos(yaw)); CSS rotation is clockwise.
@@ -178,7 +178,7 @@ export class Hud {
       this.compassEl.title = s.hintGate;
       this.compassEl.setAttribute('aria-label', s.hintGate);
     }
-    if (state.race.phase === 'racing') hint = harbor ? L2.race : raceText().race;
+    if (state.race.phase === 'racing') hint = L2 ? L2.race : raceText().race;
     if (state.race.phase === 'racing') {
       this.toastTimer = 0; this.toastEl.classList.remove('on');
       this.tapHintEl.classList.remove('on');
@@ -197,7 +197,7 @@ export class Hud {
       this.hintEl.textContent = hint;
       this.blocksEl.textContent = `${p.stats.maxBlocks - state.blocks.length}`;
       this.rideBtn.style.display = canMount || riding || nearLift ? '' : 'none';
-      this.rideBtn.textContent = nearLift && !riding ? (document.documentElement.lang === 'ru' ? '↕ Лифт' : '↕ Elevator') : riding ? `${s.exit}` : garage?.vehicle === 'scooter' ? `🛴 ${L2.ride}` : `🏍 ${s.ride}`;
+      this.rideBtn.textContent = nearLift && !riding ? (document.documentElement.lang === 'ru' ? '↕ Лифт' : '↕ Elevator') : riding ? `${s.exit}` : garage?.vehicle === 'scooter' ? `🛴 ${L2!.ride}` : garage?.vehicle === 'drone' ? `🚁 ${L2!.ride}` : `🏍 ${s.ride}`;
       this.el.classList.toggle('riding', riding);
       this.trickLabel.textContent = raceText().trick;
       if (p.shape !== this.shape) {
@@ -280,13 +280,13 @@ export class Hud {
     }
     for (const e of events) {
       const mine = e.who === playerId;
-      const names = state.garages[0]?.vehicle === 'scooter' ? levelText().parts : s.partNames;
+      const names = state.level >= 2 ? levelText(state.level).parts : s.partNames;
       if (e.type === 'pickup' && mine) this.toast(`${s.got} ${names[e.info ?? ''] ?? e.info}`, 1.6);
       else if (e.type === 'deliver' && mine) {
         const g = state.garages[0];
         if (e.info === 'flashlight' && g.built) this.toast(s.headlightOn, 2.2);
         else this.toast(`${s.delivered} ${g.delivered.length}/${VEHICLES[g.vehicle].parts.length}`, 1.4);
-      } else if (e.type === 'built') this.toast(e.info === 'scooter' ? levelText().built : s.built, 2.2);
+      } else if (e.type === 'built') this.toast(e.info === 'scooter' ? levelText(2).built : e.info === 'drone' ? levelText(3).built : s.built, 2.2);
       else if (e.type === 'trick' && mine) this.trick(e.info ?? '');
       else if (e.type === 'bail' && mine) this.bonus(raceText().bail, 'bail');
       else if (e.type === 'glue') this.toast(s.glued, 0.9);

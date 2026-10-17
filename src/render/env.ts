@@ -34,10 +34,12 @@ export function environment(renderer: THREE.WebGLRenderer): THREE.Texture {
   return envTex;
 }
 
-export type SkyTheme = 'city' | 'harbor';
+export type SkyTheme = 'city' | 'harbor' | 'oldtown';
 
-/** Zenith, mid sky, horizon haze (also the fog colour). The harbor sky is a touch more turquoise and sunnier. */
+/** Zenith, mid sky, horizon haze (also the fog colour). The harbor sky is a touch more turquoise and sunnier;
+ *  the old town has a warm late-afternoon haze. */
 export function skyPalette(theme: SkyTheme = 'city') {
+  if (theme === 'oldtown') return { top: 0x2b6fd6, mid: 0x7fb6ee, horizon: 0xf6dcb4, sun: 0xffd79a };
   return theme === 'harbor'
     ? { top: 0x1f7fe6, mid: 0x5cc2f5, horizon: 0xbfe9f2, sun: 0xfff1c4 }
     : { top: 0x1c72e6, mid: 0x47aaf5, horizon: 0xa6d8f7, sun: 0xfff3d6 };
@@ -70,12 +72,12 @@ export function buildSky(theme: SkyTheme = 'city'): THREE.Group {
     col.set([c.r, c.g, c.b], i * 3);
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const dome = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: theme === 'harbor' }));
+  const dome = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: theme !== 'city' }));
   dome.renderOrder = -10;
   root.add(dome);
 
   const kit = new Kit();
-  let s = theme === 'harbor' ? 11 : 7;
+  let s = theme === 'harbor' ? 11 : theme === 'oldtown' ? 23 : 7;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < 11; i++) {
     const a = (i / 11) * Math.PI * 2 + rnd();

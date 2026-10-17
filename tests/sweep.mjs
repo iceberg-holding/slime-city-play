@@ -16,12 +16,12 @@ try {
   const { openGates, startRace, RACE } = await load('race');
   const { STOPS, TOWER } = await load('tower');
   // Flood fill each elevator-connected floor separately: the lift is a dynamic graph edge.
-  for (const level of [1, 2]) {
-    const s = createGame(42, [0,0,0,0], level), col = makeCollider(s);
+  for (const level of [1, 2, 3]) {
+    const s = createGame(42, [0,0,0,0], level), col = makeCollider(s), raceDef = levelDef(level).race;
     const lift = levelDef(level).mission.liftOnly ?? [];
     const targets = [...s.pickups.filter((_,i)=>!lift.includes(i)).map(p => ({name:p.part, pos:p.pos})),
       {name:'garage',pos:{x:s.garages[0].x,y:0.9,z:s.garages[0].z}},
-      {name:'gate approach',pos:{x:levelDef(level).race.gateAt.x,y:0.9,z:levelDef(level).race.gateAt.z+1}}];
+      ...(raceDef ? [{name:'gate approach',pos:{x:raceDef.gateAt.x,y:0.9,z:raceDef.gateAt.z+1}}] : [])];
     const paths = findWalkPaths(col, 45, s.players[0].pos, targets.map(t=>t.pos));
     assert.deepEqual(targets.filter((_,i)=>!paths[i]).map(t=>t.name), [], `level ${level} unreachable targets`);
     // Elevator-only parts must stay off the walking graph.
@@ -33,8 +33,8 @@ try {
       if (y === TOWER.mid) floorTargets.push(...lift.map(i=>s.pickups[i].pos));
       assert.ok(findWalkPaths(makeCollider(s),35,{x:TOWER.liftX,y,z:-26},floorTargets).every(Boolean), `floor ${y}, pool/spa`);
     }
-    {
-      const course=levelDef(level).race.course, start=courseAt(course,0), end=courseAt(course,course.length);
+    if (raceDef) {
+      const course=raceDef.course, start=courseAt(course,0), end=courseAt(course,course.length);
       const corridor={groundAt:col.groundAt.bind(col),blocked:(x,z,y,r,h)=>courseNear(course,x,z).distance>5.5||col.blocked(x,z,y,r,h)};
       assert.ok(findWalkPaths(corridor,900,{x:start.x,y:0,z:start.z},[{x:end.x,y:0.9,z:end.z}])[0],`level ${level} finish reachable from race entry by road flood fill`);
     }
@@ -67,7 +67,7 @@ try {
       }
     }
     // Drive the full centerline with several seeds; rails and jumps must not trap a vehicle.
-    for (const seed of level === 1 ? [11, 27, 93] : [11, 27, 93, 5]) {
+    for (const seed of !raceDef ? [] : level === 1 ? [11, 27, 93] : [11, 27, 93, 5]) {
       const def=levelDef(level), course=def.race.course, kind=def.mission.vehicle;
       const trackAt=d=>courseAt(course,d);
       const race=createGame(seed,[0,0,0,0],level), p=race.players[0];
@@ -94,8 +94,8 @@ try {
     }
     // Vertical drops over every solid, roofs, ramp edges, and the entire course.
     const points=s.world.solids.flatMap(b=>[{x:(b.minX+b.maxX)/2,z:(b.minZ+b.maxZ)/2,y:b.maxY+8}, {x:b.maxX+0.6,z:b.maxZ+0.6,y:b.maxY+8}]);
-    const dropCourse=levelDef(level).race.course;
-    for(let d=0;d<=dropCourse.length;d+=4) { const p=courseAt(dropCourse,d); for(const lane of [-6,0,6]) points.push({x:p.x-p.dz*lane,z:p.z+p.dx*lane,y:8}); }
+    const dropCourse=raceDef?.course;
+    for(let d=0;dropCourse&&d<=dropCourse.length;d+=4) { const p=courseAt(dropCourse,d); for(const lane of [-6,0,6]) points.push({x:p.x-p.dz*lane,z:p.z+p.dx*lane,y:8}); }
     for(const pos of points) for(const radius of [0.4,0.55]) {
       const body={pos:{...pos},vel:{x:0,y:-40,z:0},radius,height:1.4,grounded:false};
       for(let i=0;i<180;i++) {moveBody(body,1/60,col,s.world.half);assert.ok(body.pos.y>=-1,'drop through floor');}
