@@ -104,6 +104,10 @@ export class GameView {
   private occluders: THREE.Object3D[] = [];
   private cameraRay = new THREE.Raycaster();
   private camDist = 7;
+  private indoor = 0;
+  /** Camera yaw with more room behind the hero (indoors), or null. */
+  yawHint: number | null = null;
+  private indoorBox: [number, number, number, number] | null = null;
   private gateCues = new THREE.Group();
   private gateArrow = new THREE.Group();
   private arrowProbe = new THREE.Vector3();
@@ -197,6 +201,7 @@ export class GameView {
       this.scene.add(this.windowGlow);
       // Tower facade above the glass lobby and the mid floor's ceiling: keep the camera inside on the flashlight floor.
       const T = 3.5, top = TOWER.roof, x0 = TOWER.x - 4.05, x1 = TOWER.x + 4.05, z0 = TOWER.z - 4.05, z1 = TOWER.z + 4.05;
+      this.indoorBox = [x0, x1 + 1.2, z0, z1]; // +x includes the elevator landing
       blockers = [...city.cameraBlockers,
         { minX: x0 - 0.1, maxX: x0 + 0.1, minY: T, maxY: top, minZ: z0, maxZ: z1 },
         { minX: x1 - 0.1, maxX: x1 + 0.1, minY: T, maxY: top, minZ: z0, maxZ: z1 },
@@ -645,12 +650,19 @@ export class GameView {
     // Camera follow
     if (me) {
       const tx = me.pos.x;
-      const ty = me.pos.y + 1.6;
       const tz = me.pos.z;
-      const dx = Math.sin(camYaw) * Math.cos(camPitch);
-      const dy = Math.sin(camPitch);
-      const dz = Math.cos(camYaw) * Math.cos(camPitch);
-      const want = 7.5;
+      // Indoors on the tower's mid floor the ceiling is only ~1.9 m up: blend to a low, near-level camera that
+      // pulls back along the floor instead of up into the ceiling.
+      const inside = this.indoorBox && tx > this.indoorBox[0] && tx < this.indoorBox[1] && tz > this.indoorBox[2] && tz < this.indoorBox[3]
+        && me.pos.y > TOWER.mid - 0.6 && me.pos.y < TOWER.mid + 1.2;
+      this.indoor += ((inside ? 1 : 0) - this.indoor) * Math.min(1, dt * 5);
+      const b = this.indoor;
+      const ty = me.pos.y + 1.6 - 0.55 * b;
+      const pitch = camPitch + (0.06 - camPitch) * b;
+      const dx = Math.sin(camYaw) * Math.cos(pitch);
+      const dy = Math.sin(pitch);
+      const dz = Math.cos(camYaw) * Math.cos(pitch);
+      const want = 7.5 - 1.5 * b;
       let hit = this.col.raycast(tx, ty, tz, dx, dy, dz, want);
       // Mesh occlusion only matters on the rooftop (pergola etc.); one reused ray, every 3rd frame.
       if (ty > 8) {
@@ -664,9 +676,23 @@ export class GameView {
         hit = Math.min(hit, this.meshHit);
       }
       const target = Math.max(0.35, Math.min(want, hit - 0.3));
+      // Indoors with a wall right behind: suggest a camera yaw that has room (main.ts eases toward it when the
+      // player isn't steering the camera).
+      this.yawHint = null;
+      if (b > 0.5 && hit < 3) {
+        let best = hit, bestYaw = camYaw;
+        for (const off of [0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.4, -2.4, Math.PI]) {
+          const yy = camYaw + off;
+          const d = this.col.raycast(tx, ty, tz, Math.sin(yy) * Math.cos(pitch), dy, Math.cos(yy) * Math.cos(pitch), want);
+          if (d > best + 0.8) { best = d; bestYaw = yy; if (d >= want - 0.1) break; }
+        }
+        if (bestYaw !== camYaw) this.yawHint = bestYaw;
+      }
       // pull in instantly, ease out
       this.camDist = target < this.camDist ? target : this.camDist + (target - this.camDist) * Math.min(1, dt * 4);
-      this.camera.position.set(tx + dx * this.camDist, Math.max(0.3, ty + dy * this.camDist), tz + dz * this.camDist);
+      let cy = Math.max(0.3, ty + dy * this.camDist);
+      if (b > 0.01) cy = Math.min(cy, cy + (TOWER.mid + 1.6 - cy) * b); // stay under the floor's ceiling
+      this.camera.position.set(tx + dx * this.camDist, cy, tz + dz * this.camDist);
       this.camera.lookAt(tx, ty, tz);
       this.sun.position.set(tx + 14, ty + 30, tz + 10);
       this.sun.target.position.set(tx, ty, tz);

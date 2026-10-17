@@ -25,8 +25,8 @@ export function startRace(s: GameState) {
   s.status = 'playing'; s.race = newRaceState('racing', r.duration);
   v.pos = { x: start.x, y: 0, z: start.z }; v.vel = { x: 0, y: 0, z: 0 }; v.speed = 0; v.yaw = start.yaw;
   p.pos = { ...v.pos }; s.projectiles = []; s.pads = [];
-  s.creatures.forEach(c => { c.chatUntil = 0; c.stuck = 0; c.talk = 0; });
-  populateRace(s);
+  s.creatures.forEach(c => { c.chatUntil = 0; c.stuck = 0; c.talk = 0; c.slot = undefined; });
+  populateRace(s, true);
 }
 export function raceFinish(s: GameState) {
   const r = raceOf(s);
@@ -92,18 +92,26 @@ function collectStars(s: GameState, x: number, y: number, z: number) {
 }
 
 // Seven pooled creatures represent deterministic section spawns, never the whole course.
-function populateRace(s: GameState) {
+// Each creature owns the slot (section-1..section+1) whose index ≡ its group (i % 3) mod 3, so when the player
+// enters a new section only the group left behind (≥14 m behind the player) jumps ahead to section+2 (≥88 m
+// ahead) — creatures never relocate while in view.
+function populateRace(s: GameState, force = false) {
   const course = raceOf(s)!.course;
   const progress = courseNear(course, s.players[0].pos.x, s.players[0].pos.z).progress;
+  if (!Number.isFinite(progress)) return;
   const section = Math.floor(progress / 70);
+  const spot = (slot: number, i: number) => Math.max(8, Math.min(course.length - 10, slot * 70 + 18 + Math.floor(i / 3) * 19));
   s.creatures.forEach((c, i) => {
-    const slot = section + (i % 3) - 1;
-    const d = Math.max(8, Math.min(course.length - 10, slot * 70 + 18 + Math.floor(i / 3) * 19));
-    const p = courseAt(course, d), hooligan = i % 3 === 2, side = (slot + i) % 2 ? 1 : -1;
+    const slot = section - 1 + ((((i - (section - 1)) % 3) + 3) % 3);
+    if (c.slot === slot) return;
+    if (!force && c.slot !== undefined && spot(c.slot, i) > progress - 12) return; // still near/visible: wait
+    const d = spot(slot, i);
+    const p = courseAt(course, d), hooligan = Math.floor(i / 3) === 1, side = (slot + i) % 2 ? 1 : -1;
     // hooligans lurk at the kerb and dash across; the rest stand about in the lanes
     const lane = hooligan ? side * 5.4 : ((i * 7 + slot * 3) % 5 - 2) * 1.7;
     const x = p.x - p.dz * lane, z = p.z + p.dx * lane;
-    if (Math.hypot(c.home.x - x, c.home.z - z) > 1) {
+    c.slot = slot;
+    {
       c.pos = { x, y: 0, z }; c.home = { x, z }; c.target = { x, z };
       c.vel = { x: 0, y: 0, z: 0 }; c.stuck = 0; c.chatUntil = 0; c.talk = 0;
       c.paid = false;

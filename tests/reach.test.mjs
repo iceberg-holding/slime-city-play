@@ -42,7 +42,16 @@ try {
     const throttle = vehicle.speed < 9.75 ? 1 : 0.18;
     const cmd = { ...emptyInput(), mx: -Math.sin(vehicle.yaw) * throttle + Math.cos(vehicle.yaw) * steer,
       mz: -Math.cos(vehicle.yaw) * throttle - Math.sin(vehicle.yaw) * steer };
+    const before = race.creatures.map(c => ({ x: c.pos.x, z: c.pos.z }));
     step(race, { [racer.id]: cmd }, DT);
+    // No pooled race creature may teleport while it is near/in front of the rider (user saw pyshki "jump").
+    race.creatures.forEach((c, k) => {
+      const jump = Math.hypot(c.pos.x - before[k].x, c.pos.z - before[k].z);
+      if (jump < 3) return;
+      const near = Math.hypot(before[k].x - vehicle.pos.x, before[k].z - vehicle.pos.z) < 60 || Math.hypot(c.pos.x - vehicle.pos.x, c.pos.z - vehicle.pos.z) < 60;
+      const behind = trackNear(before[k].x, before[k].z).progress < trackNear(vehicle.pos.x, vehicle.pos.z).progress - 10;
+      assert.ok(!near || behind, `creature ${k} relocated ${jump.toFixed(1)} m in view at tick ${i}`);
+    });
   }
   assert.equal(race.race.phase, 'finished', '75% speed steering bot finishes curved road in time');
   console.log(`ok level 1 race: ${TRACK_LENGTH.toFixed(1)}m in ${race.winTime.toFixed(1)}s of ${RACE.duration}s`);
@@ -121,7 +130,9 @@ try {
     const at = trackAt(138); hv.pos = { x: at.x, y: 0, z: at.z }; hv.yaw = at.yaw; step(h, {}, DT); // hooligans of this section sit at 158 m
     const hool = h.creatures.filter(c => c.dash);
     assert.ok(hool.length >= 2, `race has hooligans (${hool.length})`);
-    const c = hool.reduce((a, b) => (Math.hypot(a.pos.x - hv.pos.x, a.pos.z - hv.pos.z) < Math.hypot(b.pos.x - hv.pos.x, b.pos.z - hv.pos.z) ? a : b));
+    const me = trackNear(hv.pos.x, hv.pos.z).progress;
+    const c = hool.filter(k => trackNear(k.pos.x, k.pos.z).progress > me).reduce((a, b) => (trackNear(a.pos.x, a.pos.z).progress < trackNear(b.pos.x, b.pos.z).progress ? a : b));
+    { const cp = trackNear(c.pos.x, c.pos.z).progress, at2 = trackAt(cp - 12); hv.pos = { x: at2.x, y: 0, z: at2.z }; hv.yaw = at2.yaw; }
     const kerb = { ...c.pos };
     for (let i = 0; i < 40; i++) step(h, {}, DT);
     const road = trackNear(c.pos.x, c.pos.z), was = trackNear(kerb.x, kerb.z);

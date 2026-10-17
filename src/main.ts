@@ -267,6 +267,16 @@ function followVehicle(dt: number) {
   input.camPitch += (0.3 - input.camPitch) * Math.min(1, dt * 2);
 }
 
+/** Indoors (tower floor) with a wall behind the hero: ease the camera round to the side with room. */
+function indoorCamera(dt: number) {
+  const h = view?.yawHint;
+  if (h == null || performance.now() - input.lastLook < 1200) return;
+  let d = h - input.camYaw;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  input.camYaw += d * Math.min(1, dt * 3);
+}
+
 let last = performance.now();
 function frame(now: number) {
   requestAnimationFrame(frame);
@@ -306,6 +316,7 @@ function frame(now: number) {
     }
   }
   followVehicle(dt);
+  indoorCamera(dt);
   view.sync(state, input.camYaw, input.camPitch, dt, playerId, ghostTimer > 0 && mode === 'play');
   hud.update(state, playerId, dt, input.camYaw);
   const w = window.innerWidth;

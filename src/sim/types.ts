@@ -79,6 +79,8 @@ export interface Creature extends Body {
   hinter?: boolean;
   /** race hooligan: dashes across the road between two kerb points when a rider comes close */
   dash?: { ax: number; az: number; bx: number; bz: number; toB: boolean };
+  /** race section slot this pooled creature currently represents */
+  slot?: number;
   /** bonus for slime-hitting this hooligan was already paid at this spot */
   paid?: boolean;
 }

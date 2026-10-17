@@ -132,14 +132,14 @@ try {
   const hit = await page.evaluate(() => {
     const g = window.__game, s = g.state, v = s.vehicles[0];
     const course = g.raceCourse, P = course.points;
-    let prog = 0, at = 138;
+    let prog = 0, at = 166; // section-2 hooligan sits at 177 m (dashes when the rider is close)
     for (let i = 1; i < P.length; i++) { const L = Math.hypot(P[i].x - P[i - 1].x, P[i].z - P[i - 1].z); if (at <= L) { const k = at / L; v.pos = { x: P[i - 1].x + (P[i].x - P[i - 1].x) * k, y: 0, z: P[i - 1].z + (P[i].z - P[i - 1].z) * k }; v.yaw = Math.atan2(-(P[i].x - P[i - 1].x), -(P[i].z - P[i - 1].z)); break; } at -= L; prog += L; }
-    v.speed = 0; g.tick(50);
+    v.speed = 0; g.tick(50); window.__dbg = s.creatures.filter(c => c.dash).map(c => [c.slot, Math.round(c.pos.x), Math.round(c.pos.z)]).concat([[Math.round(v.pos.x), Math.round(v.pos.z)]]);
     for (let i = 0; i < 40 && s.race.hits === 0; i++) { s.players[0].fireCd = 0; g.fire('sticky'); g.tick(12); }
     g.setCamera(v.yaw, 0.3);
     return s.race.hits;
   });
-  assert.ok(hit >= 1, 'slime shot hits a hooligan');
+  assert.ok(hit >= 1, 'slime shot hits a hooligan ' + JSON.stringify(await page.evaluate(() => window.__dbg)));
   await text('.bonus-pop', 'Gotcha');
   await shot('hooligan-hit', 300);
 
