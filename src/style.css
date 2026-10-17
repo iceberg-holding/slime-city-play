@@ -869,10 +869,10 @@ button {
 }
 
 /* Brief control reminder; mission objectives remain available in the HUD. */
-.playing .controls-tip { animation: r3-tip 4.5s forwards; }
+.playing .controls-tip { animation: r3-tip 3.5s forwards; }
 @keyframes r3-tip { 0%, 88% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 
-.controls-tip { position: absolute; top: 125px; left: 20px; right: 20px; text-align: center; font-size: 12px; color: #34455b; pointer-events: none; }
+.controls-tip { position: absolute; top: auto; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 250px); left: 50%; right: auto; transform: translateX(-50%); max-width: calc(100vw - 40px); text-align: center; font-size: 12px; font-weight: 700; color: #fff; background: rgba(29, 53, 87, 0.7); padding: 4px 12px; border-radius: 999px; pointer-events: none; }
 
 /* Race controls stay outside the road sightline. */
 .ride-btn { left: 14px; bottom: 24px; transform: none; font-size: 14px; padding: 7px 14px; border-width: 2px; animation: none; }

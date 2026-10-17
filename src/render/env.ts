@@ -40,7 +40,7 @@ export type SkyTheme = 'city' | 'harbor';
 export function skyPalette(theme: SkyTheme = 'city') {
   return theme === 'harbor'
     ? { top: 0x1f7fe6, mid: 0x5cc2f5, horizon: 0xbfe9f2, sun: 0xfff1c4 }
-    : { top: 0x2a7fea, mid: 0x6cbdf7, horizon: 0xbfe2f6, sun: 0xfff3d6 };
+    : { top: 0x1c72e6, mid: 0x47aaf5, horizon: 0xa6d8f7, sun: 0xfff3d6 };
 }
 
 /** Direction the sun light comes from (matches the shadow-casting light offset in the view). */
@@ -70,7 +70,7 @@ export function buildSky(theme: SkyTheme = 'city'): THREE.Group {
     col.set([c.r, c.g, c.b], i * 3);
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const dome = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+  const dome = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: theme === 'harbor' }));
   dome.renderOrder = -10;
   root.add(dome);
 
