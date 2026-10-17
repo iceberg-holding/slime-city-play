@@ -162,6 +162,8 @@ const SCOOTER: Record<string, PartBuilder> = {
 };
 
 const LEMON = 0xffd23f;
+/** the drone is drawn a quarter bigger than modelled so a rider fits on its deck */
+const DRONE_SCALE = 1.25;
 const DRONE_TEAL = 0x2ec4b6;
 /** rotor arm tips: front pair at -z, rear pair at +z */
 const ROTOR_AT = 0.68;
@@ -291,9 +293,10 @@ export function buildVehicle(kind: VehicleKind, partIds: string[]): VehicleModel
     const s = g.getObjectByName('spin');
     if (s) wheels.push(s);
     g.traverse((o) => o.name === 'rotor' && rotors.push(o));
+    if (kind === 'drone') g.scale.setScalar(DRONE_SCALE);
   }
   const seat = new THREE.Group();
-  if (kind === 'drone') seat.position.set(0, 0.7, 0.05);
+  if (kind === 'drone') seat.position.set(0, 0.7 * DRONE_SCALE, 0.05);
   else if (STANDING[kind]) seat.position.set(0, 0.31, 0.12);
   else seat.position.set(0, 0.25, 0.15);
   body.add(seat);

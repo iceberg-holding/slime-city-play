@@ -287,6 +287,55 @@ try {
     console.log('ok level 3: six drone parts walkable, battery only via the tower stair and hatch, pond splash, hint pyshka');
   }
 
+  // Drone flight: UP/DOWN climb and descend, hover when idle, soft ceiling, bounces off walls, joystick turns.
+  {
+    const f = createGame(8, [0, 0, 0, 0], 3), fp = f.players[0], def = levelDef(3);
+    f.creatures = [];
+    const g = def.mission.garage, dr = spawnVehicle(f, 'drone', g.x, 0, g.z, 0);
+    fp.pos = { x: g.x + 1, y: 0, z: g.z }; step(f, { [fp.id]: { ...emptyInput(), interact: true } }, DT);
+    assert.equal(fp.riding, dr.id, 'get on the drone like any vehicle');
+    const fly = (n, cmd = {}) => { const ev = []; for (let i = 0; i < n; i++) { step(f, { [fp.id]: { ...emptyInput(), ...cmd } }, DT); ev.push(...f.events); } return ev; };
+    fly(60, { up: true });
+    assert.ok(dr.pos.y > 3 && !dr.grounded, `UP climbs (${dr.pos.y.toFixed(2)} m)`);
+    fly(20); const hover = dr.pos.y; fly(90);
+    assert.ok(Math.abs(dr.pos.y - hover) < 0.05, `hovers when idle (${hover.toFixed(2)} → ${dr.pos.y.toFixed(2)})`);
+    fly(60 * 12, { up: true });
+    const ceil = V.drone.ceiling;
+    assert.ok(dr.pos.y <= ceil + 0.3 && dr.pos.y > ceil - 4, `soft altitude ceiling (${dr.pos.y.toFixed(2)} of ${ceil})`);
+    fly(60 * 8, { down: true });
+    assert.ok(dr.grounded && dr.pos.y < 0.01, 'DOWN lands on the ground');
+    // forward flies along the heading, sideways turns
+    fly(30, { up: true });
+    const yaw0 = dr.yaw; fly(40, { mx: 1, mz: 0 });
+    assert.ok(Math.abs(dr.yaw - yaw0) > 0.5, 'joystick sideways turns the drone');
+    const x0 = dr.pos.x, z0 = dr.pos.z;
+    fly(60, { mx: -Math.sin(dr.yaw), mz: -Math.cos(dr.yaw) });
+    assert.ok(dr.speed > 5 && Math.hypot(dr.pos.x - x0, dr.pos.z - z0) > 3, `joystick forward flies (${dr.speed.toFixed(1)} m/s)`);
+    // fly at a house wall at full speed: bonk, bounce back, never inside
+    const T = (await load('/src/sim/oldtown.ts')).OLDTOWN.tower;
+    dr.pos = { x: T.x, y: 3, z: T.maxZ + 8 }; dr.vel = { x: 0, y: 0, z: 0 }; dr.yaw = 0;
+    let bonk = false, inside = false, back = false;
+    for (let i = 0; i < 150; i++) {
+      const ev = fly(1, { mx: 0, mz: -1 });
+      bonk ||= ev.some(e => e.type === 'bonk');
+      back ||= dr.vel.z > 1;
+      inside ||= !!makeCollider(f).pointInside(dr.pos.x, dr.pos.y + 0.5, dr.pos.z);
+    }
+    assert.ok(bonk && back && !inside, `bumping the tower bounces (bonk ${bonk}, back ${back}, inside ${inside})`);
+    // soft walls keep it in the area outside races
+    dr.pos = { x: def.bounds.maxX - 1, y: 12, z: 0 }; dr.yaw = -Math.PI / 2;
+    fly(60 * 6, { mx: 1, mz: 0, up: false });
+    for (let i = 0; i < 60 * 6; i++) fly(1, { mx: -Math.sin(dr.yaw), mz: -Math.cos(dr.yaw) });
+    assert.ok(dr.pos.x < def.bounds.maxX + 2.1 && dr.pos.x > def.bounds.minX - 2.1 && dr.pos.z < def.bounds.maxZ + 2.1 && dr.pos.z > def.bounds.minZ - 2.1, `soft walls keep the drone in the area (${dr.pos.x.toFixed(1)}, ${dr.pos.z.toFixed(1)})`);
+    // get off in the air: you drop, the drone sinks down unpowered
+    dr.pos = { x: 0, y: 6, z: 0 }; dr.vel = { x: 0, y: 0, z: 0 }; fly(2);
+    fly(1, { interact: true });
+    assert.equal(fp.riding, null, 'get off mid-air');
+    fly(60 * 4);
+    assert.ok(fp.grounded && fp.pos.y < 0.01 && dr.grounded && dr.pos.y < 0.01, 'rider and drone both come down');
+    console.log('ok drone flight: climb, hover, soft ceiling, land, turn, forward, wall bounce, soft walls, get off mid-air');
+  }
+
   // Try a few hero builds, including the slowest / lowest-jumping legs, on all levels.
   for (const [level, look] of [
     [1, [0, 0, 0, 0]],

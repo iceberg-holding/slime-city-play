@@ -582,9 +582,23 @@ export class GameView {
       this.lastYaw.set(v.id, v.yaw);
       const turn = dt > 0 ? (v.yaw - prev) / dt : 0;
       m.root.rotation.y = v.yaw;
-      const lean = v.grounded ? Math.max(-0.45, Math.min(0.45, turn * 0.12 * Math.min(1, Math.abs(v.speed) / 5))) : 0;
-      m.lean += (lean - m.lean) * Math.min(1, dt * 10);
-      m.pivot.rotation.set(v.flip, v.twist, m.lean + v.roll);
+      if (VEHICLES[v.kind].flies) {
+        // drone: nose dips with forward speed, banks into turns, bobs while hovering, rotors whirr when powered
+        const powered = v.rider !== null, max = VEHICLES[v.kind].maxSpeed;
+        const side = v.vel.x * Math.cos(v.yaw) - v.vel.z * Math.sin(v.yaw);
+        const pitch = v.grounded ? 0 : Math.max(-0.3, Math.min(0.2, (-v.speed / max) * 0.26));
+        const bank = v.grounded ? 0 : Math.max(-0.35, Math.min(0.35, turn * 0.16 - side * 0.03));
+        m.pitch += (pitch - m.pitch) * Math.min(1, dt * 5);
+        m.lean += (bank - m.lean) * Math.min(1, dt * 5);
+        m.pivot.rotation.set(m.pitch, 0, m.lean);
+        m.root.position.y += v.grounded ? 0 : Math.sin(t * 3.1 + v.id) * 0.05;
+        const spin = powered ? 38 : v.grounded ? 0 : 14;
+        for (const r of m.rotors) r.rotation.y += spin * dt * (r.position.x > 0 === r.position.z > 0 ? 1 : -1);
+      } else {
+        const lean = v.grounded ? Math.max(-0.45, Math.min(0.45, turn * 0.12 * Math.min(1, Math.abs(v.speed) / 5))) : 0;
+        m.lean += (lean - m.lean) * Math.min(1, dt * 10);
+        m.pivot.rotation.set(v.flip, v.twist, m.lean + v.roll);
+      }
       for (const w of m.wheels) w.rotation.x -= (v.speed * dt) / 0.4;
       shadow(v.pos.x, v.pos.y, v.pos.z, 2.2);
     }

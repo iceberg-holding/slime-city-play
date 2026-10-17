@@ -63,6 +63,8 @@ export class Hud {
         <button class="act act-bouncy" data-a="bouncy"><span class="ic"></span><span class="lb"></span></button>
         <button class="act act-jump" data-a="jump"><span class="ic">⤒</span><span class="lb"></span></button>
         <button class="act act-trick" data-a="trick"><span class="ic">🤸</span><span class="lb">TRICK</span></button>
+        <button class="act act-up" data-a="up"><span class="ic">▲</span><span class="lb"></span></button>
+        <button class="act act-down" data-a="down"><span class="ic">▼</span><span class="lb"></span></button>
         <div class="block-group">
           <button class="act act-block" data-a="place"><span class="ic"></span><span class="lb"></span><span class="count"></span></button>
           <button class="shape-btn" data-a="toggleShape"></button>
@@ -126,6 +128,9 @@ export class Hud {
   private refreshText() {
     const s = t();
     for (const l of this.labels) l.el.textContent = s[l.key];
+    const L3 = levelText(3);
+    this.el.querySelector('.act-up .lb')!.textContent = L3.up!;
+    this.el.querySelector('.act-down .lb')!.textContent = L3.down!;
     this.shapeBtn.textContent = this.shape === 'cube' ? `■ ${s.cube}` : `◢ ${s.ramp}`;
     this.tapHintEl.textContent = s.tapHint;
     this.el.querySelector('.controls-tip')!.textContent = window.matchMedia('(pointer: coarse)').matches ? 'Left thumb: move · Drag: look · Sticky / Bouncy: shoot' : s.desktopHelp;
@@ -206,7 +211,9 @@ export class Hud {
       }
     }
     const ride = riding ? state.vehicles.find((v) => v.id === p.riding) : undefined;
-    this.el.classList.toggle('airborne', !!ride && !ride.grounded);
+    const flying = !!ride && VEHICLES[ride.kind].flies;
+    this.el.classList.toggle('flying', flying);
+    this.el.classList.toggle('airborne', !!ride && !ride.grounded && !flying);
     if (this.tapHintTimer > 0) {
       this.tapHintTimer -= dt;
       if (this.tapHintTimer <= 0) this.tapHintEl.classList.remove('on');

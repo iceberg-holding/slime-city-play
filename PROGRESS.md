@@ -189,3 +189,13 @@ Tests:
   - Reach test: all 6 parts are walked and delivered by two hero builds. The battery is unreachable without the stair ramps and the path goes through the hatch. The pond is not walkable, a fall splashes back, and the hint pyshka talks until the battery is found. The sweep covers level-3 reachability, walks and drops.
   - Area views 173–233 calls / 416–544k tris.
   - Build, sim and sweep pass.
+- R15.2 (item 3): Drone flight.
+  - `updateDrone` in `sim/mission.ts`: joystick forward/back flies along the heading, left/right turns. New `InputCommand.up/down` are held on-screen UP/DOWN buttons, or Space/Shift on desktop. There are no double-tap gestures.
+  - With no altitude input the drone hovers in place. Climb is 5.5 m/s up to a soft 26 m ceiling, where climb fades out and you are eased back down.
+  - The drone lands on any surface and stops under balconies and slabs when climbing. It bounces off walls with a bonk, and soft walls keep it in the area outside races.
+  - Get on/off works like any other vehicle. Unpowered, the drone sinks gently to the ground; a rider who gets off mid-air drops. Pyshki bounce it away.
+  - Visuals: the nose dips with speed, it banks into turns and bobs while hovering, and the rotors spin. The model is drawn 1.25× bigger.
+  - HUD: the teal ▲ / coral ▼ buttons replace Jump/Trick while flying, and Bouncy moves up. Ride button reads "🚁 Fly", with a localized free-flight hint. The camera follows in the air.
+  - Old-town furniture is now light Kit lanterns and benches (the studio ones cost ~54k triangles). The area is ~226k scene triangles, and the flying view is 278 calls / 530k.
+  - Sim test covers climb, hover, ceiling, landing, turning, forward flight, bouncing off the clock tower, soft walls and getting off mid-air. The sweep checks the flying HUD at four viewports.
+  - Build, sim and sweep pass.

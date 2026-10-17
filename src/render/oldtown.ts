@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { batchStatic } from './art/batch';
-import { bench as studioBench, lamp as studioLamp } from './art/studio';
 import { buildBlobs, wedge, wedgeTransform, type BlobSpot } from './city';
 import { gable } from './harbor';
 import { Kit, geo, glowTexture, waterMaterial } from './materials';
@@ -364,15 +362,28 @@ export function buildOldTown(world: World): { root: THREE.Group; cameraBlockers:
     blobs.push({ x: cx, z: cz, sx: w + 1, sz: 2.5 });
   }
 
-  // Lamps and benches share one batch.
-  const furniture = new THREE.Group();
+  // Old-fashioned lanterns and slatted benches (light Kit models; the studio ones cost ~6k triangles each).
   for (const p of world.props) {
-    if (p.kind !== 'lamp' && p.kind !== 'bench') continue;
-    const m = p.kind === 'lamp' ? studioLamp() : studioBench();
-    m.position.set(p.x, 0, p.z);
-    furniture.add(m);
+    if (p.kind === 'lamp') {
+      main.add(geo.cyl(0.22, 0.28, 0.35, 12), 0x2f3b52, { p: [p.x, 0.17, p.z], finish: 'gloss' });
+      main.add(geo.cyl(0.07, 0.09, 3.3, 8), 0x2f3b52, { p: [p.x, 1.9, p.z], finish: 'gloss' });
+      main.add(geo.torus(0.1, 0.03, Math.PI * 2, 12), GOLD, { p: [p.x, 1.0, p.z], r: [Math.PI / 2, 0, 0], finish: 'metal' });
+      main.add(geo.rbox(0.42, 0.55, 0.42, 0.06), 0x2f3b52, { p: [p.x, 3.75, p.z], finish: 'gloss' });
+      main.add(geo.rbox(0.32, 0.42, 0.44, 0.02), 0xfff1b8, { p: [p.x, 3.75, p.z], finish: 'glow' });
+      main.add(geo.rbox(0.44, 0.42, 0.32, 0.02), 0xfff1b8, { p: [p.x, 3.75, p.z], finish: 'glow' });
+      main.add(geo.cone(0.36, 0.3, 4), 0x2f3b52, { p: [p.x, 4.17, p.z], r: [0, Math.PI / 4, 0], finish: 'gloss' });
+      blobs.push({ x: p.x, z: p.z, sx: 1.1, sz: 1.1 });
+    } else if (p.kind === 'bench') {
+      for (let k = 0; k < 3; k++) main.add(geo.rbox(2.2, 0.07, 0.16, 0.03), 0xe0a46e, { p: [p.x, 0.48, p.z - 0.2 + k * 0.2], finish: 'gloss' });
+      for (let k = 0; k < 2; k++) main.add(geo.rbox(2.2, 0.16, 0.06, 0.03), 0xe0a46e, { p: [p.x, 0.75 + k * 0.22, p.z - 0.36 - k * 0.04], r: [-0.18, 0, 0], finish: 'gloss' });
+      for (const sx of [-0.95, 0.95]) {
+        main.add(geo.rbox(0.07, 0.48, 0.5, 0.03), 0x2f3b52, { p: [p.x + sx, 0.24, p.z], finish: 'gloss' });
+        main.add(geo.rbox(0.07, 0.6, 0.07, 0.03), 0x2f3b52, { p: [p.x + sx, 0.8, p.z - 0.38], r: [-0.18, 0, 0], finish: 'gloss' });
+        main.add(geo.rbox(0.08, 0.06, 0.5, 0.03), 0x2f3b52, { p: [p.x + sx * 1.05, 0.68, p.z - 0.02], finish: 'gloss' });
+      }
+      blobs.push({ x: p.x, z: p.z, sx: 2.8, sz: 1.4 });
+    }
   }
-  root.add(batchStatic(furniture));
 
   root.add(main.build(true));
   for (const k of [...quads, ...deco]) root.add(k.build(true));

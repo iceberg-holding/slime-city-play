@@ -149,7 +149,15 @@ try {
     await page.evaluate(()=>{const g=window.__game;g.startLevel(2);g.setPaused(true);g.collectAll();g.interact();g.startRace();g.raceFinish();g.setPaused(false);});
     await page.waitForFunction(()=>!document.querySelector('.teaser').hidden&&document.querySelector('.win').style.display!=='none');
     await layout(['.win-card']);await layout(['.teaser','.win-buttons','.win-time','.win-title']);
+    // Level 3 drone: UP/DOWN replace jump/trick while flying; check them with the banner and an active joystick.
+    await page.evaluate(()=>{const g=window.__game;g.startLevel(3);g.setPaused(true);g.collectAll();g.interact();g.tick(2);});
+    await page.waitForTimeout(250);
+    assert.ok(await page.isVisible('.act-up')&&await page.isVisible('.act-down')&&!(await page.isVisible('.act-jump')),'drone altitude buttons replace jump');
+    await page.evaluate(()=>{const el=document.querySelector('.toast');el.textContent='Drone ready!';el.classList.add('on');});
+    await page.locator('canvas').first().dispatchEvent('pointerdown',{pointerId:82,pointerType:'touch',clientX:72,clientY:height-85,bubbles:true});
+    await layout(['.parts','.hint','.hud-right','.ride-btn','.toast.on','.act','.shape-btn','.joy-base']);
+    await page.evaluate(()=>window.dispatchEvent(new PointerEvent('pointerup',{pointerId:82,pointerType:'touch'})));
     console.log(`ok sweep layout ${width}x${height}`);
   }
-  console.log('ok sweep: creator, gate, race, win and level-complete layouts at four touch viewports');
+  console.log('ok sweep: creator, gate, race, win, level-complete and drone-flight layouts at four touch viewports');
 } finally {await browser?.close();if(web)await new Promise(r=>web.httpServer.close(r));await loader.close();}

@@ -2,7 +2,7 @@ import { courseAt, courseNear } from './track';
 import { addBonus, raceOf } from './race';
 import { rand } from './rng';
 import { wet } from './harbor';
-import { GRAVITY, PAD_LAUNCH } from './constants';
+import { GRAVITY, PAD_LAUNCH, STEP_UP } from './constants';
 import { Collider, moveBody } from './physics';
 import type { GameEvent, GameState, InputCommand, Player, TrickName, Vehicle } from './types';
 import { levelDef } from './levels';
@@ -163,8 +163,101 @@ export function updatePickups(state: GameState) {
   }
 }
 
+/** Flying vehicles (drone): joystick forward/back flies along the heading and left/right turns; UP/DOWN climb and
+ *  descend; with no altitude input it hovers. Soft ceiling, soft walls round the area (or the course corridor),
+ *  bounces off whatever it bumps into. Unpowered (no rider) it sinks gently to the ground. */
+function updateDrone(state: GameState, v: Vehicle, inp: InputCommand | undefined, dt: number, col: Collider) {
+  const def = VEHICLES[v.kind], powered = v.rider !== null;
+  let throttle = 0, steer = 0, lift = 0;
+  if (powered && inp) {
+    throttle = inp.mx * -Math.sin(v.yaw) + inp.mz * -Math.cos(v.yaw);
+    steer = inp.mx * Math.cos(v.yaw) + inp.mz * -Math.sin(v.yaw);
+    lift = (inp.up ? 1 : 0) - (inp.down ? 1 : 0);
+  }
+  v.yaw -= steer * def.turnRate * dt;
+  const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
+  const rider = powered ? state.players.find((p) => p.id === v.rider) : undefined;
+  const want = throttle > 0 ? throttle * def.maxSpeed * (rider ? rider.stats.rideSpeed : 1) : throttle * def.reverseSpeed;
+  // steer the whole horizontal velocity toward the heading: a bounce or a drift dies out on its own
+  const rate = (Math.abs(throttle) > 0.05 ? def.accel : def.brake * 0.5) * dt;
+  v.vel.x += clampMag(fx * want - v.vel.x, rate);
+  v.vel.z += clampMag(fz * want - v.vel.z, rate);
+
+  // altitude: climb / descend / hover; the ceiling softly takes away climb and nudges you back down
+  const climb = def.climb ?? 5, ceil = def.ceiling ?? 25;
+  let vy = powered ? lift * climb : -4;
+  if (vy > 0) vy *= Math.max(0, Math.min(1, (ceil - v.pos.y) / 4));
+  if (v.pos.y > ceil) vy = Math.min(vy, -(v.pos.y - ceil) * 1.5);
+  v.vel.y += clampMag(vy - v.vel.y, (powered ? 14 : 9) * dt);
+
+  // horizontal moves with bounces (step-ups like a walker)
+  let bumped = false;
+  const half = state.world.half, r = v.radius, h = v.height;
+  const nx = v.pos.x + v.vel.x * dt;
+  if (col.blocked(nx, v.pos.z, v.pos.y, r, h) || Math.abs(nx) > half - r) { bumped ||= Math.abs(v.vel.x) > 2; v.vel.x = -v.vel.x * 0.55; }
+  else v.pos.x = nx;
+  const nz = v.pos.z + v.vel.z * dt;
+  if (col.blocked(v.pos.x, nz, v.pos.y, r, h) || Math.abs(nz) > half - r) { bumped ||= Math.abs(v.vel.z) > 2; v.vel.z = -v.vel.z * 0.55; }
+  else v.pos.z = nz;
+  // vertical: undersides of balconies, roofs and slabs stop a climb; land on whatever is below
+  let ny = v.pos.y + v.vel.y * dt;
+  if (v.vel.y > 0) {
+    for (const list of [col.statics, col.dynamics]) for (const s of list) {
+      if (v.pos.x + r <= s.minX || v.pos.x - r >= s.maxX || v.pos.z + r <= s.minZ || v.pos.z - r >= s.maxZ) continue;
+      if (s.minY < v.pos.y + h - 0.01 || s.minY >= ny + h) continue;
+      ny = s.minY - h;
+      bumped ||= v.vel.y > 2;
+      v.vel.y = -Math.min(2, v.vel.y * 0.4);
+    }
+  }
+  const ground = col.groundAt(v.pos.x, v.pos.z, v.pos.y + STEP_UP, r);
+  if (ny <= ground) {
+    v.pos.y = ground;
+    v.vel.y = Math.max(0, v.vel.y);
+    v.grounded = true;
+  } else {
+    v.pos.y = ny;
+    v.grounded = false;
+  }
+  if (bumped) emit(state, 'bonk', v.pos.x, v.pos.y + 0.6, v.pos.z, v.rider ?? undefined);
+
+  // soft walls: the course corridor during a flight race, otherwise the level's area
+  const race = raceOf(state), bounds = levelDef(state.level).bounds;
+  if (state.race.phase === 'racing' && race) {
+    const road = courseNear(race.course, v.pos.x, v.pos.z);
+    if (road.distance > race.course.rail) {
+      const scale = race.course.rail / road.distance;
+      v.pos.x = road.x + (v.pos.x - road.x) * scale;
+      v.pos.z = road.z + (v.pos.z - road.z) * scale;
+      v.vel.x *= 0.9; v.vel.z *= 0.9;
+    }
+  } else if (bounds) {
+    for (const [axis, lo, hi] of [['x', bounds.minX, bounds.maxX], ['z', bounds.minZ, bounds.maxZ]] as const) {
+      const p = v.pos[axis];
+      if (p < lo) { v.vel[axis] = Math.max(v.vel[axis], (lo - p) * 4); v.pos[axis] = Math.max(p, lo - 2); }
+      else if (p > hi) { v.vel[axis] = Math.min(v.vel[axis], (hi - p) * 4); v.pos[axis] = Math.min(p, hi + 2); }
+    }
+  }
+  v.speed = v.vel.x * fx + v.vel.z * fz;
+  if (powered && Math.hypot(v.vel.x, v.vel.z) > 1.5) state.rideTime += dt;
+  if (v.pos.y < -5 || wet(state, v.pos.x, v.pos.y, v.pos.z)) {
+    const g = levelDef(state.level).mission.garage;
+    v.pos = { x: g.x, y: 0, z: g.z };
+    v.vel = { x: 0, y: 0, z: 0 };
+    v.speed = 0;
+  }
+}
+
+function clampMag(v: number, m: number) {
+  return v > m ? m : v < -m ? -m : v;
+}
+
 export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | undefined, dt: number, col: Collider) {
   const def = VEHICLES[v.kind];
+  if (def.flies) {
+    updateDrone(state, v, inp, dt, col);
+    return;
+  }
   v.padCd -= dt;
   const fx = -Math.sin(v.yaw);
   const fz = -Math.cos(v.yaw);

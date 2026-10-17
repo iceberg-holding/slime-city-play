@@ -990,3 +990,12 @@ body:has(.toast.on) .controls-tip { visibility: hidden; }
 }
 .trick-quip { font-size: 20px; color: #fff; -webkit-text-stroke: 0; text-shadow: 0 2px 0 #6a4c93; margin-top: 4px; }
 .bonus-pop[data-kind='bail'] { background: linear-gradient(135deg, #8d99ae, #5c677d); }
+
+/* ---------- Drone altitude buttons (flying only): UP over DOWN on the right edge ---------- */
+.act-up, .act-down { display: none; right: 0; width: 84px; height: 84px; }
+.act-up { bottom: 100px; background: linear-gradient(180deg, #8ef0ff, #2ec4b6); }
+.act-down { bottom: 4px; background: linear-gradient(180deg, #ffc08a, #ff7a59); }
+.act-up .ic, .act-down .ic { font-size: 30px; }
+.hud.flying .act-up, .hud.flying .act-down { display: flex; }
+.hud.flying .act-jump, .hud.flying .act-trick { display: none; }
+.hud.flying .act-bouncy { right: 104px; bottom: 96px; }

@@ -563,11 +563,18 @@ function pyshkaContact(state: GameState, c: Creature, p: Player, col: Collider) 
   const ride = p.riding !== null ? state.vehicles.find((v) => v.id === p.riding) : undefined;
   if (ride) {
     if (c.hitCd > 0) return;
-    // knock the bike back along its heading
     c.hitCd = 1.2;
-    ride.speed = (nx * -Math.sin(ride.yaw) + nz * -Math.cos(ride.yaw)) * KNOCKBACK * p.stats.knockback;
-    ride.vel.y = 4;
-    ride.grounded = false;
+    if (ride.kind === 'drone') {
+      // bounce the drone off the pyshka
+      ride.vel.x = nx * KNOCKBACK * p.stats.knockback;
+      ride.vel.z = nz * KNOCKBACK * p.stats.knockback;
+      ride.vel.y = 3;
+    } else {
+      // knock the bike back along its heading
+      ride.speed = (nx * -Math.sin(ride.yaw) + nz * -Math.cos(ride.yaw)) * KNOCKBACK * p.stats.knockback;
+      ride.vel.y = 4;
+      ride.grounded = false;
+    }
     if (c.stuck <= 0) { c.vel.x = -nx * 3; c.vel.z = -nz * 3; }
     emit(state, 'bonk', p.pos.x, p.pos.y + 1, p.pos.z, p.id);
     return;

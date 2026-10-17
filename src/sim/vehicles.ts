@@ -43,7 +43,7 @@ const scooter: VehicleDef = {
 // Toy quadcopter you stand on: hovers when idle, climbs and descends on its own buttons, bounces off walls.
 const drone: VehicleDef = {
   id: 'drone', parts: [{ id: 'propFront' }, { id: 'propRear' }, { id: 'frame' }, { id: 'battery' }, { id: 'camera' }, { id: 'skids' }],
-  radius: 0.62, height: 1.9, seatY: 0.62, maxSpeed: 12, reverseSpeed: 4, accel: 9, brake: 14, drag: 1.2,
+  radius: 0.75, height: 2.1, seatY: 0.87, maxSpeed: 12, reverseSpeed: 4, accel: 9, brake: 14, drag: 1.2,
   turnRate: 2.4, hopVel: 0, launch: 0, flies: true, climb: 5.5, ceiling: 26,
 };
 

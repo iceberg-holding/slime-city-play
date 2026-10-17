@@ -1,6 +1,6 @@
 import type { InputCommand } from '../sim/types';
 
-export type ActionName = 'sticky' | 'bouncy' | 'jump' | 'place' | 'toggleShape' | 'interact' | 'trick';
+export type ActionName = 'sticky' | 'bouncy' | 'jump' | 'place' | 'toggleShape' | 'interact' | 'trick' | 'up' | 'down';
 
 /**
  * Turns keyboard / mouse / touch into InputCommands.
@@ -59,7 +59,7 @@ export class InputController {
   press(a: ActionName) {
     if (!this.enabled) return;
     this.edges.add(a);
-    if (a === 'sticky' || a === 'bouncy') this.held.add(a);
+    if (a === 'sticky' || a === 'bouncy' || a === 'up' || a === 'down') this.held.add(a);
   }
   release(a: ActionName) {
     this.held.delete(a);
@@ -236,6 +236,9 @@ export class InputController {
       toggleShape: has('toggleShape'),
       interact: has('interact'),
       trick: has('trick'),
+      // drone altitude: held on-screen buttons, or Space / Shift on a keyboard
+      up: this.enabled && (this.held.has('up') || k.has('Space')),
+      down: this.enabled && (this.held.has('down') || k.has('ShiftLeft') || k.has('ShiftRight')),
     };
     this.edges.clear();
     return cmd;

@@ -14,6 +14,7 @@ import { findWalkPaths } from './sim/reach';
 import { createGame, fire, makeCollider, placeBlock, step } from './sim/step';
 import { emptyInput, type GameState, type InputCommand, type Look, type ProjectileKind } from './sim/types';
 import { levelDef, medalFor } from './sim/levels';
+import { VEHICLES } from './sim/vehicles';
 import { saveRun } from './ui/records';
 import { courseStars } from './sim/track';
 import { GhostRecorder, loadGhost } from './ui/ghost';
@@ -259,12 +260,13 @@ function followVehicle(dt: number) {
   const p = state?.players.find((x) => x.id === playerId);
   if (!state || !p || p.riding === null) return;
   const v = state.vehicles.find((x) => x.id === p.riding);
-  if (!v || !v.grounded || performance.now() - input.lastLook < 1200) return;
+  const flies = !!v && VEHICLES[v.kind].flies;
+  if (!v || (!v.grounded && !flies) || performance.now() - input.lastLook < 1200) return;
   let d = v.yaw - input.camYaw;
   while (d > Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   input.camYaw += d * Math.min(1, dt * 2.5 * Math.min(1, Math.abs(v.speed) / 3));
-  input.camPitch += (0.3 - input.camPitch) * Math.min(1, dt * 2);
+  input.camPitch += ((flies ? 0.34 : 0.3) - input.camPitch) * Math.min(1, dt * 2);
 }
 
 /** Indoors (tower floor) with a wall behind the hero: ease the camera round to the side with room. */
