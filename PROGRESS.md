@@ -214,3 +214,29 @@ Tests:
   - Race views 182–293 calls.
   - Sim: the flying bot finishes in 55.1 s with 10/10 rings and 11/20 stars, hooligans spring, a hit pays +2 s, and the guide line is clear of scenery everywhere.
   - Sweep: three flight bots, route clearance in 3 lanes, drops onto all course scenery, flight-race HUD layout.
+- R15.4 (item 5): Finish cards.
+  - Code landed in the user's commit 5755916.
+  - Level 2's complete card now leads on: "Next level →" starts level 3. The drone teaser reads "Up next — take to the skies!" in all five languages.
+  - Level 3 finish: "Level 3 complete!" with a 🚁 icon and the medal/record/stars card, plus an animated CSS car teaser "Level 4: Car — Coming soon — buckle up!" (EN/RU/PL/LT/DE) and a "Fly again" button. Level 1 → 2 is unchanged.
+  - Time's up → Try again works for the flight race.
+  - The never-reachable free-flight hint was removed; the gate hint "Fly through the green gate!" shows instead.
+- R15.5 (item 6): Hooks and browser tests.
+  - New hook `__game.teleportTo('hidden' | 'battery')`: on level 3 it lands just inside the clock-room hatch, on level 1 at the flashlight. `startLevel(3)` already worked, and `raceCourse` carries the `air` altitude keys.
+  - Rooftop hooligans now spring when the drone is within 18 m and rest 3 s between hops, so aimed slime can hit them.
+  - New `tests/round15.e2e.mjs` (part of `npm run test:e2e`):
+    - old-town budget (240 calls / 494k tris) and reach 6/6
+    - battery glow, the hint pyshka's clock-tower line, `teleportTo('battery')`, walking in to take it (the glow goes out)
+    - drone garage and the 🚁 Fly button
+    - the real on-screen UP button climbs, then hover; Space climbs and Shift lands
+    - gate hint and compass, flying into the gate starts the race
+    - rings, stars and chevrons visible; flight-race views ≤ 268 calls
+    - a sticky hit on a rooftop hooligan ("+1s Gotcha!")
+    - a real full-course flight: finished in 55.1 s, 10/10 rings, 11 stars, silver, "New record!", L3 best time + ghost saved
+    - "Level 3 complete!" with the car teaser and Fly again
+    - the ghost drone replays; time's up → Try again
+    - no console errors
+  - Screenshots shots/r15-l3-{area,hidden-part,drone-garage,flying,course-rings,finish}.png at 412×915, all visually inspected.
+  - `tests/round9.e2e.mjs` now expects level 2 → Next level → level 3. The sweep checks the level-3 complete card at four viewports.
+  - Probes: `tests/_look15.mjs` (area views), `_fly15.mjs`, `_race15.mjs` (calls/tris along the course), `_tris15.mjs` (triangles per object).
+- R15 validation: `npm run build`, `npm test`, `node tests/sweep.mjs` and every e2e file pass on this tree: e2e, round3, round4, round7, round9, round13, round15. No push.
+  - Budgets on a 412×915 phone: old-town area 173–240 calls / ≤ 544k tris, flying in the area 258–278 calls / ≤ 538k, flight race 182–293 calls.
