@@ -933,3 +933,5 @@ button {
 .drone i:nth-child(4) { right: 0; top: 30px; }
 @keyframes drone-rotor { to { transform: scaleX(-1); } }
 @keyframes drone-hover { 50% { transform: translateY(-5px); } }
+/* Never show the control tip under a toast/banner */
+body:has(.toast.on) .controls-tip { visibility: hidden; }
