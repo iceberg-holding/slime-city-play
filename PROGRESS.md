@@ -116,3 +116,9 @@ Tests:
   - Finish, time's-up and race texts are localized in EN/RU/PL/LT/DE.
   - Short landscape screens use a two-column card. The 915×412 sweep caught the level-complete card overflowing.
   - Build, sim and sweep pass.
+- R13.4 (item 4): Ghost replay of the best run.
+  - `ui/ghost.ts` `GhostRecorder` samples the vehicle's x/y/z/yaw at 10 Hz of race time into one preallocated Int16Array, so there are no per-frame allocations.
+  - When a finish sets a new best time, the samples are saved to localStorage `slimecity.ghost.L<n>` as base64 (8 bytes per sample, about 10 kB for a 2-minute run).
+  - On every later race the view loads and decodes the path. A single translucent, pulsing, unlit merged mesh (`ghost-bike`, one draw call) follows it, interpolated by `race.elapsed`, and hides when the path ends.
+  - Browser check: a recorded 5 s run saves, and on the next race the ghost is visible and moving along the decoded path.
+  - Build, sim and sweep pass.

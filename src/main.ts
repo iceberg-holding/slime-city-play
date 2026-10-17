@@ -15,6 +15,7 @@ import { createGame, fire, makeCollider, placeBlock, step } from './sim/step';
 import { emptyInput, type GameState, type InputCommand, type Look, type ProjectileKind } from './sim/types';
 import { levelDef, medalFor } from './sim/levels';
 import { saveRun } from './ui/records';
+import { GhostRecorder, loadGhost } from './ui/ghost';
 import { Bubbles } from './ui/bubbles';
 import { CreatorScreen } from './ui/creator';
 import { Hud } from './ui/hud';
@@ -38,6 +39,9 @@ let ghostTimer = 0;
 let paused = false;
 let settingsOpen = false;
 let winDelay = 0;
+const recorder = new GhostRecorder();
+/** race object the recorder is following (startRace replaces it, so identity marks a new run) */
+let recordedRun: GameState['race'] | null = null;
 /** tests can pin the game seed so pyshki looks (and draw calls) are reproducible */
 let fixedSeed: number | null = null;
 
@@ -221,6 +225,14 @@ function simStep(cmd: InputCommand) {
   if (!state || !view) return;
   if (cmd.place || cmd.toggleShape) ghostTimer = 2.5;
   step(state, { [playerId]: cmd }, DT);
+  if (state.race.phase === 'racing') {
+    if (recordedRun !== state.race) {
+      recordedRun = state.race;
+      recorder.reset();
+      view.setGhostPath(loadGhost(state.level));
+    }
+    recorder.sample(state);
+  }
   view.handleEvents(state.events);
   hud.onEvents(state.events, state, playerId);
   if ((state.status === 'won' || state.race.phase === 'failed') && mode === 'play') {
@@ -235,6 +247,7 @@ function raceSummary(s: GameState): RaceSummary | null {
   if (!r || s.race.phase !== 'finished') return null;
   const medal = medalFor(r, s.winTime), stars = s.race.stars.length;
   const { best, newTime } = saveRun(s.level, { time: s.winTime, medal, stars });
+  if (newTime && recordedRun === s.race) recorder.save(s.level);
   return { medal, best, newTime, stars, starsTotal: 0, bonus: s.race.bonus, points: s.race.points, hits: s.race.hits };
 }
 

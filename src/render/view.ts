@@ -12,6 +12,7 @@ import { computePlacement, makeCollider } from '../sim/step';
 import type { GameEvent, GameState, Solid } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
 import { playEvent } from './audio';
+import { GHOST_HZ } from '../sim/constants';
 import { animateCharacter, buildCharacter, type CharacterRig } from './character';
 import { buildCity, wedge } from './city';
 import { buildCreature, type CreatureView } from './creature';
@@ -111,6 +112,9 @@ export class GameView {
   private camFrame = 0;
   private meshHit = Infinity;
   private time = 0;
+  /** translucent replay of the best run (one mesh) and its decoded [x, y, z, yaw] path at GHOST_HZ */
+  private ghostBike = buildGhostBike();
+  private ghostPath: Float32Array | null = null;
   /** warm glow in the tower's mid-floor windows while the flashlight is still up there */
   private windowGlow: THREE.Mesh | null = null;
   private lift = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.2, 24), new THREE.MeshStandardMaterial({ color: 0xffcf4a }));
@@ -179,6 +183,8 @@ export class GameView {
     );
     this.ghost.visible = false;
     this.scene.add(this.ghost);
+    this.ghostBike.visible = false;
+    this.scene.add(this.ghostBike);
 
     for (const pk of state.pickups) {
       const holder = new THREE.Group();
@@ -287,6 +293,26 @@ export class GameView {
     }
   }
 
+  /** Replay path for the ghost bike (null = no ghost). */
+  setGhostPath(path: Float32Array | null) {
+    this.ghostPath = path;
+  }
+
+  private syncGhostBike(state: GameState, t: number) {
+    const path = this.ghostPath, g = this.ghostBike;
+    const n = path ? path.length / 4 : 0;
+    const at = state.race.elapsed * GHOST_HZ;
+    g.visible = !!path && state.race.phase === 'racing' && at < n - 1;
+    if (!g.visible || !path) return;
+    const i = Math.floor(at), f = at - i, a = i * 4, b = a + 4;
+    let dy = path[b + 3] - path[a + 3];
+    if (dy > Math.PI) dy -= Math.PI * 2;
+    else if (dy < -Math.PI) dy += Math.PI * 2;
+    g.position.set(path[a] + (path[b] - path[a]) * f, path[a + 1] + (path[b + 1] - path[a + 1]) * f, path[a + 2] + (path[b + 2] - path[a + 2]) * f);
+    g.rotation.y = path[a + 3] + dy * f;
+    (g.material as THREE.MeshBasicMaterial).opacity = 0.34 + Math.sin(t * 5) * 0.06;
+  }
+
   /** Free GPU buffers (shared cached geometries are re-uploaded automatically if reused). */
   dispose() {
     this.scene.traverse((o) => {
@@ -331,6 +357,7 @@ export class GameView {
       this.gateArrow.rotation.y = t * 1.7;
       this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
     }
+    this.syncGhostBike(state, t);
     if (this.windowGlow) {
       const lost = state.pickups.some((pk) => pk.part === 'flashlight' && pk.status === 'world');
       this.windowGlow.visible = lost;
@@ -581,6 +608,24 @@ function makeBeam(color: number): THREE.Mesh {
       fog: false,
     }),
   );
+}
+
+/** Ghost rider: bike + hunched rider silhouette merged into one translucent, unlit mesh. */
+function buildGhostBike(): THREE.Mesh {
+  const parts = [
+    new THREE.TorusGeometry(0.32, 0.1, 6, 16).rotateY(Math.PI / 2).translate(0, 0.4, -0.72),
+    new THREE.TorusGeometry(0.32, 0.1, 6, 16).rotateY(Math.PI / 2).translate(0, 0.4, 0.7),
+    new THREE.BoxGeometry(0.3, 0.32, 1.3).translate(0, 0.85, 0),
+    new THREE.CapsuleGeometry(0.22, 0.5, 3, 8).rotateX(-0.5).translate(0, 1.45, 0.05),
+    new THREE.SphereGeometry(0.24, 10, 8).translate(0, 1.95, -0.2),
+    new THREE.BoxGeometry(0.8, 0.06, 0.06).translate(0, 1.15, -0.5),
+  ];
+  const g = mergeGeometries(parts.map((p) => p.toNonIndexed()))!;
+  parts.forEach((p) => p.dispose());
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.38, depthWrite: false, fog: false }));
+  m.name = 'ghost-bike';
+  m.renderOrder = 3;
+  return m;
 }
 
 /** Two additive glow quads hugging the tower's mid-floor glass (south and west faces), one draw call. */

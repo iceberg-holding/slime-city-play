@@ -27,3 +27,5 @@ export const PHRASE_COUNT = 16;
 export const BUBBLE_TIME = 2.6;
 /** phrase index of the hint pyshka's line about the lost flashlight (localized by the UI) */
 export const HINT_PHRASE = 200;
+/** ghost replay sample rate (Hz) */
+export const GHOST_HZ = 10;
