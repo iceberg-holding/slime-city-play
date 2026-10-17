@@ -235,8 +235,9 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
     const ramp = c.jumps.find(d => road.progress >= d && road.progress <= d + c.rampLength);
     if (ramp !== undefined && (ramp !== c.optionalJump || lane < -0.5)) {
       const slope = c.rampHeight / c.rampLength, height = (road.progress - ramp) * slope;
-      if (v.pos.y <= height + 0.3 && v.vel.y <= 0) {
-        v.pos.y = height; v.grounded = true; v.lastClimb = Math.abs(v.speed) * slope;
+      // ride the surface (also when the generic slope launch tried to hop us off it mid-ramp)
+      if (v.pos.y <= height + 0.3 && (v.vel.y <= 0 || v.pos.y < height)) {
+        v.pos.y = height; v.vel.y = 0; v.grounded = true; v.lastClimb = Math.abs(v.speed) * slope;
         if (road.progress > ramp + c.rampLength - 0.3) { v.vel.y = (Math.abs(v.speed) * slope + 2) * def.launch; v.grounded = false; }
       }
     }

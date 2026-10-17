@@ -113,7 +113,7 @@ async function run(viewport, touch, tag) {
 
   // reachability + ride
   const reach = await page.evaluate(() => window.__game.reach());
-  assert.deepEqual(reach, [true, true, true, true, true], 'every part reachable on foot');
+  assert.deepEqual(reach, [true, true, true, true, true, true], 'five parts reachable on foot, the flashlight via the elevator only');
   const speed = await page.evaluate(() => {
     const g = window.__game;
     g.state.creatures = [];

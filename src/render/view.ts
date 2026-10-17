@@ -123,6 +123,8 @@ export class GameView {
   private tmpE = new THREE.Euler();
   /** red bandanas worn by race hooligans (created on first use) */
   private bandanas = new Map<number, THREE.Object3D>();
+  /** harbor-area sea: it reaches over the start of the coastal causeway, so the race's own sea replaces it */
+  private harborSea: THREE.Mesh | null = null;
   /** race stars: one spinning InstancedMesh for the whole course */
   private stars: THREE.InstancedMesh | null = null;
   private starList: Star[] = [];
@@ -174,6 +176,7 @@ export class GameView {
     if (state.world.theme === 'harbor') {
       const harbor = buildHarbor(state.world);
       this.scene.add(harbor.root);
+      this.harborSea = harbor.water;
       blockers = harbor.cameraBlockers;
     } else {
       const city = buildCity(state.world);
@@ -192,7 +195,14 @@ export class GameView {
       this.spray = city.root.getObjectByName('spray');
       this.windowGlow = buildWindowGlow();
       this.scene.add(this.windowGlow);
-      blockers = city.cameraBlockers;
+      // Tower facade above the glass lobby and the mid floor's ceiling: keep the camera inside on the flashlight floor.
+      const T = 3.5, top = TOWER.roof, x0 = TOWER.x - 4.05, x1 = TOWER.x + 4.05, z0 = TOWER.z - 4.05, z1 = TOWER.z + 4.05;
+      blockers = [...city.cameraBlockers,
+        { minX: x0 - 0.1, maxX: x0 + 0.1, minY: T, maxY: top, minZ: z0, maxZ: z1 },
+        { minX: x1 - 0.1, maxX: x1 + 0.1, minY: T, maxY: top, minZ: z0, maxZ: z1 },
+        { minX: x0, maxX: x1, minY: T, maxY: top, minZ: z0 - 0.1, maxZ: z0 + 0.1 },
+        { minX: x0, maxX: x1, minY: T, maxY: top, minZ: z1 - 0.1, maxZ: z1 + 0.1 },
+        { minX: x0, maxX: x1, minY: TOWER.mid + 1.88, maxY: TOWER.mid + 2.2, minZ: z0, maxZ: z1 }];
     }
     this.scene.updateMatrixWorld(true);
     this.col = new Collider([...state.world.solids, ...blockers]);
@@ -224,7 +234,9 @@ export class GameView {
       const holder = new THREE.Group();
       const model = buildPart(pk.vehicle, pk.part);
       const spinner = new THREE.Group();
-      model.position.y = -0.5;
+      // parts are modelled in vehicle space: spin each one about its own centre
+      const centre = new THREE.Box3().setFromObject(model.children[0] ?? model).getCenter(new THREE.Vector3());
+      model.position.set(-centre.x, -0.5, -centre.z);
       spinner.add(model);
       spinner.scale.setScalar(1.3);
       // glowing ring so parts read as collectibles
@@ -376,7 +388,7 @@ export class GameView {
     else if (dy < -Math.PI) dy += Math.PI * 2;
     g.position.set(path[a] + (path[b] - path[a]) * f, path[a + 1] + (path[b + 1] - path[a + 1]) * f, path[a + 2] + (path[b + 2] - path[a + 2]) * f);
     g.rotation.y = path[a + 3] + dy * f;
-    (g.material as THREE.MeshBasicMaterial).opacity = 0.34 + Math.sin(t * 5) * 0.06;
+    (g.material as THREE.MeshBasicMaterial).opacity = 0.48 + Math.sin(t * 5) * 0.08;
   }
 
   /** Free GPU buffers (shared cached geometries are re-uploaded automatically if reused). */
@@ -423,6 +435,7 @@ export class GameView {
       this.gateArrow.rotation.y = t * 1.7;
       this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
     }
+    if (this.harborSea) this.harborSea.visible = state.race.phase !== 'racing';
     this.syncGhostBike(state, t);
     this.syncRings(state, t);
     if (this.stars) {
@@ -739,7 +752,7 @@ function buildGhostBike(): THREE.Mesh {
   ];
   const g = mergeGeometries(parts.map((p) => p.toNonIndexed()))!;
   parts.forEach((p) => p.dispose());
-  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.38, depthWrite: false, fog: false }));
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x7ff0ff, transparent: true, opacity: 0.5, depthWrite: false, fog: false }));
   m.name = 'ghost-bike';
   m.renderOrder = 3;
   return m;

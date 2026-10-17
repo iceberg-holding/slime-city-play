@@ -153,3 +153,29 @@ Tests:
   - Rendering is one emissive torus InstancedMesh with a flickering emissive intensity, plus one additive InstancedMesh of 12 flame tongues per ring, each flickering on its own beat. That is 2 draw calls, with reused matrices. Passed rings vanish.
   - Medals now count the expected ring bonus: gold = length / (0.85 · top) − 3 s per main ring, silver = length / (0.75 · top) − half that. L1 is 59/80 s, L2 44/63 s. The 75% bot gets bronze on L1 (94.8 s) and silver on L2 (53 s).
   - Build, sim and sweep pass.
+- R13.9 (fixes from the Round 7 screenshot pass):
+  - **Race ramps (pre-existing bug):** the generic "launch off slopes" code fired mid-ramp, so bikes bunny-hopped up race ramps, sank below the surface and left the lip with almost no upward speed. Race ramps now snap a vehicle that is below their surface and zero its vertical speed, so jumps launch properly from the lip (L1 vy ≈ 6 m/s).
+  - Ring lifts were re-tuned to the real trajectories (L1 +1.15 m, L2 +0.9 m over the ramp top). Bots at 60–105% speed pass every main ring within ±0.1 m and collect 7/8 high stars.
+  - Silver is now length / (0.8 · top) − ¾ of the ring bonus: L1 59/69 s, L2 44/53 s. The bots with traffic get bronze on L1 (91.6 s) and about silver on L2 (52–56 s).
+  - **Level-2 race road (pre-existing since R6):** the harbor-area sea plane (y 0.02) covered the first ~200 m of the coastal causeway (y 0.015), so the scooter appeared to ride on water. The harbor sea now hides while racing; the race sea covers the coast.
+  - **Tower mid floor:** camera blockers for the facade walls above the lobby and the mid-floor ceiling keep the camera inside the floor, so the flashlight floor is playable and visible.
+  - Pickup models now spin about their own centre instead of orbiting the bike-space origin.
+  - The locked-gate hint is shortened to two lines in all five languages. The sweep now checks the locked-gate HUD (long hint + "Pit bike ready!" banner) at all four viewports.
+  - The ghost is brighter.
+- R13 validation:
+  - New `tests/round13.e2e.mjs` (part of `npm run test:e2e`):
+    - city budget: 383 calls / 587k tris at the seeded spawn
+    - hint pyshka's flashlight line, window glow, flashlight floor
+    - five-part bike with the gate locked and the localized hint, then headlight on → gate open
+    - a real full-course level-1 drive to the finish: medal, "New record!", stars chip, best time and ghost saved in localStorage
+    - next race with the ghost ahead
+    - stars and rings (race view 292 calls)
+    - TRICK backflip popup with a phrase
+    - hooligan hit "+1s Gotcha!"
+    - level-2 race view (208 calls)
+    - no console errors
+  - Race views along both whole courses measured 175–294 calls.
+  - Old tests updated for the new rules: e2e expects 6 reachable parts; the round3 driver allows the longer course.
+  - Screenshots shots/r13-{flashlight-floor,gate-locked,race-stars-rings,trick,ghost,hooligan-hit,finish-medal,l2-race}.png at 412×915, all visually inspected.
+  - Probe scripts: `tests/_perf13.mjs` (draw calls along both courses), `tests/_look13.mjs` (race view shot at a distance), `tests/_rings.mjs` (ring/star heights vs bot trajectories).
+  - No push.

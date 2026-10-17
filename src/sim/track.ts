@@ -93,13 +93,13 @@ export function courseRings(c: Course): Ring[] {
 // Level 1: northbound city-to-park-to-market road, then a second park/boardwalk lap of S-bends.
 export const COURSE1 = makeCourse(
   [[80, 15], [80, -55], [98, -120], [80, -190], [62, -260], [80, -330], [98, -400], [80, -470], [80, -535], [62, -600], [80, -670], [98, -740], [80, -810], [80, -840]],
-  { jumps: [45, 145, 245, 350, 455, 575, 690, 790], optionalJump: 350, gap: { start: 358, end: 363 }, rampHeight: 2.7, rampLength: 8, rail: 6.1, ringLift: 0.4 },
+  { jumps: [45, 145, 245, 350, 455, 575, 690, 790], optionalJump: 350, gap: { start: 358, end: 363 }, rampHeight: 2.7, rampLength: 8, rail: 6.1, ringLift: 1.15 },
 );
 
 // Level 2: coastal road, pier boardwalk with an optional gap, a loop round the lighthouse, then the cliff road home. Smaller ramps for the scooter.
 export const COURSE2 = makeCourse(
   [[120, 10], [120, -40], [135, -90], [120, -140], [135, -190], [135, -290], [135, -330], [150, -356], [180, -356], [195, -330], [205, -300], [205, -250], [190, -190], [205, -130], [205, -60], [190, -10]],
-  { jumps: [20, 120, 225, 255, 480, 575, 660, 730], optionalJump: 255, gap: { start: 262, end: 267 }, rampHeight: 1.8, rampLength: 7, rail: 6.1, ringLift: 0.55 },
+  { jumps: [20, 120, 225, 255, 480, 575, 660, 730], optionalJump: 255, gap: { start: 262, end: 267 }, rampHeight: 1.8, rampLength: 7, rail: 6.1, ringLift: 0.9 },
 );
 /** progress where the boardwalk starts and ends, and the lighthouse the loop goes round */
 export const COURSE2_SECTIONS = { boardwalk: [206.6, 306.6], lighthouse: { x: 167, z: -322 }, cliffRoad: 535 };

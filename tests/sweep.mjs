@@ -122,6 +122,13 @@ try {
     await layout(['.creator-top','.builder']);
     await page.locator('#play-btn').scrollIntoViewIfNeeded();
     await layout(['#play-btn']);
+    // Bike built without the flashlight: the long locked-gate hint must not collide with the banner.
+    await page.evaluate(()=>{const g=window.__game;g.start();g.setPaused(true);const s=g.state,p=s.players[0];s.pickups.forEach(pk=>{if(pk.part!=='flashlight'){pk.status='carried';pk.carrier=p.id;}});g.teleportTo('garage');g.tick(3);g.interact();});
+    await page.waitForTimeout(200);
+    await page.evaluate(()=>{const el=document.querySelector('.toast');el.textContent='Pit bike ready!';el.classList.add('on');});
+    await page.waitForTimeout(250);
+    assert.ok((await page.textContent('.hint')).includes('flashlight'),'locked-gate hint shown');
+    await layout(['.parts','.hint','.hud-right','.ride-btn','.gate-compass','.toast.on','.act','.shape-btn','.objective']);
     await page.evaluate(()=>{const g=window.__game;g.start();g.setPaused(true);g.collectAll();g.interact();});
     await page.waitForTimeout(200);
     await page.evaluate(()=>{const el=document.querySelector('.toast');el.textContent='Pit bike ready!';el.classList.add('on');});

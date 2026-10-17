@@ -23,7 +23,7 @@ try {
     const g = window.__game, v = g.state.vehicles[0], P = g.raceCourse.points;
     const near = (x, z) => { let best = { d: Infinity, prog: 0 }, prog = 0; for (let i = 1; i < P.length; i++) { const a = P[i - 1], b = P[i], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz); const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / L / L)); const d = Math.hypot(x - a.x - dx * t, z - a.z - dz * t); if (d < best.d) best = { d, prog: prog + L * t }; prog += L; } return best; };
     const at = s => { for (let i = 1; i < P.length; i++) { const a = P[i - 1], b = P[i], L = Math.hypot(b.x - a.x, b.z - a.z); if (s <= L || i === P.length - 1) { const k = Math.min(1, s / L); return [a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k]; } s -= L; } };
-    for (let i = 0; i < 6000 && g.raceState.phase === 'racing'; i++) {
+    for (let i = 0; i < 12000 && g.raceState.phase === 'racing'; i++) {
       const [tx, tz] = at(near(v.pos.x, v.pos.z).prog + 9);
       const want = Math.atan2(-(tx - v.pos.x), -(tz - v.pos.z)), err = Math.atan2(Math.sin(want - v.yaw), Math.cos(want - v.yaw));
       const steer = Math.max(-0.65, Math.min(0.65, -err * 2)), thr = v.speed < 9.75 ? 1 : 0.18;
