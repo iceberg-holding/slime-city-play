@@ -170,7 +170,7 @@ export class CreatorScreen {
   private refresh() {
     const s = t();
     for (const x of this.texts) x.el.textContent = s[x.key];
-    this.langBtn.textContent = 'EN · RU · PL · LT · DE (' + getLang().toUpperCase() + ')';
+    this.langBtn.innerHTML = '<span class="lang-all">EN · RU · PL · LT · DE </span><span class="lang-cur">🌐 ' + getLang().toUpperCase() + '</span>';
     this.codeEl.textContent = this.look.join('');
 
     HERO_SLOTS.forEach((slot, i) => {

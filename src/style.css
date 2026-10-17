@@ -1012,3 +1012,10 @@ body:has(.toast.on) .controls-tip { visibility: hidden; }
 @keyframes car-bump { 50% { transform: translateY(-2px); } }
 .win.complete.level3 .win-card { box-shadow: 0 10px 0 #ffd23f, 0 20px 40px rgba(0, 0, 0, 0.3); }
 .win.complete.level3 .win-title { color: #e07b00; }
+
+.lang-btn .lang-cur { display: none; }
+@media (max-width: 640px) {
+  .lang-btn .lang-all { display: none; }
+  .lang-btn .lang-cur { display: inline; }
+  .lang-btn { top: 6px; padding: 6px 10px; }
+}
