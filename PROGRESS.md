@@ -199,3 +199,18 @@ Tests:
   - Old-town furniture is now light Kit lanterns and benches (the studio ones cost ~54k triangles). The area is ~226k scene triangles, and the flying view is 278 calls / 530k.
   - Sim test covers climb, hover, ceiling, landing, turning, forward flight, bouncing off the clock tower, soft walls and getting off mid-air. The sweep checks the flying HUD at four viewports.
   - Build, sim and sweep pass.
+- R15.3 (item 4): Level-3 flight race.
+  - Code landed in the user's WIP commit ad780d1. Build, sim and sweep were run on that tree and pass.
+  - `COURSE3` (`sim/flight.ts`) is a 762 m polyline with an altitude guide (`Course.air`). It climbs out of a start square over terracotta rooftops, dives into a tree-lined park, climbs over the cathedral quarter past a 24 m bell tower, runs low along the river park and under an aqueduct arch, then climbs back over the roofs and drops into the finish square.
+  - Scenery is generated deterministically on a 9 m grid and shared by sim and render (`World.raceSolids`, active only in races):
+    - tall "canyon" houses beyond the drone's reach
+    - low houses under the route, whose roofs stay ≥ 2.4 m below the guide
+    - park trees with crowns, rooftop chimneys, aqueduct piers and deck
+  - 10 rings at varying heights, 2.2 m radius, +3 s each. 20 stars on the line, high above it and low/off to the side.
+  - Pyshki stand on roofs and lawns under the route. Rooftop hooligans spring up at the drone, and forward slime pays +1/+2 s once.
+  - Soft corridor walls (9 m). Timer 121 s, medals gold 45 / silver 57 s, ghost and best time per level through the existing records/ghost code.
+  - Rendering (`render/airCourse.ts`): 70 m merged chunks with distance culling. One InstancedMesh of glowing guide chevrons, one of corridor balloons, start/finish arches, a river under the aqueduct. The area statics are hidden during the race. The ghost is a drone silhouette.
+  - Drone acceleration is now vector-clamped (it followed its heading poorly on diagonals).
+  - Race views 182–293 calls.
+  - Sim: the flying bot finishes in 55.1 s with 10/10 rings and 11/20 stars, hooligans spring, a hit pays +2 s, and the guide line is clear of scenery everywhere.
+  - Sweep: three flight bots, route clearance in 3 lanes, drops onto all course scenery, flight-race HUD layout.
