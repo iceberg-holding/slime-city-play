@@ -212,7 +212,10 @@ export type GameEventType =
   | 'win'
   | 'splat'
   | 'babble'
-  | 'note';
+  | 'note'
+  | 'bonus'
+  | 'star'
+  | 'bail';
 
 export interface GameEvent {
   type: GameEventType;
@@ -224,9 +227,29 @@ export interface GameEvent {
   info?: string;
 }
 
+export interface RaceState {
+  phase: 'locked' | 'open' | 'racing' | 'finished' | 'failed';
+  /** clock shown in the HUD: duration + bonus − elapsed */
+  remaining: number;
+  /** real seconds since the start (drives the ghost replay) */
+  elapsed: number;
+  /** bonus seconds earned from rings, stars, tricks and hooligan hits */
+  bonus: number;
+  /** indices of collected stars / passed rings on this run */
+  stars: number[];
+  rings: number[];
+  /** trick points and hooligan hits on this run */
+  points: number;
+  hits: number;
+}
+
+export function newRaceState(phase: RaceState['phase'] = 'locked', remaining = 60): RaceState {
+  return { phase, remaining, elapsed: 0, bonus: 0, stars: [], rings: [], points: 0, hits: 0 };
+}
+
 export interface GameState {
   level: number;
-  race: { phase: 'locked' | 'open' | 'racing' | 'finished' | 'failed'; remaining: number };
+  race: RaceState;
   elevator: { y: number; target: number; wait: number };
   tick: number;
   time: number;

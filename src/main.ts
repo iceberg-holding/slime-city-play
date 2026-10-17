@@ -13,13 +13,14 @@ import { HERO_SLOTS, heroStats, type HeroSlot } from './sim/hero';
 import { findWalkPaths } from './sim/reach';
 import { createGame, fire, makeCollider, placeBlock, step } from './sim/step';
 import { emptyInput, type GameState, type InputCommand, type Look, type ProjectileKind } from './sim/types';
-import { levelDef } from './sim/levels';
+import { levelDef, medalFor } from './sim/levels';
+import { saveRun } from './ui/records';
 import { Bubbles } from './ui/bubbles';
 import { CreatorScreen } from './ui/creator';
 import { Hud } from './ui/hud';
 import { getLang, setLang } from './ui/i18n';
 import { SettingsPanel, isClassic, setClassic } from './ui/settings';
-import { WinScreen } from './ui/win';
+import { WinScreen, type RaceSummary } from './ui/win';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const renderer = createRenderer(canvas);
@@ -228,6 +229,15 @@ function simStep(cmd: InputCommand) {
   }
 }
 
+/** Medal + saved record for a finished race (null for other outcomes). */
+function raceSummary(s: GameState): RaceSummary | null {
+  const r = raceOf(s);
+  if (!r || s.race.phase !== 'finished') return null;
+  const medal = medalFor(r, s.winTime), stars = s.race.stars.length;
+  const { best, newTime } = saveRun(s.level, { time: s.winTime, medal, stars });
+  return { medal, best, newTime, stars, starsTotal: 0, bonus: s.race.bonus, points: s.race.points, hits: s.race.hits };
+}
+
 function resumePlay() { mode = 'play'; winDelay = 0; win.show(false); hud.show(true); bubbles.show(true); input.enabled = true; input.reset(); }
 
 /** While riding, swing the camera behind the vehicle unless the player is steering the camera. */
@@ -278,7 +288,7 @@ function frame(now: number) {
       input.reset();
       hud.show(false);
       bubbles.show(false);
-      win.open(state.winTime, state.race.phase === 'failed' ? 'failed' : state.level === 1 ? 'next' : state.level === 2 ? 'complete' : 'won');
+      win.open(state.winTime, state.race.phase === 'failed' ? 'failed' : state.level === 1 ? 'next' : state.level === 2 ? 'complete' : 'won', raceSummary(state));
     }
   }
   followVehicle(dt);

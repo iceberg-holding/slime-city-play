@@ -935,3 +935,37 @@ button {
 @keyframes drone-hover { 50% { transform: translateY(-5px); } }
 /* Never show the control tip under a toast/banner */
 body:has(.toast.on) .controls-tip { visibility: hidden; }
+
+/* ---------- Race results: medal, record, extras ---------- */
+.win-medal { display: inline-flex; align-items: center; gap: 8px; margin: 2px auto 6px; padding: 4px 14px 4px 8px; border-radius: 999px; font-weight: 900; font-size: 20px; animation: medal-pop 0.6s cubic-bezier(.3,1.6,.5,1) both; }
+.win-medal[hidden], .win-best[hidden], .win-stats[hidden] { display: none; }
+.win-medal .medal-icon { font-size: 40px; line-height: 1; }
+.win-medal.gold { background: linear-gradient(135deg, #fff3b0, #ffd23f); color: #8a5a00; }
+.win-medal.silver { background: linear-gradient(135deg, #f4f6fa, #c9d1de); color: #3e4a5e; }
+.win-medal.bronze { background: linear-gradient(135deg, #ffe0c2, #e3a06a); color: #6e3b12; }
+.win-time { margin-bottom: 4px; }
+.win-best { font-weight: 800; color: #5a5f7a; margin-bottom: 8px; }
+.win-best.record { color: #ff5fa2; }
+.win-stats { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+.win-stats .stat { background: #f1f3fb; border-radius: 12px; padding: 4px 10px; font-weight: 800; font-size: 15px; }
+@keyframes medal-pop { from { transform: scale(0.3) rotate(-20deg); opacity: 0; } }
+@media (max-height: 500px) {
+  .win-card { max-height: calc(100vh - 16px); overflow-y: auto; padding: 10px 22px; }
+  .win-title { font-size: 28px; }
+  .win-sub { margin: 0 0 4px; }
+  .win-medal { font-size: 16px; margin: 0 0 2px; padding: 2px 12px 2px 6px; }
+  .win-medal .medal-icon { font-size: 26px; }
+  .win-time { font-size: 22px; }
+  .win-best { margin-bottom: 4px; }
+  .win-stats { margin-bottom: 8px; }
+  .teaser { margin-bottom: 8px; padding: 6px 12px; }
+}
+/* Short landscape: results on the left, teaser + buttons on the right */
+@media (max-height: 500px) and (orientation: landscape) {
+  .win-card { display: grid; grid-template-columns: auto auto; column-gap: 24px; align-items: center; max-width: 96vw; }
+  .win-card > * { grid-column: 1; }
+  .win-card > .teaser { grid-column: 2; grid-row: 1 / span 3; }
+  .win-card > .win-buttons { grid-column: 2; grid-row: 4 / span 4; flex-direction: column; }
+  .win-card > .win-medal, .win-card > .win-stats { justify-self: center; }
+  .win-icon { display: none; }
+}

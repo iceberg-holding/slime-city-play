@@ -76,6 +76,24 @@ try {
       console.log(`ok level 2 race seed ${seed}: ${course.length.toFixed(1)}m in ${s2.winTime.toFixed(1)}s of ${def.race.duration}s, max jump ${maxY.toFixed(2)}m`);
     }
   }
+  // Medals by finish time; bonus seconds extend the clock and shorten the finish time.
+  {
+    const { medalFor } = await load('/src/sim/levels.ts');
+    const { addBonus } = await load('/src/sim/race.ts');
+    for (const level of [1, 2]) {
+      const r = levelDef(level).race;
+      assert.ok(r.medals.gold < r.medals.silver && r.medals.silver < r.duration, `level ${level} medal ladder ${JSON.stringify(r.medals)} < ${r.duration}`);
+      assert.equal(medalFor(r, r.medals.gold), 'gold'); assert.equal(medalFor(r, r.medals.gold + 1), 'silver');
+      assert.equal(medalFor(r, r.medals.silver + 1), 'bronze');
+    }
+    startRace(race);
+    for (let i = 0; i < 600; i++) step(race, {}, DT);
+    const before = race.race.remaining;
+    addBonus(race, 3, 0, 0, 0, 'ring');
+    assert.ok(Math.abs(race.race.remaining - before - 3) < 1e-9 && race.events.some(e => e.type === 'bonus'), 'bonus adds to the clock');
+    step(race, {}, DT); raceFinish(race);
+    assert.ok(Math.abs(race.winTime - (race.race.elapsed - 3)) < 1e-9, `finish time subtracts bonus (${race.winTime})`);
+  }
   const level2 = createGame(42, racer.look, 2);
   assert.equal(level2.garages[0].vehicle, 'scooter');
   assert.equal(level2.pickups.length, 4, 'next level has scooter parts');

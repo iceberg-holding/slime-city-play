@@ -28,13 +28,13 @@ import {
 import { heroStats } from './hero';
 import { Collider, blockSolid, moveBody, topAt } from './physics';
 import { rand, randRange } from './rng';
-import type { Block, Body, Creature, GameEvent, GameState, InputCommand, Look, Player, ProjectileKind } from './types';
+import { newRaceState, type Block, type Body, type Creature, type GameEvent, type GameState, type InputCommand, type Look, type Player, type ProjectileKind } from './types';
 import { interact, missionComplete, setupMission, syncRider, updatePickups, updateVehicle } from './mission';
 
 export function createGame(seed: number, look: Look, level = 1): GameState {
   const def = levelDef(level);
   const state: GameState = {
-    level, race: { phase: 'locked', remaining: 60 },
+    level, race: newRaceState(),
     elevator: { y: 0.26, target: 0, wait: 2 },
     tick: 0,
     time: 0,

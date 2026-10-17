@@ -15,6 +15,18 @@ export interface RaceDef {
   /** where the HUD compass points */
   gateAt: { x: number; z: number };
   duration: number;
+  /** finish times (seconds, after bonuses) for gold and silver; any finish is bronze */
+  medals: { gold: number; silver: number };
+}
+
+export type Medal = 'gold' | 'silver' | 'bronze';
+export const MEDAL_RANK: Record<Medal, number> = { bronze: 1, silver: 2, gold: 3 };
+export function medalFor(r: RaceDef, time: number): Medal {
+  return time <= r.medals.gold ? 'gold' : time <= r.medals.silver ? 'silver' : 'bronze';
+}
+/** Gold needs ~85% of stock top speed over the whole course, silver ~78%; bonuses help. */
+function medals(course: Course, topSpeed: number) {
+  return { gold: Math.ceil(course.length / (topSpeed * 0.85)), silver: Math.ceil(course.length / (topSpeed * 0.78)) };
 }
 
 export interface LevelDef {
@@ -50,6 +62,7 @@ const LEVEL1: LevelDef = {
     trigger: { minX: 2, maxX: 9, minZ: 7, maxZ: 10.3 },
     gateAt: { x: 5.5, z: 10 },
     duration: raceDuration(COURSE1, VEHICLES.pitbike.maxSpeed),
+    medals: medals(COURSE1, VEHICLES.pitbike.maxSpeed),
   },
 };
 
@@ -66,6 +79,7 @@ const LEVEL2: LevelDef = {
     trigger: { minX: 26, maxX: 33, minZ: 7, maxZ: 10.3 },
     gateAt: { x: 29.5, z: 10 },
     duration: raceDuration(COURSE2, VEHICLES.scooter.maxSpeed),
+    medals: medals(COURSE2, VEHICLES.scooter.maxSpeed),
   },
 };
 

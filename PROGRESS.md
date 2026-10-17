@@ -107,3 +107,12 @@ Tests:
   - Timer is now length / (0.75 · top) · 1.3 + length / 70. Pyshki traffic scales with length (seed 93 timed out 11 m short with the old flat +6 s). This gives level 1 130 s and level 2 106 s.
   - Bots finish in 117 s (L1) and 75–80 s (L2); all 7 sweep bots finish. Bonus extras will add on top.
   - Build, sim and sweep pass.
+- R13.3 (item 3): Medals and records.
+  - Race state now tracks `elapsed`, `bonus`, `stars`, `rings`, `points` and `hits`.
+  - Bonus seconds go through `addBonus`, which extends the clock. The finish time is elapsed − bonus.
+  - `RaceDef.medals`: gold ≤ length / (0.85 · top), silver ≤ length / (0.78 · top), any finish is bronze. This is L1 80/87 s and L2 65/70 s.
+  - `ui/records.ts` saves the best time, best medal and most stars per level in localStorage (`slimecity.best.L<n>`).
+  - The finish card shows a medal badge, the time, "New record!" or the best time with its medal, and chips for stars / bonus seconds / trick points.
+  - Finish, time's-up and race texts are localized in EN/RU/PL/LT/DE.
+  - Short landscape screens use a two-column card. The 915×412 sweep caught the level-complete card overflowing.
+  - Build, sim and sweep pass.

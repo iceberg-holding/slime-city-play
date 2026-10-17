@@ -1,6 +1,6 @@
 import { courseAt, courseNear } from './track';
 import { levelDef, raceStart } from './levels';
-import type { GameState } from './types';
+import { newRaceState, type GameState } from './types';
 import { VEHICLES } from './vehicles';
 
 // Level 1 values kept for existing callers and tests.
@@ -22,7 +22,7 @@ export function startRace(s: GameState) {
   const r = raceOf(s), p = s.players[0], v = s.vehicles.find(v => v.id === p.riding);
   if (!r || !v || s.race.phase === 'locked') return;
   const start = raceStart(r);
-  s.status = 'playing'; s.race = { phase: 'racing', remaining: r.duration };
+  s.status = 'playing'; s.race = newRaceState('racing', r.duration);
   v.pos = { x: start.x, y: 0, z: start.z }; v.vel = { x: 0, y: 0, z: 0 }; v.speed = 0; v.yaw = start.yaw;
   p.pos = { ...v.pos }; s.projectiles = []; s.pads = [];
   s.creatures.forEach(c => { c.chatUntil = 0; c.stuck = 0; c.talk = 0; });
@@ -32,8 +32,15 @@ export function raceFinish(s: GameState) {
   const r = raceOf(s);
   if (!r || s.race.phase !== 'racing' || s.race.remaining <= 0) return;
   const end = courseAt(r.course, r.course.length);
-  s.race.phase = 'finished'; s.status = 'won'; s.winTime = r.duration - s.race.remaining;
+  s.race.phase = 'finished'; s.status = 'won'; s.winTime = s.race.elapsed - s.race.bonus;
   s.events.push({ type: 'win', x: end.x, y: 1, z: end.z });
+}
+/** Bonus seconds (rings, stars, tricks, hooligan hits) extend the clock and shorten the finish time. */
+export function addBonus(s: GameState, seconds: number, x: number, y: number, z: number, info: string) {
+  if (s.race.phase !== 'racing') return;
+  s.race.bonus += seconds;
+  s.race.remaining += seconds;
+  s.events.push({ type: 'bonus', x, y, z, who: s.players[0]?.id, info: `${info}:${seconds}` });
 }
 export function updateRace(s: GameState, dt: number) {
   const r = raceOf(s);
@@ -42,7 +49,8 @@ export function updateRace(s: GameState, dt: number) {
   if (p.riding !== null) openGates(s);
   if (s.race.phase === 'open' && p.riding !== null && p.pos.z < t.maxZ && p.pos.z > t.minZ && p.pos.x > t.minX && p.pos.x < t.maxX) startRace(s);
   if (s.race.phase !== 'racing') return;
-  s.race.remaining = Math.max(0, s.race.remaining - dt);
+  s.race.elapsed += dt;
+  s.race.remaining = Math.max(0, r.duration + s.race.bonus - s.race.elapsed);
   if (s.race.remaining <= 0) { s.race.phase = 'failed'; return; }
   populateRace(s);
   const v = s.vehicles.find(v => v.id === p.riding);

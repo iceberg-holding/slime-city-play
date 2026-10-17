@@ -3,7 +3,7 @@ import type { InputController, ActionName } from '../input/input';
 import { mountable } from '../sim/mission';
 import type { GameEvent, GameState } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
-import { levelText, onLangChange, t } from './i18n';
+import { levelText, onLangChange, raceText, t } from './i18n';
 import { levelDef } from '../sim/levels';
 import { raceReady } from '../sim/race';
 import { isClassic, onClassicChange, type SettingsPanel } from './settings';
@@ -168,7 +168,7 @@ export class Hud {
       this.compassEl.title = s.hintGate;
       this.compassEl.setAttribute('aria-label', s.hintGate);
     }
-    if (state.race.phase === 'racing') hint = harbor ? L2.race : 'Race! ↑ Forward · steer around green pyshki';
+    if (state.race.phase === 'racing') hint = harbor ? L2.race : raceText().race;
     if (state.race.phase === 'racing') {
       this.toastTimer = 0; this.toastEl.classList.remove('on');
       this.trickTimer = 0; this.trickEl.classList.remove('on');
