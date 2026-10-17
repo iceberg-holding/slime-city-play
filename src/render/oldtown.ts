@@ -250,7 +250,7 @@ export function buildOldTown(world: World): { root: THREE.Group; cameraBlockers:
   clock(T.maxX + 0.07, tz, Math.PI / 2);
   clock(T.minX - 0.07, tz, -Math.PI / 2);
   // the hatch: a little arched wooden door standing ajar on the balcony
-  const hatch = new THREE.Matrix4().compose(new THREE.Vector3(T.door[0] + 0.05, T.floor + 1.0, T.maxZ + 0.55), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 1.15, 0)), new THREE.Vector3(1, 1, 1));
+  const hatch = new THREE.Matrix4().compose(new THREE.Vector3(T.door[0] + 0.05, T.floor + 1.0, T.maxZ + 0.55), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -1.1, 0)), new THREE.Vector3(1, 1, 1));
   main.addMatrix(geo.rbox(0.1, 2, 1.0, 0.04).clone().translate(0, 0, 0.5), WOOD_DARK, hatch, 'soft');
   main.add(geo.torus(1, 0.06, Math.PI, 24), WOOD, { p: [tx, T.floor + 2.05, T.maxZ + 0.02] });
   // spiral stair: stone landings, wooden flights with railings, the balcony in front of the hatch

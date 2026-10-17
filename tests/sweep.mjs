@@ -183,6 +183,9 @@ try {
     await page.evaluate(()=>{const g=window.__game;g.startRace();g.setPaused(true);g.tick(2);});
     await page.waitForTimeout(200);
     await layout(['.parts','.hint','.hud-right','.ride-btn','.act','.shape-btn','.bonus-pop.on']);
+    await page.evaluate(()=>{window.__game.raceFinish();window.__game.setPaused(false);});
+    await page.waitForFunction(()=>!document.querySelector('.car').hidden&&!document.querySelector('.teaser').hidden&&document.querySelector('.win').style.display!=='none');
+    await layout(['.win-card']);await layout(['.teaser','.win-buttons','.win-time','.win-title']);
     console.log(`ok sweep layout ${width}x${height}`);
   }
   console.log('ok sweep: creator, gate, race, win, level-complete and drone-flight layouts at four touch viewports');

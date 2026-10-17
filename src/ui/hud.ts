@@ -171,7 +171,7 @@ export class Hud {
     if (carrying > 0) hint = s.hintBring;
     else if (garage?.built && !ready && def.race) hint = s.hintLight;
     else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
-    if (L2) hint = carrying > 0 ? L2.hintBring : garage?.built ? (riding && L2.hintFly ? L2.hintFly : L2.hintMount) : L2.hintFind;
+    if (L2) hint = carrying > 0 ? L2.hintBring : garage?.built ? L2.hintMount : L2.hintFind;
     const gateOpen = !!def.race && state.race.phase === 'open';
     if (gateOpen) hint = L2?.hintGate ?? s.hintGate;
     this.compassEl.hidden = !gateOpen || !riding;

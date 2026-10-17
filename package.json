@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "node tests/reach.test.mjs",
     "test:reach": "node tests/reach.test.mjs",
-    "test:e2e": "node tests/e2e.mjs && node tests/round7.e2e.mjs && node tests/round9.e2e.mjs && node tests/round13.e2e.mjs",
+    "test:e2e": "node tests/e2e.mjs && node tests/round7.e2e.mjs && node tests/round9.e2e.mjs && node tests/round13.e2e.mjs && node tests/round15.e2e.mjs",
     "test:sweep": "node tests/sweep.mjs"
   },
   "dependencies": {

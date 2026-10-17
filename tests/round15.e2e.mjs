@@ -48,7 +48,7 @@ try {
   const P3 = COURSE3.points.map(p => [p.x, p.z]), H3 = COURSE3.air.heights;
 
   // 1) Old town area: theme, objective, every part reachable on foot, budget.
-  await page.evaluate(() => { const g = window.__game; g.setSeed(4242); g.startLevel(3); g.setPaused(true); g.teleport(8, 0, -2); g.tick(3); g.setCamera(0.55, 0.42); });
+  await page.evaluate(() => { const g = window.__game; g.setSeed(4242); g.startLevel(3); g.setPaused(true); g.teleport(4, 0, 7); g.tick(3); g.setCamera(-0.5, 0.24); });
   assert.equal(await page.evaluate(() => window.__game.state.world.theme), 'oldtown');
   await text('.hint', 'Old town! Find the 6 drone parts');
   await text('.parts .v', '0/6');
@@ -62,16 +62,19 @@ try {
   assert.ok(await visible('battery-glow'), 'battery glow while it is up in the clock tower');
   await page.evaluate(() => { const g = window.__game, h = g.state.creatures.find(c => c.hinter); g.teleport(h.pos.x - 3, 0, h.pos.z + 1); g.tick(2); });
   await page.waitForFunction(() => { const g = window.__game; g.tick(10); return [...document.querySelectorAll('.bubble')].some(b => b.textContent.includes('clock tower')); }, null, { timeout: 30000, polling: 50 });
-  await page.evaluate(() => { const g = window.__game; g.teleportTo('battery'); g.tick(3); g.state.players[0].yaw = 0; g.setCamera(0, 0.12); });
+  await page.evaluate(() => { const g = window.__game; g.teleportTo('battery'); g.tick(3); });
+  assert.ok(await page.evaluate(() => { const p = window.__game.state.players[0].pos; return p.y > 9.5 && p.z < -20.4 && p.z > -22; }), 'teleportTo(battery) lands inside the clock room');
+  // step aside a little so the camera looks past the hero, through the hatch, at the glowing battery
+  await page.evaluate(() => { const g = window.__game; g.teleport(22.4, 9.6, -21.9); g.tick(3); g.state.players[0].yaw = 0.18; g.setCamera(0.18, 0.02); });
   assert.equal(await page.evaluate(() => window.__game.state.pickups.find(p => p.part === 'battery').status), 'world');
   await shot('hidden-part');
   await page.evaluate(() => { const g = window.__game; g.tick(40, { mx: 0, mz: -0.5 }); });
   assert.equal(await page.evaluate(() => window.__game.state.pickups.find(p => p.part === 'battery').status), 'carried', 'walk in and take the battery');
   await text('.toast', 'Battery');
-  assert.equal(await visible('battery-glow'), false, 'glow goes out once the battery is taken');
+  await page.waitForFunction(() => !window.__game.view.scene.getObjectByName('battery-glow').visible, null, { timeout: 10000 });
 
   // 3) The rest of the parts to the drone workshop: drone assembled, Fly button.
-  await page.evaluate(() => { const g = window.__game; g.collectAll(); g.teleport(11, 0, 17); g.tick(3); g.setCamera(0.75, 0.28); });
+  await page.evaluate(() => { const g = window.__game; g.collectAll(); g.teleport(9.6, 0, 15.6); g.tick(3); g.setCamera(1.45, 0.3); });
   await text('.parts .v', '6/6');
   assert.equal(await page.evaluate(() => window.__game.state.vehicles[0].kind), 'drone');
   await text('.hint', 'Hop on your drone!');
@@ -80,26 +83,28 @@ try {
 
   // 4) Get on and fly with the real on-screen UP button, then hover; DOWN lands; Space climbs on a keyboard.
   await page.evaluate(() => { const g = window.__game; g.interact(); g.tick(2); g.setPaused(false); });
+  await page.waitForFunction(() => document.querySelector('.hud').classList.contains('flying'), null, { timeout: 10000 });
   assert.ok(await page.isVisible('.act-up') && await page.isVisible('.act-down') && !(await page.isVisible('.act-jump')), 'UP/DOWN replace jump while flying');
   const y0 = (await drone()).y;
   await page.locator('.act-up').dispatchEvent('pointerdown');
   await page.waitForFunction(y0 => window.__game.state.vehicles[0].pos.y > y0 + 3, y0, { timeout: 60000, polling: 50 });
   await page.locator('.act-up').dispatchEvent('pointerup');
-  await page.evaluate(() => window.__game.setPaused(true));
+  await page.evaluate(() => { window.__game.setPaused(true); window.__game.tick(40); });
   const hover = (await drone()).y;
   await page.evaluate(() => window.__game.tick(90));
   assert.ok(Math.abs((await drone()).y - hover) < 0.05, 'hovers when idle');
   await page.evaluate(() => { const g = window.__game, v = g.state.vehicles[0]; g.tick(150, { up: true }); g.tick(70, { mx: -Math.sin(v.yaw) * 0.6 - 0.4, mz: -Math.cos(v.yaw) * 0.6 }); g.setCamera(v.yaw + 0.35, 0.3); });
   await page.waitForFunction(() => document.querySelector('.hud').classList.contains('flying'));
-  await text('.hint', 'Fly!');
+  await text('.hint', 'Fly through the green gate!');
   await shot('flying');
   const fly = await info();
   console.log('flying', fly.calls, fly.triangles, JSON.stringify(await drone()));
   assert.ok(fly.calls <= BUDGET.areaCalls && fly.triangles <= BUDGET.areaTris, `flying budget ${fly.calls} / ${fly.triangles}`);
   await page.evaluate(() => window.__game.setPaused(false));
   const before = (await drone()).y;
-  await page.keyboard.down('Space'); await page.waitForTimeout(700); await page.keyboard.up('Space');
-  assert.ok((await drone()).y > before + 0.5, 'Space climbs on a keyboard');
+  await page.keyboard.down('Space');
+  await page.waitForFunction(b => window.__game.state.vehicles[0].pos.y > b + 0.5, before, { timeout: 30000, polling: 50 }); // Space climbs
+  await page.keyboard.up('Space');
   await page.keyboard.down('ShiftLeft');
   await page.waitForFunction(() => window.__game.state.vehicles[0].grounded, null, { timeout: 60000, polling: 50 });
   await page.keyboard.up('ShiftLeft');

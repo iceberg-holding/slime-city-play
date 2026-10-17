@@ -321,8 +321,8 @@ const GATE_HINT: Record<Lang, string> = { en: 'Ride through the green gate!', ru
 
 /** Level 2 (harbor scooter) and level-complete texts in every language. */
 export interface LevelText { hintFind: string; hintBring: string; hintMount: string; built: string; race: string; complete: string; completeSub: string; teaser: string; teaserSub: string; again: string; parts: Record<string, string>; ride: string; nextLevel: string; nextSub: string;
-  /** level 3: the hint pyshka's line, altitude button labels, gate and free-flight hints */
-  hintPhrase?: string; up?: string; down?: string; hintGate?: string; hintFly?: string }
+  /** level 3: the hint pyshka's line, altitude button labels, gate hint */
+  hintPhrase?: string; up?: string; down?: string; hintGate?: string }
 const LEVEL2: Record<Lang, LevelText> = {
   en: { hintFind: 'Harbor! Find the 4 scooter parts', hintBring: 'Bring the parts to the scooter shop!', hintMount: 'Hop on your scooter!', built: 'Scooter ready!', race: 'Race! ↑ Forward · coast road to the lighthouse', complete: 'Level 2 complete!', completeSub: 'You built a scooter and raced the coast!', teaser: 'Level 3: Drone', teaserSub: 'Up next — take to the skies!', again: 'Race again', parts: { frontWheel: 'Front wheel', rearWheel: 'Rear wheel', deck: 'Deck', handlebar: 'Handlebar' }, ride: 'Ride', nextLevel: 'Next level →', nextSub: 'Level 2 · Build a scooter at the harbor' },
   ru: { hintFind: 'Гавань! Найди 4 детали самоката', hintBring: 'Неси детали в мастерскую самокатов!', hintMount: 'Вставай на самокат!', built: 'Самокат готов!', race: 'Гонка! ↑ Вперёд · по берегу к маяку', complete: 'Уровень 2 пройден!', completeSub: 'Ты собрал самокат и промчался по побережью!', teaser: 'Уровень 3: Дрон', teaserSub: 'Дальше — взлетаем в небо!', again: 'Ещё заезд', parts: { frontWheel: 'Переднее колесо', rearWheel: 'Заднее колесо', deck: 'Дека', handlebar: 'Руль' }, ride: 'Ехать', nextLevel: 'Дальше →', nextSub: 'Уровень 2 · Собери самокат в гавани' },
@@ -334,19 +334,19 @@ const LEVEL2: Record<Lang, LevelText> = {
 const LEVEL3: Record<Lang, LevelText> = {
   en: { hintFind: 'Old town! Find the 6 drone parts', hintBring: 'Bring the parts to the drone workshop!', hintMount: 'Hop on your drone!', built: 'Drone ready!', race: 'Flight! ↑ Forward · ▲▼ altitude · fly through the rings', complete: 'Level 3 complete!', completeSub: 'You built a drone and flew over the old town!', teaser: 'Level 4: Car', teaserSub: 'Coming soon — buckle up!', again: 'Fly again',
     parts: { propFront: 'Front propellers', propRear: 'Rear propellers', frame: 'Frame', battery: 'Battery', camera: 'Camera', skids: 'Landing skids' }, ride: 'Fly', nextLevel: 'Next level →', nextSub: 'Level 3 · Build a drone in the old town',
-    hintPhrase: 'Something buzzes up in the clock tower… a battery?', up: 'Up', down: 'Down', hintGate: 'Fly through the green gate!', hintFly: 'Fly! ▲ Up · ▼ Down · land anywhere' },
+    hintPhrase: 'Something buzzes up in the clock tower… a battery?', up: 'Up', down: 'Down', hintGate: 'Fly through the green gate!' },
   ru: { hintFind: 'Старый город! Найди 6 деталей дрона', hintBring: 'Неси детали в мастерскую дронов!', hintMount: 'Вставай на дрон!', built: 'Дрон готов!', race: 'Полёт! ↑ Вперёд · ▲▼ высота · пролетай сквозь кольца', complete: 'Уровень 3 пройден!', completeSub: 'Ты собрал дрон и пролетел над старым городом!', teaser: 'Уровень 4: Машина', teaserSub: 'Скоро — пристегнись!', again: 'Ещё полёт',
     parts: { propFront: 'Передние пропеллеры', propRear: 'Задние пропеллеры', frame: 'Рама', battery: 'Батарейка', camera: 'Камера', skids: 'Полозья' }, ride: 'Лететь', nextLevel: 'Дальше →', nextSub: 'Уровень 3 · Собери дрон в старом городе',
-    hintPhrase: 'Что-то жужжит в часовой башне… батарейка?', up: 'Вверх', down: 'Вниз', hintGate: 'Пролети через зелёные ворота!', hintFly: 'Лети! ▲ Вверх · ▼ Вниз · садись где хочешь' },
+    hintPhrase: 'Что-то жужжит в часовой башне… батарейка?', up: 'Вверх', down: 'Вниз', hintGate: 'Пролети через зелёные ворота!' },
   pl: { hintFind: 'Stare miasto! Znajdź 6 części drona', hintBring: 'Zanieś części do warsztatu dronów!', hintMount: 'Wskakuj na drona!', built: 'Dron gotowy!', race: 'Lot! ↑ Naprzód · ▲▼ wysokość · leć przez obręcze', complete: 'Poziom 3 ukończony!', completeSub: 'Zbudowałeś drona i przeleciałeś nad starym miastem!', teaser: 'Poziom 4: Auto', teaserSub: 'Już wkrótce — zapnij pasy!', again: 'Leć jeszcze raz',
     parts: { propFront: 'Przednie śmigła', propRear: 'Tylne śmigła', frame: 'Rama', battery: 'Bateria', camera: 'Kamera', skids: 'Płozy' }, ride: 'Leć', nextLevel: 'Dalej →', nextSub: 'Poziom 3 · Zbuduj drona na starym mieście',
-    hintPhrase: 'Coś bzyczy w wieży zegarowej… bateria?', up: 'W górę', down: 'W dół', hintGate: 'Przeleć przez zieloną bramę!', hintFly: 'Leć! ▲ W górę · ▼ W dół · ląduj, gdzie chcesz' },
+    hintPhrase: 'Coś bzyczy w wieży zegarowej… bateria?', up: 'W górę', down: 'W dół', hintGate: 'Przeleć przez zieloną bramę!' },
   lt: { hintFind: 'Senamiestis! Surask 6 drono dalis', hintBring: 'Nešk dalis į dronų dirbtuvę!', hintMount: 'Lipk ant drono!', built: 'Dronas paruoštas!', race: 'Skrydis! ↑ Pirmyn · ▲▼ aukštis · skrisk pro žiedus', complete: '3 lygis įveiktas!', completeSub: 'Surinkai droną ir praskridai virš senamiesčio!', teaser: '4 lygis: Automobilis', teaserSub: 'Jau greitai — prisisek diržą!', again: 'Skristi dar kartą',
     parts: { propFront: 'Priekiniai sraigtai', propRear: 'Galiniai sraigtai', frame: 'Rėmas', battery: 'Baterija', camera: 'Kamera', skids: 'Nusileidimo pavažos' }, ride: 'Skristi', nextLevel: 'Toliau →', nextSub: '3 lygis · Surink droną senamiestyje',
-    hintPhrase: 'Laikrodžio bokšte kažkas zyzia… baterija?', up: 'Aukštyn', down: 'Žemyn', hintGate: 'Praskrisk pro žalius vartus!', hintFly: 'Skrisk! ▲ Aukštyn · ▼ Žemyn · leistis gali bet kur' },
+    hintPhrase: 'Laikrodžio bokšte kažkas zyzia… baterija?', up: 'Aukštyn', down: 'Žemyn', hintGate: 'Praskrisk pro žalius vartus!' },
   de: { hintFind: 'Altstadt! Finde die 6 Drohnenteile', hintBring: 'Bring die Teile zur Drohnenwerkstatt!', hintMount: 'Steig auf deine Drohne!', built: 'Drohne fertig!', race: 'Flug! ↑ Vorwärts · ▲▼ Höhe · flieg durch die Ringe', complete: 'Level 3 geschafft!', completeSub: 'Du hast eine Drohne gebaut und bist über die Altstadt geflogen!', teaser: 'Level 4: Auto', teaserSub: 'Bald — anschnallen!', again: 'Nochmal fliegen',
     parts: { propFront: 'Vordere Propeller', propRear: 'Hintere Propeller', frame: 'Rahmen', battery: 'Akku', camera: 'Kamera', skids: 'Landekufen' }, ride: 'Fliegen', nextLevel: 'Weiter →', nextSub: 'Level 3 · Baue eine Drohne in der Altstadt',
-    hintPhrase: 'Im Uhrturm summt etwas… ein Akku?', up: 'Hoch', down: 'Runter', hintGate: 'Flieg durch das grüne Tor!', hintFly: 'Flieg! ▲ Hoch · ▼ Runter · landen kannst du überall' },
+    hintPhrase: 'Im Uhrturm summt etwas… ein Akku?', up: 'Hoch', down: 'Runter', hintGate: 'Flieg durch das grüne Tor!' },
 };
 /** Texts for level 2 (default) or 3 in the current language. */
 export function levelText(level = 2): LevelText { return (level === 3 ? LEVEL3 : LEVEL2)[lang]; }

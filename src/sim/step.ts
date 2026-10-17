@@ -450,10 +450,10 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
     if (dash?.bounce) {
       // rooftop hooligan: springs up into the drone's path when it comes close
       c.mode = 'wander';
-      if (target && td < 26 && c.grounded && c.hopCd <= 0) {
+      if (target && td < 18 && c.grounded && c.hopCd <= 0) {
         c.vel.y = 11.5;
         c.grounded = false;
-        c.hopCd = 1.4;
+        c.hopCd = 3;
         c.twirl = 0.5;
         if (c.talk <= 0) { c.phrase = Math.floor(rand(state) * PHRASE_COUNT); c.talk = 1.4; }
       }
