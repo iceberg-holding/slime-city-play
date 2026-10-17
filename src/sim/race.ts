@@ -5,7 +5,7 @@ import { VEHICLES } from './vehicles';
 
 // Level 1 values kept for existing callers and tests.
 const L1 = levelDef(1).race!;
-export const RACE = { x: 80, start: 15, finish: -535, duration: L1.duration };
+export const RACE = { x: 80, start: 15, finish: -840, duration: L1.duration };
 export const GATE = L1.gate;
 
 export const raceOf = (s: GameState) => levelDef(s.level).race;

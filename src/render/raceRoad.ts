@@ -93,7 +93,7 @@ const edges = TRACK.map((_, i) => {
     for (let d = start + 8; d < end; d += 14) {
       const p = trackAt(d);
       if (harbor) { harborScenery(k, d, p); continue; }
-      const section = Math.floor(start / 140);
+      const section = Math.floor(start / 140) % 4; // park, boardwalk, viaduct, market, then round again
       for (const side of [-1, 1]) {
         const x = p.x - p.dz * side * 11, z = p.z + p.dx * side * 11;
         if (section === 0) {
@@ -187,7 +187,7 @@ const edges = TRACK.map((_, i) => {
 function harborScenery(k: Kit, d: number, p: { x: number; z: number; dx: number; dz: number; yaw: number }) {
   const [boardFrom, boardTo] = COURSE2_SECTIONS.boardwalk;
   const side = (s: number, o: number) => [p.x - p.dz * s * o, p.z + p.dx * s * o] as const;
-  if (d < boardFrom) {
+  if (d < boardFrom || d > COURSE2_SECTIONS.cliffRoad) {
     const [lx, lz] = side(1, 16);
     k.add(new THREE.BoxGeometry(18, 2.4, 15), 0x8cbf5a, { p: [lx, 0.9, lz], r: [0, p.yaw, 0], cast: false });
     k.add(new THREE.BoxGeometry(18.2, 2, 15.2), 0xd8c08a, { p: [lx, -0.2, lz], r: [0, p.yaw, 0], cast: false });

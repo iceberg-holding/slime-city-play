@@ -32,7 +32,7 @@ try {
   vehicle.pos.z = RACE.finish - 1; step(race, {}, DT);
   assert.equal(race.race.phase, 'finished', 'crossing finish wins');
   const { trackAt, trackNear, TRACK_LENGTH } = await load('/src/sim/track.ts');
-  assert.ok(TRACK_LENGTH > 550 && TRACK_LENGTH < 600);
+  assert.ok(TRACK_LENGTH > 820 && TRACK_LENGTH < 900, `level 1 course ${TRACK_LENGTH}`);
   startRace(race);
   for (let i = 0; i < RACE.duration / DT && race.race.phase === 'racing'; i++) {
     const near = trackNear(vehicle.pos.x, vehicle.pos.z), target = trackAt(near.progress + 9);
@@ -45,12 +45,13 @@ try {
     step(race, { [racer.id]: cmd }, DT);
   }
   assert.equal(race.race.phase, 'finished', '75% speed steering bot finishes curved road in time');
+  console.log(`ok level 1 race: ${TRACK_LENGTH.toFixed(1)}m in ${race.winTime.toFixed(1)}s of ${RACE.duration}s`);
   // Level 2: the scooter's own coastal course, same 75%-speed steering bot.
   {
     const { courseAt, courseNear } = await load('/src/sim/track.ts');
     const { VEHICLES } = await load('/src/sim/vehicles.ts');
     const def = levelDef(2), course = def.race.course, top = VEHICLES.scooter.maxSpeed * 0.75;
-    assert.ok(course.length > 450 && course.length < 600, `level 2 course length ${course.length}`);
+    assert.ok(course.length > 720 && course.length < 820, `level 2 course length ${course.length}`);
     for (const seed of [42, 7]) {
       const s2 = createGame(seed, [0, 0, 0, 0], 2), p2 = s2.players[0];
       const sc = spawnVehicle(s2, 'scooter', def.mission.garage.x, 0, def.mission.garage.z, 0);

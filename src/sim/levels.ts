@@ -30,9 +30,10 @@ export interface LevelDef {
   tower: boolean;
 }
 
-/** Timer: course length at 75% of stock top speed, 35% slack, plus time for weaving through pyshki. */
+/** Timer: course length at 75% of stock top speed, 30% slack, plus ~1 s per 70 m for weaving through pyshki.
+ *  Stars, rings, tricks and hooligan hits add bonus seconds on top. */
 export function raceDuration(course: Course, topSpeed: number) {
-  return Math.ceil(course.length / (topSpeed * 0.75) * 1.35) + 6;
+  return Math.ceil(course.length / (topSpeed * 0.75) * 1.3 + course.length / 70);
 }
 
 const LEVEL1: LevelDef = {

@@ -21,7 +21,7 @@ export const CREATURE_SPAWNS: { x: number; z: number }[] = [
 ];
 
 export function createWorld(): World {
-  const half = 620;
+  const half = 900; // the race road runs ~860 m north
   const buildings: Building[] = [];
   let ci = 0;
   const b = (minX: number, minZ: number, maxX: number, maxZ: number, height: number, mansard = true) => {

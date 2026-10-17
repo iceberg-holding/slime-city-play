@@ -36,12 +36,12 @@ try {
     {
       const course=levelDef(level).race.course, start=courseAt(course,0), end=courseAt(course,course.length);
       const corridor={groundAt:col.groundAt.bind(col),blocked:(x,z,y,r,h)=>courseNear(course,x,z).distance>5.5||col.blocked(x,z,y,r,h)};
-      assert.ok(findWalkPaths(corridor,620,{x:start.x,y:0,z:start.z},[{x:end.x,y:0.9,z:end.z}])[0],`level ${level} finish reachable from race entry by road flood fill`);
+      assert.ok(findWalkPaths(corridor,900,{x:start.x,y:0,z:start.z},[{x:end.x,y:0.9,z:end.z}])[0],`level ${level} finish reachable from race entry by road flood fill`);
     }
     if(level===1) {
       const corridor={groundAt:col.groundAt.bind(col),blocked:(x,z,y,r,h)=>trackNear(x,z).distance>5.5||col.blocked(x,z,y,r,h)};
       const finish=trackAt(TRACK_LENGTH);
-      assert.ok(findWalkPaths(corridor,620,{x:80,y:0,z:15},[{x:finish.x,y:0.9,z:finish.z}])[0],'finish reachable from race entry by road flood fill');
+      assert.ok(findWalkPaths(corridor,900,{x:80,y:0,z:15},[{x:finish.x,y:0.9,z:finish.z}])[0],'finish reachable from race entry by road flood fill');
     }
     // Seeded, collision-aware random walk. Reject intentional wall-facing commands before measuring stalls.
     for (let seed=1; seed<=12; seed++) {
