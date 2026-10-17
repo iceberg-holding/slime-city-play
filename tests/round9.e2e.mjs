@@ -30,6 +30,7 @@ try {
   await page.locator('.again').click();
   assert.equal(await page.evaluate(() => window.__game.state.level), 2);
   assert.equal(await page.evaluate(() => window.__game.state.world.theme), 'harbor');
+  assert.equal(await page.locator('.toast.on').count(), 0, 'no level-1 toast carried into level 2');
   await page.evaluate(() => { const g = window.__game; g.setPaused(true); g.state.creatures.forEach((c, i) => { c.pos = { x: -3 + i, y: 0, z: 1 + (i % 2) }; }); g.tick(2); g.setCamera(0.35, 0.32); });
   await text('.hint', 'Harbor! Find the 4 scooter parts');
   await text('.parts .v', '0/4');
@@ -62,7 +63,7 @@ try {
   await page.evaluate(t => { const g = window.__game, v = g.state.vehicles[0]; v.pos = { x: (t.minX + t.maxX) / 2, y: 0, z: (t.minZ + t.maxZ) / 2 }; g.tick(2); }, t);
   assert.equal(await page.evaluate(() => window.__game.state.race.phase), 'racing');
   await text('.hint', 'Race! ↑ Forward · coast road to the lighthouse');
-  for (const [name, d, y] of [['race', 236, 0], ['race-loop', 400, 0]]) {
+  for (const [name, d, y] of [['race', 246, 0], ['race-loop', 400, 0]]) {
     const p = courseAt(COURSE2, d);
     await page.evaluate(({ p, y }) => { const g = window.__game, v = g.state.vehicles[0]; v.pos = { x: p.x, y, z: p.z }; v.yaw = p.yaw; v.speed = 0; g.tick(1); g.setCamera(p.yaw, 0.28); }, { p, y });
     if (name === 'race') await shot('race'); else await page.waitForTimeout(1200);

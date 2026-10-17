@@ -18,10 +18,17 @@ try {
   await page.evaluate(() => { const g = window.__game; g.startRace(); g.tick(30, { mz: -1 }); g.fire('sticky', Math.PI); });
   assert.equal(await page.evaluate(() => window.__game.state.projectiles.at(-1).vel.z < 0), true, 'riding shoots forward independently of camera');
   await shot('race-pyshki');
-  // Drive the actual course through physics, using a clear side lane around pyshki.
+  // Drive the actual curved course through physics with a simple look-ahead steering driver.
   const result = await page.evaluate(() => {
-    const g = window.__game, v = g.state.vehicles[0]; v.pos.x = 85;
-    for (let i = 0; i < 2400 && g.raceState.phase === 'racing'; i++) g.tick(1, { mz: -1 });
+    const g = window.__game, v = g.state.vehicles[0], P = g.raceCourse.points;
+    const near = (x, z) => { let best = { d: Infinity, prog: 0 }, prog = 0; for (let i = 1; i < P.length; i++) { const a = P[i - 1], b = P[i], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz); const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / L / L)); const d = Math.hypot(x - a.x - dx * t, z - a.z - dz * t); if (d < best.d) best = { d, prog: prog + L * t }; prog += L; } return best; };
+    const at = s => { for (let i = 1; i < P.length; i++) { const a = P[i - 1], b = P[i], L = Math.hypot(b.x - a.x, b.z - a.z); if (s <= L || i === P.length - 1) { const k = Math.min(1, s / L); return [a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k]; } s -= L; } };
+    for (let i = 0; i < 6000 && g.raceState.phase === 'racing'; i++) {
+      const [tx, tz] = at(near(v.pos.x, v.pos.z).prog + 9);
+      const want = Math.atan2(-(tx - v.pos.x), -(tz - v.pos.z)), err = Math.atan2(Math.sin(want - v.yaw), Math.cos(want - v.yaw));
+      const steer = Math.max(-0.65, Math.min(0.65, -err * 2)), thr = v.speed < 9.75 ? 1 : 0.18;
+      g.tick(1, { mx: -Math.sin(v.yaw) * thr + Math.cos(v.yaw) * steer, mz: -Math.cos(v.yaw) * thr - Math.sin(v.yaw) * steer });
+    }
     return g.raceState.phase;
   });
   assert.equal(result, 'finished', 'course can be driven in time');
@@ -31,7 +38,7 @@ try {
   assert.equal(await page.evaluate(() => window.__game.state.level), 2);
   await page.evaluate(() => { const g = window.__game; g.setPaused(true); g.collectAll(); g.teleport(3, 0, 19); g.setCamera(-0.6, 0.65); });
   await shot('level2-scooter');
-  await page.evaluate(() => { const g = window.__game; g.start(); g.setPaused(true); g.collectAll(); g.interact(); g.startRace(); g.tick(3601); g.setPaused(false); });
+  await page.evaluate(() => { const g = window.__game; g.start(); g.setPaused(true); g.collectAll(); g.interact(); g.startRace(); g.tick(Math.ceil((g.raceState.remaining + 1) * 60)); g.setPaused(false); });
   await page.waitForFunction(() => document.querySelector('.again').textContent === 'Try again');
   await page.locator('.again').click();
   assert.equal(await page.evaluate(() => window.__game.raceState.phase), 'racing');

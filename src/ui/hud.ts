@@ -131,6 +131,13 @@ export class Hud {
     if (v) this.lastShown = '';
   }
 
+  /** Drop popups left over from a previous game. */
+  clearPopups() {
+    this.toastTimer = this.trickTimer = 0;
+    this.toastEl.classList.remove('on');
+    this.trickEl.classList.remove('on');
+  }
+
   update(state: GameState, playerId: number, dt: number, camYaw: number) {
     const p = state.players.find((x) => x.id === playerId);
     if (!p) return;

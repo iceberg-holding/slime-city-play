@@ -256,10 +256,12 @@ normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
 float fres = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.9, 0.95), clamp(fres * 0.6 + wg.x * 0.25, 0.0, 0.55));
 // lighter crests
-diffuseColor.rgb += vec3(0.035, 0.06, 0.06) * smoothstep(0.15, 0.55, wg.x + wg.y);`)
+diffuseColor.rgb += vec3(0.035, 0.06, 0.06) * smoothstep(0.15, 0.55, wg.x + wg.y) * smoothstep(80.0, 20.0, length(vViewPosition));`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 float glint = waveGrad(wp * 3.7 + 11.0, uTime * 1.6).x * waveGrad(wp * 2.3 - 7.0, uTime * 1.3).y;
-totalEmissiveRadiance += vec3(1.0, 0.97, 0.88) * smoothstep(0.09, 0.13, glint) * 0.8 * ${sparkle};`);
+// fade glints with distance so far water doesn't alias into white noise
+float near = smoothstep(55.0, 12.0, length(vViewPosition));
+totalEmissiveRadiance += vec3(1.0, 0.97, 0.88) * smoothstep(0.09, 0.13, glint) * 0.8 * near * ${sparkle};`);
   };
   m.customProgramCacheKey = () => `water${scale}${sparkle}`;
   return m;

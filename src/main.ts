@@ -1,4 +1,4 @@
-import { openGates, startRace, raceFinish } from './sim/race';
+import { openGates, startRace, raceFinish, raceOf } from './sim/race';
 import { TOWER } from './sim/tower';
 import * as THREE from 'three';
 import './style.css';
@@ -179,6 +179,7 @@ function startGame(look: Look, level = 1) {
   creator.show(false);
   win.show(false);
   hud.show(true);
+  hud.clearPopups();
   bubbles.clear();
   bubbles.show(true);
   document.body.classList.add('playing');
@@ -331,6 +332,8 @@ const api = {
   startRace() { if (state) { startRace(state); resumePlay(); input.camYaw = 0; } },
   raceFinish() { if (state) { raceFinish(state); api.tick(); } },
   get raceState() { return state?.race; },
+  /** current level's race course polyline (for test drivers) */
+  get raceCourse() { return state ? raceOf(state)?.course ?? null : null; },
   showCreator,
   /** hero builder: pick part `i` for slot 0..3 (head, body, legs, gun) */
   pickPart(slot: number, i: number) {
