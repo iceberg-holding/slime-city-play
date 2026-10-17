@@ -15,6 +15,7 @@ import { createGame, fire, makeCollider, placeBlock, step } from './sim/step';
 import { emptyInput, type GameState, type InputCommand, type Look, type ProjectileKind } from './sim/types';
 import { levelDef, medalFor } from './sim/levels';
 import { saveRun } from './ui/records';
+import { courseStars } from './sim/track';
 import { GhostRecorder, loadGhost } from './ui/ghost';
 import { Bubbles } from './ui/bubbles';
 import { CreatorScreen } from './ui/creator';
@@ -248,7 +249,7 @@ function raceSummary(s: GameState): RaceSummary | null {
   const medal = medalFor(r, s.winTime), stars = s.race.stars.length;
   const { best, newTime } = saveRun(s.level, { time: s.winTime, medal, stars });
   if (newTime && recordedRun === s.race) recorder.save(s.level);
-  return { medal, best, newTime, stars, starsTotal: 0, bonus: s.race.bonus, points: s.race.points, hits: s.race.hits };
+  return { medal, best, newTime, stars, starsTotal: courseStars(r.course).length, bonus: s.race.bonus, points: s.race.points, hits: s.race.hits };
 }
 
 function resumePlay() { mode = 'play'; winDelay = 0; win.show(false); hud.show(true); bubbles.show(true); input.enabled = true; input.reset(); }

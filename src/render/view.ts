@@ -1,4 +1,5 @@
 import { raceOf } from '../sim/race';
+import { courseStars, type Star } from '../sim/track';
 import { buildHarbor } from './harbor';
 import { buildRaceRoad } from './raceRoad';
 import { batchStatic } from './art/batch';
@@ -112,6 +113,14 @@ export class GameView {
   private camFrame = 0;
   private meshHit = Infinity;
   private time = 0;
+  /** race stars: one spinning InstancedMesh for the whole course */
+  private stars: THREE.InstancedMesh | null = null;
+  private starList: Star[] = [];
+  private tmpM = new THREE.Matrix4();
+  private tmpQ = new THREE.Quaternion();
+  private tmpV = new THREE.Vector3();
+  private tmpS = new THREE.Vector3();
+  private yAxis = new THREE.Vector3(0, 1, 0);
   /** translucent replay of the best run (one mesh) and its decoded [x, y, z, yaw] path at GHOST_HZ */
   private ghostBike = buildGhostBike();
   private ghostPath: Float32Array | null = null;
@@ -135,6 +144,11 @@ export class GameView {
       const road = buildRaceRoad(raceOf(state)!, state.world.theme);
       this.gateCues = road.cues; this.gateArrow = road.arrow; this.gateArchMaterial = road.archMaterial; this.gate = road.gate; this.road = road.root;
       this.scene.add(road.cues, road.root, road.gate, road.entry);
+      this.starList = courseStars(raceOf(state)!.course);
+      this.stars = new THREE.InstancedMesh(starGeometry(), new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0xffa400, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.3 }), this.starList.length);
+      this.stars.name = 'race-stars';
+      this.stars.frustumCulled = false; // instances move every frame; the course-wide bounds would go stale
+      this.scene.add(this.stars);
     }
     let blockers: Solid[] = [];
     if (state.world.theme === 'harbor') {
@@ -245,6 +259,9 @@ export class GameView {
         case 'pickup':
         case 'deliver':
           this.burst(e.x, e.y, e.z, 24, [0xffd60a, 0xff6b00, 0xffffff], 6, 0.18);
+          break;
+        case 'star':
+          this.burst(e.x, e.y, e.z, 14, [0xffd23f, 0xffffff, 0xffa400], 4, 0.12);
           break;
         case 'built':
         case 'trick':
@@ -358,6 +375,19 @@ export class GameView {
       this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
     }
     this.syncGhostBike(state, t);
+    if (this.stars) {
+      this.stars.visible = this.road.visible;
+      if (this.stars.visible) {
+        const got = state.race.stars;
+        this.tmpQ.setFromAxisAngle(this.yAxis, t * 2.4);
+        for (let i = 0; i < this.starList.length; i++) {
+          const st = this.starList[i], k = got.includes(i) ? 0 : 1 + Math.sin(t * 4 + i) * 0.08;
+          this.tmpM.compose(this.tmpV.set(st.x, st.y + Math.sin(t * 2 + i) * 0.12, st.z), this.tmpQ, this.tmpS.set(k, k, k));
+          this.stars.setMatrixAt(i, this.tmpM);
+        }
+        this.stars.instanceMatrix.needsUpdate = true;
+      }
+    }
     if (this.windowGlow) {
       const lost = state.pickups.some((pk) => pk.part === 'flashlight' && pk.status === 'world');
       this.windowGlow.visible = lost;
@@ -608,6 +638,19 @@ function makeBeam(color: number): THREE.Mesh {
       fog: false,
     }),
   );
+}
+
+/** Chunky five-point star, centered, facing +z. */
+function starGeometry(): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  for (let i = 0; i <= 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.24 : 0.55;
+    if (i === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const g = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.05, bevelSegments: 1 });
+  g.translate(0, 0, -0.06);
+  return g;
 }
 
 /** Ghost rider: bike + hunched rider silhouette merged into one translucent, unlit mesh. */

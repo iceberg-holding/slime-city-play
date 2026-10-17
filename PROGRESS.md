@@ -122,3 +122,12 @@ Tests:
   - On every later race the view loads and decodes the path. A single translucent, pulsing, unlit merged mesh (`ghost-bike`, one draw call) follows it, interpolated by `race.elapsed`, and hides when the path ends.
   - Browser check: a recorded 5 s run saves, and on the next race the ghost is visible and moving along the decoded path.
   - Build, sim and sweep pass.
+- R13.5 (item 5): Stars along both race tracks.
+  - `courseStars(course)` (cached, deterministic) puts low stars every 40 m, alternating three lanes. It skips ramp approaches and the gap.
+  - Each ramp also gets a high star just past its lip (rampHeight + 0.85 m) that only a ramp jump reaches. L1 has 23 stars (8 high).
+  - The sim collects stars within 1.3 m of the vehicle's centre into `race.stars` and emits `star`.
+  - Rendering is one spinning, bobbing gold InstancedMesh for the whole course (one draw call, reused matrices, collected stars scaled to 0).
+  - During a race the HUD parts pill becomes ⭐ n/total. A localized "⭐ Star!" popup and chime play on pickup. The finish card shows stars n/total.
+  - Sim test: the L1 bot collects 13/23 (7/8 high), and a standing hop under a high star cannot reach it.
+  - The headlight beam is softened (narrower, lower opacity).
+  - Build, sim and sweep pass.

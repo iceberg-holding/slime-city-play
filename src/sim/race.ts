@@ -1,4 +1,4 @@
-import { courseAt, courseNear } from './track';
+import { STAR_RADIUS, courseAt, courseNear, courseStars } from './track';
 import { levelDef, raceStart } from './levels';
 import { newRaceState, type GameState } from './types';
 import { VEHICLES } from './vehicles';
@@ -55,8 +55,19 @@ export function updateRace(s: GameState, dt: number) {
   populateRace(s);
   const v = s.vehicles.find(v => v.id === p.riding);
   if (!v) return;
+  collectStars(s, v.pos.x, v.pos.y + 0.5, v.pos.z);
   const near = courseNear(r.course, v.pos.x, v.pos.z);
   if (near.progress >= r.course.length - 0.01 && near.distance < r.course.rail + 0.5) raceFinish(s);
+}
+
+function collectStars(s: GameState, x: number, y: number, z: number) {
+  const stars = courseStars(raceOf(s)!.course);
+  for (let i = 0; i < stars.length; i++) {
+    const st = stars[i];
+    if ((st.x - x) ** 2 + (st.y - y) ** 2 + (st.z - z) ** 2 > STAR_RADIUS ** 2 || s.race.stars.includes(i)) continue;
+    s.race.stars.push(i);
+    s.events.push({ type: 'star', x: st.x, y: st.y, z: st.z, who: s.players[0].id, info: st.high ? 'high' : 'low' });
+  }
 }
 
 // Seven pooled creatures represent deterministic section spawns, never the whole course.

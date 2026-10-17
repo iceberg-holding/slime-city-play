@@ -65,6 +65,15 @@ export function playEvent(e: GameEvent) {
       setTimeout(() => blip(880, 1760, 0.2, 'triangle', 0.12), 120);
       break;
     case 'built':
+    case 'star':
+      [880, 1175].forEach((f, i) => setTimeout(() => blip(f, f * 1.2, 0.1, 'sine', 0.07), i * 60));
+      break;
+    case 'bonus':
+      [523, 784, 1047].forEach((f, i) => setTimeout(() => blip(f, f * 1.1, 0.12, 'triangle', 0.08), i * 55));
+      break;
+    case 'bail':
+      blip(300, 120, 0.3, 'sawtooth', 0.05);
+      break;
     case 'trick':
       [392, 523, 659, 784].forEach((f, i) => setTimeout(() => blip(f, f * 1.5, 0.18, 'triangle', 0.12), i * 90));
       break;

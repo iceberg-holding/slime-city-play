@@ -48,6 +48,31 @@ export function courseNear(c: Course, x: number, z: number) {
   return best;
 }
 
+/** Collectible stars along a course: low rows you ride through, plus one high above each ramp's lip that only a
+ *  ramp jump reaches. Deterministic per course (cached). */
+export interface Star { x: number; y: number; z: number; d: number; high: boolean }
+const starCache = new WeakMap<Course, Star[]>();
+export const STAR_RADIUS = 1.3;
+export function courseStars(c: Course): Star[] {
+  let stars = starCache.get(c);
+  if (stars) return stars;
+  stars = [];
+  const lanes = [-3, 0, 3];
+  for (let d = 30, i = 0; d < c.length - 15; d += 40, i++) {
+    if (c.jumps.some((j) => d > j - 12 && d < j + c.rampLength + 14)) continue;
+    if (c.gap && d > c.gap.start - 6 && d < c.gap.end + 6) continue;
+    const p = courseAt(c, d), lane = lanes[i % 3];
+    stars.push({ x: p.x - p.dz * lane, y: 1.1, z: p.z + p.dx * lane, d, high: false });
+  }
+  for (const j of c.jumps) {
+    const d = j + c.rampLength + 1.5, p = courseAt(c, d), lane = j === c.optionalJump ? -3.5 : 0;
+    stars.push({ x: p.x - p.dz * lane, y: c.rampHeight + 0.85, z: p.z + p.dx * lane, d, high: true });
+  }
+  stars.sort((a, b) => a.d - b.d);
+  starCache.set(c, stars);
+  return stars;
+}
+
 // Level 1: northbound city-to-park-to-market road, then a second park/boardwalk lap of S-bends.
 export const COURSE1 = makeCourse(
   [[80, 15], [80, -55], [98, -120], [80, -190], [62, -260], [80, -330], [98, -400], [80, -470], [80, -535], [62, -600], [80, -670], [98, -740], [80, -810], [80, -840]],

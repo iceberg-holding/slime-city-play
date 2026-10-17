@@ -69,7 +69,7 @@ const PITBIKE: Record<string, PartBuilder> = {
 };
 
 /** Warm additive cone shining forward (-z) from a lamp at (0, y, z). */
-export function headlightBeam(y: number, z: number, length = 4.2, radius = 0.95): THREE.Mesh {
+export function headlightBeam(y: number, z: number, length = 4.5, radius = 0.7): THREE.Mesh {
   const g = new THREE.ConeGeometry(radius, length, 20, 1, true);
   g.rotateX(Math.PI / 2); // tip toward +z
   g.translate(0, y, z - length / 2);
@@ -82,7 +82,7 @@ export function headlightBeam(y: number, z: number, length = 4.2, radius = 0.95)
   }
   g.setAttribute('color', new THREE.BufferAttribute(fade, 3));
   const beam = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
-    color: 0xfff1b8, vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false,
+    color: 0xfff1b8, vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false,
     side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false,
   }));
   beam.name = 'headlight-beam';

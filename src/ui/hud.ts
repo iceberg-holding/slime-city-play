@@ -6,6 +6,7 @@ import { VEHICLES } from '../sim/vehicles';
 import { levelText, onLangChange, raceText, t } from './i18n';
 import { levelDef } from '../sim/levels';
 import { raceReady } from '../sim/race';
+import { courseStars } from '../sim/track';
 import { isClassic, onClassicChange, type SettingsPanel } from './settings';
 
 export function formatTime(s: number): string {
@@ -27,6 +28,9 @@ export class Hud {
   private rideBtn: HTMLButtonElement;
   private toastEl: HTMLDivElement;
   private trickEl: HTMLDivElement;
+  private bonusEl: HTMLDivElement;
+  private bonusTimer = 0;
+  private iconEl: HTMLElement;
   private toastTimer = 0;
   private trickTimer = 0;
   private labels: { el: HTMLElement; key: 'sticky' | 'bouncy' | 'jump' | 'block' }[] = [];
@@ -51,6 +55,7 @@ export class Hud {
       <div class="gate-compass" hidden><span>➤</span></div>
       <div class="toast"></div>
       <div class="trick"></div>
+      <div class="bonus-pop"></div>
       <button class="ride-btn" data-a="interact"></button>
       <div class="buttons">
         <button class="act act-sticky" data-a="sticky"><span class="ic"></span><span class="lb"></span></button>
@@ -74,6 +79,8 @@ export class Hud {
     this.rideBtn = q('.ride-btn');
     this.toastEl = q('.toast');
     this.trickEl = q('.trick');
+    this.bonusEl = q('.bonus-pop');
+    this.iconEl = q('.wrench-icon');
     this.tapHintEl = q('.tap-hint');
     q('.hud-right').prepend(settings.gearButton());
     const applyClassic = (v: boolean) => {
@@ -175,11 +182,15 @@ export class Hud {
       this.tapHintEl.classList.remove('on');
     }
     const clock = state.race.phase === 'racing' ? state.race.remaining : state.time;
-    const shown = [delivered, carrying, formatTime(clock), state.blocks.length, p.shape, hint, canMount, riding, nearLift].join('|');
+    const racing = state.race.phase === 'racing';
+    const starsTotal = racing && def.race ? courseStars(def.race.course).length : 0;
+    const shown = [racing, state.race.stars.length, delivered, carrying, formatTime(clock), state.blocks.length, p.shape, hint, canMount, riding, nearLift].join('|');
     if (shown !== this.lastShown) {
       this.lastShown = shown;
-      this.partsEl.textContent = `${delivered}/${total}`;
-      this.carryEl.textContent = carrying ? `+${carrying}` : '';
+      // during a race the parts pill turns into the star counter
+      this.iconEl.textContent = racing ? '⭐' : '🔧';
+      this.partsEl.textContent = racing ? `${state.race.stars.length}/${starsTotal}` : `${delivered}/${total}`;
+      this.carryEl.textContent = carrying && !racing ? `+${carrying}` : '';
       this.timeEl.textContent = formatTime(clock);
       this.hintEl.textContent = hint;
       this.blocksEl.textContent = `${p.stats.maxBlocks - state.blocks.length}`;
@@ -198,6 +209,10 @@ export class Hud {
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toastEl.classList.remove('on');
+    }
+    if (this.bonusTimer > 0) {
+      this.bonusTimer -= dt;
+      if (this.bonusTimer <= 0) this.bonusEl.classList.remove('on');
     }
     if (this.trickTimer > 0) {
       this.trickTimer -= dt;
@@ -228,9 +243,29 @@ export class Hud {
     this.trickTimer = 1.6;
   }
 
+  /** Small "+3s Fire ring!" popup for race bonuses. */
+  bonus(text: string, kind: string) {
+    this.bonusEl.textContent = text;
+    this.bonusEl.dataset.kind = kind;
+    this.bonusEl.classList.remove('on');
+    void this.bonusEl.offsetWidth;
+    this.bonusEl.classList.add('on');
+    this.bonusTimer = 1.3;
+  }
+
   onEvents(events: GameEvent[], state: GameState, playerId: number) {
     const s = t();
-    if (state.race.phase === 'racing') return;
+    if (state.race.phase === 'racing') {
+      const R = raceText();
+      for (const e of events) {
+        if (e.type === 'bonus') {
+          const [kind, sec] = (e.info ?? '').split(':');
+          const label = kind === 'ring' ? R.ring : kind === 'hit' ? R.hit : kind === 'trick' ? R.trick : R.bonus;
+          this.bonus(`+${sec}s ${label}`, kind);
+        } else if (e.type === 'star') this.bonus(`⭐ ${R.star}!`, 'star');
+      }
+      return;
+    }
     for (const e of events) {
       const mine = e.who === playerId;
       const names = state.garages[0]?.vehicle === 'scooter' ? levelText().parts : s.partNames;

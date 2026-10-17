@@ -969,3 +969,12 @@ body:has(.toast.on) .controls-tip { visibility: hidden; }
   .win-card > .win-medal, .win-card > .win-stats { justify-self: center; }
   .win-icon { display: none; }
 }
+
+/* ---------- Race bonus popup ---------- */
+.bonus-pop { position: absolute; top: 34%; left: 50%; transform: translate(-50%, 10px) scale(0.6); opacity: 0; pointer-events: none;
+  font-size: 26px; font-weight: 900; color: #fff; white-space: nowrap; padding: 4px 14px; border-radius: 999px;
+  background: linear-gradient(135deg, #ff9f1c, #ff5d73); box-shadow: 0 4px 14px rgba(255, 93, 115, 0.45); transition: transform 0.2s, opacity 0.25s; }
+.bonus-pop.on { opacity: 1; transform: translate(-50%, -18px) scale(1); }
+.bonus-pop[data-kind='star'] { background: linear-gradient(135deg, #ffe066, #ffb300); color: #6e4a00; }
+.bonus-pop[data-kind='hit'] { background: linear-gradient(135deg, #5ee06a, #2bb673); }
+.bonus-pop[data-kind='trick'] { background: linear-gradient(135deg, #b388ff, #ff5fa2); }

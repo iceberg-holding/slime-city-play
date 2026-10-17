@@ -46,6 +46,21 @@ try {
   }
   assert.equal(race.race.phase, 'finished', '75% speed steering bot finishes curved road in time');
   console.log(`ok level 1 race: ${TRACK_LENGTH.toFixed(1)}m in ${race.winTime.toFixed(1)}s of ${RACE.duration}s`);
+  {
+    const { courseStars, COURSE1 } = await load('/src/sim/track.ts');
+    const stars = courseStars(COURSE1), high = stars.map((st, i) => st.high ? i : -1).filter(i => i >= 0);
+    assert.ok(stars.length >= 20 && high.length === COURSE1.jumps.length, `level 1 has ${stars.length} stars, ${high.length} high`);
+    const gotHigh = race.race.stars.filter(i => stars[i].high).length;
+    assert.ok(race.race.stars.length >= 10 && gotHigh >= 3, `bot collects stars incl. high ones over ramps (${race.race.stars.length}, high ${gotHigh})`);
+    console.log(`ok stars: bot collected ${race.race.stars.length}/${stars.length}, ${gotHigh}/${high.length} high`);
+    // A plain hop on flat road under a high star never reaches it.
+    startRace(race);
+    const st = stars[high[1]];
+    vehicle.pos = { x: st.x, y: 0, z: st.z }; vehicle.vel = { x: 0, y: 0, z: 0 }; vehicle.speed = 0; vehicle.grounded = true;
+    step(race, { [racer.id]: { ...emptyInput(), jump: true } }, DT);
+    for (let i = 0; i < 90; i++) step(race, {}, DT);
+    assert.ok(!race.race.stars.includes(high[1]), 'high star is out of reach of a standing hop');
+  }
   // Level 2: the scooter's own coastal course, same 75%-speed steering bot.
   {
     const { courseAt, courseNear } = await load('/src/sim/track.ts');
