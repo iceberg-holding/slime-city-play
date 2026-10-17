@@ -30,8 +30,9 @@ export function blockSolid(b: Block): Solid {
   return s;
 }
 
+const EPS = 1e-6; // touching a face exactly (float noise on grid paths) is not overlapping
 function overlapsXZ(s: Solid, x: number, z: number, r: number): boolean {
-  return x + r > s.minX && x - r < s.maxX && z + r > s.minZ && z - r < s.maxZ;
+  return x + r > s.minX + EPS && x - r < s.maxX - EPS && z + r > s.minZ + EPS && z - r < s.maxZ - EPS;
 }
 
 export class Collider {

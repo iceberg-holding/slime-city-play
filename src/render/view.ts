@@ -6,6 +6,7 @@ import { buildSkyscraper } from './art/studio';
 import { buildRooftop } from './rooftop';
 import { TOWER } from '../sim/tower';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Collider, blockSolid } from '../sim/physics';
 import { computePlacement, makeCollider } from '../sim/step';
 import type { GameEvent, GameState, Solid } from '../sim/types';
@@ -15,7 +16,7 @@ import { animateCharacter, buildCharacter, type CharacterRig } from './character
 import { buildCity, wedge } from './city';
 import { buildCreature, type CreatureView } from './creature';
 import { addLights, buildSky, environment, skyPalette } from './env';
-import { Kit, blobMaterial, geo, shaderTime } from './materials';
+import { Kit, blobMaterial, geo, glowTexture, shaderTime } from './materials';
 import { STANDING, buildPart, buildVehicle, type VehicleModel } from './vehicleModels';
 
 /** Instanced pool for dynamic, short-lived things. */
@@ -110,6 +111,8 @@ export class GameView {
   private camFrame = 0;
   private meshHit = Infinity;
   private time = 0;
+  /** warm glow in the tower's mid-floor windows while the flashlight is still up there */
+  private windowGlow: THREE.Mesh | null = null;
   private lift = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.2, 24), new THREE.MeshStandardMaterial({ color: 0xffcf4a }));
 
   constructor(state: GameState, aspect: number, renderer: THREE.WebGLRenderer) {
@@ -149,6 +152,8 @@ export class GameView {
       this.occluders = [rooftop];
       this.scene.userData.studioTower = tower;
       this.spray = city.root.getObjectByName('spray');
+      this.windowGlow = buildWindowGlow();
+      this.scene.add(this.windowGlow);
       blockers = city.cameraBlockers;
     }
     this.scene.updateMatrixWorld(true);
@@ -326,6 +331,11 @@ export class GameView {
       this.gateArrow.rotation.y = t * 1.7;
       this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
     }
+    if (this.windowGlow) {
+      const lost = state.pickups.some((pk) => pk.part === 'flashlight' && pk.status === 'world');
+      this.windowGlow.visible = lost;
+      if (lost) (this.windowGlow.material as THREE.MeshBasicMaterial).opacity = 0.75 + Math.sin(t * 2.1) * 0.12 + Math.sin(t * 13.7) * 0.05;
+    }
     this.ensureEntities(state);
     const ground = new Collider(state.world.solids, state.blocks.map(blockSolid));
     this.shadows.begin();
@@ -416,6 +426,8 @@ export class GameView {
         this.vehicles.set(v.id, m);
       }
       m.root.position.set(v.pos.x, v.pos.y, v.pos.z);
+      const fitted = state.garages.find((g) => g.vehicle === v.kind)?.delivered ?? [];
+      for (const part of VEHICLES[v.kind].parts) if (part.accessory) m.parts.get(part.id)!.visible = fitted.includes(part.id);
       const prev = this.lastYaw.get(v.id) ?? v.yaw;
       this.lastYaw.set(v.id, v.yaw);
       const turn = dt > 0 ? (v.yaw - prev) / dt : 0;
@@ -569,6 +581,24 @@ function makeBeam(color: number): THREE.Mesh {
       fog: false,
     }),
   );
+}
+
+/** Two additive glow quads hugging the tower's mid-floor glass (south and west faces), one draw call. */
+function buildWindowGlow(): THREE.Mesh {
+  const y = TOWER.mid + 1.05;
+  const quads = [
+    new THREE.PlaneGeometry(4.6, 1.9).translate(TOWER.x, y, TOWER.z + 4.02),
+    new THREE.PlaneGeometry(4.6, 1.9).rotateY(-Math.PI / 2).translate(TOWER.x - 4.02, y, TOWER.z + 1.6),
+    new THREE.PlaneGeometry(2.2, 1.2).translate(TOWER.x, y - 0.1, TOWER.z + 4.04),
+  ];
+  const g = mergeGeometries(quads)!;
+  quads.forEach((q) => q.dispose());
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+    map: glowTexture(), color: 0xffd27a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+  }));
+  m.name = 'flashlight-window-glow';
+  m.castShadow = false;
+  return m;
 }
 
 function buildGarageProps(x: number, z: number, r: number): THREE.Group {

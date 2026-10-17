@@ -385,11 +385,18 @@ const api = {
   tick(n = 1, cmd: Partial<InputCommand> = {}) {
     for (let i = 0; i < n; i++) simStep({ ...emptyInput(input.camYaw), ...cmd });
   },
-  /** walk-path check from the spawn to every mission part: true = reachable on foot */
+  /** walk-path check to every mission part: true = reachable on foot from the spawn, or (elevator-only parts)
+   *  from the elevator's mid-floor stop and NOT on foot from the spawn */
   reach() {
     if (!state) return [];
-    const def = levelDef(state.level);
-    return findWalkPaths(makeCollider(state), state.world.half, def.spawn, def.mission.partSpots).map((p) => p !== null);
+    const def = levelDef(state.level), lift = def.mission.liftOnly ?? [];
+    const walk = findWalkPaths(makeCollider(state), state.world.half, def.spawn, def.mission.partSpots).map((p) => p !== null);
+    if (!lift.length) return walk;
+    const liftY = state.elevator.y;
+    state.elevator.y = TOWER.mid;
+    const ride = findWalkPaths(makeCollider(state), state.world.half, { x: TOWER.liftX, y: TOWER.mid, z: TOWER.z }, def.mission.partSpots);
+    state.elevator.y = liftY;
+    return walk.map((ok, i) => (lift.includes(i) ? !ok && ride[i] !== null : ok));
   },
   /** grab every bike part and bring it to the garage */
   collectAll() {

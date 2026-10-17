@@ -144,7 +144,7 @@ export function updatePickups(state: GameState) {
         emit(state, 'deliver', g.x, 1, g.z, p.id, pk.part);
       }
       const def = VEHICLES[g.vehicle];
-      if (!g.built && g.delivered.length >= def.parts.length) {
+      if (!g.built && def.parts.every((part) => part.accessory || g.delivered.includes(part.id))) {
         g.built = true;
         spawnVehicle(state, g.vehicle, g.x, 0, g.z, 0);
         emit(state, 'built', g.x, 1, g.z, p.id, g.vehicle);

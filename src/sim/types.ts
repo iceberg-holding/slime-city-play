@@ -75,6 +75,8 @@ export interface Creature extends Body {
   chatPartner: number | null;
   /** seconds left of a happy little twirl */
   twirl: number;
+  /** stays near its home and hints at the elevator-only part */
+  hinter?: boolean;
 }
 
 export type ProjectileKind = 'sticky' | 'bouncy';

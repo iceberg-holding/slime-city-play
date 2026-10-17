@@ -68,6 +68,40 @@ const PITBIKE: Record<string, PartBuilder> = {
   },
 };
 
+/** Warm additive cone shining forward (-z) from a lamp at (0, y, z). */
+export function headlightBeam(y: number, z: number, length = 4.2, radius = 0.95): THREE.Mesh {
+  const g = new THREE.ConeGeometry(radius, length, 20, 1, true);
+  g.rotateX(Math.PI / 2); // tip toward +z
+  g.translate(0, y, z - length / 2);
+  // fade toward the open end
+  const pos = g.attributes.position;
+  const fade = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const k = Math.max(0, 1 - (z - pos.getZ(i)) / length);
+    fade.set([k, k, k * 0.85], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(fade, 3));
+  const beam = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+    color: 0xfff1b8, vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false,
+    side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false,
+  }));
+  beam.name = 'headlight-beam';
+  beam.castShadow = false;
+  return beam;
+}
+
+// Bike headlight: a chunky torch clamped in front of the number plate, switched on.
+PITBIKE.flashlight = () => {
+  const k = new Kit();
+  k.add(geo.cyl(0.075, 0.095, 0.24, 20), GRAPHITE, { p: [0, 1.04, -0.8], r: [Math.PI / 2, 0, 0], finish: 'metal' });
+  k.add(geo.torus(0.095, 0.025, Math.PI * 2, 24), 0xffd23f, { p: [0, 1.04, -0.92], finish: 'gloss' });
+  k.add(geo.cyl(0.085, 0.085, 0.02, 20), 0xfff7c2, { p: [0, 1.04, -0.925], r: [Math.PI / 2, 0, 0], finish: 'glow' });
+  k.add(geo.rbox(0.06, 0.12, 0.08, 0.02), 0x22232e, { p: [0, 0.95, -0.76], finish: 'rubber' }); // clamp
+  const g = new THREE.Group();
+  g.add(k.build(), headlightBeam(1.04, -0.94));
+  return g;
+};
+
 const MINT = 0x39d9c4;
 const CORAL = 0xff6f61;
 

@@ -4,6 +4,7 @@ import { wet } from './harbor';
 import { TOWER, liftSolid, updateLift } from './tower';
 import {
   BUBBLE_TIME,
+  HINT_PHRASE,
   CREATURE_CROWD_SPEED,
   CREATURE_HEIGHT,
   CREATURE_RADIUS,
@@ -56,7 +57,8 @@ export function createGame(seed: number, look: Look, level = 1): GameState {
     winTime: 0,
   };
   addPlayer(state, look);
-  for (const sp of def.creatureSpawns) {
+  const spawns = [...def.creatureSpawns, ...(def.hintSpawn ? [def.hintSpawn] : [])];
+  spawns.forEach((sp, i) => {
     const c: Creature = {
       id: state.nextId++,
       seed: Math.floor(rand(state) * 1e9),
@@ -82,9 +84,10 @@ export function createGame(seed: number, look: Look, level = 1): GameState {
       talkCd: randRange(state, 0.5, 3),
       chatUntil: 0, chatPartner: null,
       twirl: 0,
+      hinter: i >= def.creatureSpawns.length,
     };
     state.creatures.push(c);
-  }
+  });
   setupMission(state);
   return state;
 }
@@ -369,6 +372,12 @@ function updatePlayer(state: GameState, p: Player, inp: InputCommand | undefined
   }
 }
 
+/** An elevator-only mission part is still lying where it was lost. */
+function hintPending(state: GameState) {
+  const lift = levelDef(state.level).mission.liftOnly ?? [];
+  return lift.some((i) => state.pickups[i]?.status === 'world');
+}
+
 function clampMag(v: number, m: number) {
   return v > m ? m : v < -m ? -m : v;
 }
@@ -424,6 +433,17 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
         c.thinkTimer = 0;
       }
     }
+    const hinting = !!c.hinter && td < 12 && hintPending(state);
+    if (hinting) {
+      // the lobby pyshka gossips about the flashlight upstairs every few seconds
+      c.talkCd -= dt;
+      if (c.talkCd <= 0 && !(c.phrase >= 100 && c.phrase !== HINT_PHRASE && c.talk > 0)) {
+        c.phrase = HINT_PHRASE;
+        c.talk = 3.4;
+        c.talkCd = randRange(state, 6, 9);
+        emit(state, 'babble', c.pos.x, c.pos.y + 1.4, c.pos.z, c.id);
+      }
+    }
     if (c.mode === 'crowd' && target) {
       // pick a spot on a ring around the player; "blockers" prefer the spot right in the player's path
       c.orbit += c.orbitDir * dt * 0.5;
@@ -436,8 +456,8 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
       const d = Math.hypot(dirX, dirZ);
       speed = Math.min(CREATURE_CROWD_SPEED, d * 2.5);
       // babble
-      c.talkCd -= dt;
-      if (c.talkCd <= 0 && td < 5 && c.chatUntil <= state.tick / 60 && !(c.phrase >= 100 && c.talk > 0)) {
+      if (!hinting) c.talkCd -= dt;
+      if (!hinting && c.talkCd <= 0 && td < 5 && c.chatUntil <= state.tick / 60 && !(c.phrase >= 100 && c.talk > 0)) {
         c.phrase = Math.floor(rand(state) * PHRASE_COUNT);
         c.talk = BUBBLE_TIME;
         c.talkCd = randRange(state, 4, 10);
@@ -447,7 +467,7 @@ function updateCreature(state: GameState, c: Creature, dt: number, col: Collider
     } else {
       if (c.thinkTimer <= 0 || Math.hypot(c.target.x - c.pos.x, c.target.z - c.pos.z) < 0.6) {
         const a = rand(state) * Math.PI * 2;
-        const r = randRange(state, 2, 7);
+        const r = c.hinter ? randRange(state, 0.5, 2) : randRange(state, 2, 7);
         c.target = { x: c.home.x + Math.cos(a) * r, z: c.home.z + Math.sin(a) * r };
         c.thinkTimer = randRange(state, 2.5, 5);
       }

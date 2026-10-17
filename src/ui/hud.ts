@@ -5,6 +5,7 @@ import type { GameEvent, GameState } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
 import { levelText, onLangChange, t } from './i18n';
 import { levelDef } from '../sim/levels';
+import { raceReady } from '../sim/race';
 import { isClassic, onClassicChange, type SettingsPanel } from './settings';
 
 export function formatTime(s: number): string {
@@ -151,7 +152,9 @@ export class Hud {
     const canMount = mountable(state, p) !== null;
     const riding = p.riding !== null;
     let hint = s.hintFind;
+    const ready = raceReady(state);
     if (carrying > 0) hint = s.hintBring;
+    else if (garage?.built && !ready && def.race) hint = s.hintLight;
     else if (garage?.built) hint = riding ? s.hintRide : s.hintMount;
     if (harbor) hint = carrying > 0 ? L2.hintBring : garage?.built ? L2.hintMount : L2.hintFind;
     const gateOpen = !!def.race && state.race.phase === 'open';
@@ -234,7 +237,8 @@ export class Hud {
       if (e.type === 'pickup' && mine) this.toast(`${s.got} ${names[e.info ?? ''] ?? e.info}`, 1.6);
       else if (e.type === 'deliver' && mine) {
         const g = state.garages[0];
-        this.toast(`${s.delivered} ${g.delivered.length}/${VEHICLES[g.vehicle].parts.length}`, 1.4);
+        if (e.info === 'flashlight' && g.built) this.toast(s.headlightOn, 2.2);
+        else this.toast(`${s.delivered} ${g.delivered.length}/${VEHICLES[g.vehicle].parts.length}`, 1.4);
       } else if (e.type === 'built') this.toast(e.info === 'scooter' ? levelText().built : s.built, 2.2);
       else if (e.type === 'trick' && mine) this.trick(e.info ?? '');
       else if (e.type === 'glue') this.toast(s.glued, 0.9);

@@ -12,14 +12,18 @@ try {
   const { findWalkPaths } = await load('/src/sim/reach.ts');
   const { emptyInput } = await load('/src/sim/types.ts');
   const { levelDef } = await load('/src/sim/levels.ts');
-  const { DT } = await load('/src/sim/constants.ts');
+  const { DT, HINT_PHRASE } = await load('/src/sim/constants.ts');
+  const { VEHICLES: V } = await load('/src/sim/vehicles.ts');
+  const { TOWER } = await load('/src/sim/tower.ts');
+  // Test shortcut: a fully assembled vehicle with every accessory fitted.
+  const ready = (s) => { const g = s.garages[0]; g.built = true; g.delivered = V[g.vehicle].parts.map(p => p.id); };
 
   const { openGates, startRace, raceFinish, RACE } = await load('/src/sim/race.ts');
   const { spawnVehicle } = await load('/src/sim/mission.ts');
   const race = createGame(42, [0, 0, 0, 0]);
   const racer = race.players[0];
   const vehicle = spawnVehicle(race, 'pitbike', 5.5, 0, 15.5, 0);
-  racer.riding = vehicle.id; vehicle.rider = racer.id; race.garages[0].built = true;
+  racer.riding = vehicle.id; vehicle.rider = racer.id; ready(race);
   openGates(race); assert.equal(race.race.phase, 'open'); startRace(race);
   assert.equal(race.race.phase, 'racing');
   for (let i = 0; i < (RACE.duration + 1) / DT; i++) step(race, {}, DT);
@@ -50,7 +54,7 @@ try {
     for (const seed of [42, 7]) {
       const s2 = createGame(seed, [0, 0, 0, 0], 2), p2 = s2.players[0];
       const sc = spawnVehicle(s2, 'scooter', def.mission.garage.x, 0, def.mission.garage.z, 0);
-      p2.riding = sc.id; sc.rider = p2.id; s2.garages[0].built = true;
+      p2.riding = sc.id; sc.rider = p2.id; ready(s2);
       // Ride into the harbor gate trigger to start, as a player would.
       step(s2, {}, DT); assert.equal(s2.race.phase, 'open');
       const t = def.race.trigger; sc.pos = { x: (t.minX + t.maxX) / 2, y: 0, z: (t.minZ + t.maxZ) / 2 }; step(s2, {}, DT);
@@ -114,7 +118,41 @@ try {
     reachedRoof ||= Math.abs(rider.pos.y - 22.1325) < 0.05;
   }
   assert.ok(reachedMid && reachedRoof, 'standing elevator rider reaches both upper stops');
-  assert.equal(towerState.pickups.length, 5, 'tower retains all five reachable bike parts');
+  assert.equal(towerState.pickups.length, 6, 'level 1 has six bike parts');
+
+  // Flashlight: on the tower's mid floor, reachable from the elevator stop but never on foot from the spawn.
+  {
+    const s = createGame(42, [0, 0, 0, 0]), def = levelDef(1), fi = def.mission.liftOnly[0];
+    assert.equal(s.pickups[fi].part, 'flashlight');
+    assert.equal(findWalkPaths(makeCollider(s), s.world.half, def.spawn, [def.mission.partSpots[fi]])[0], null, 'flashlight is not reachable by walking');
+    for (const y of [0.26, TOWER.roof]) {
+      s.elevator.y = y;
+      assert.equal(findWalkPaths(makeCollider(s), s.world.half, { x: TOWER.liftX, y, z: TOWER.z }, [def.mission.partSpots[fi]])[0], null, `flashlight not reachable from the stop at ${y}`);
+    }
+    s.elevator.y = TOWER.mid;
+    assert.ok(findWalkPaths(makeCollider(s), s.world.half, { x: TOWER.liftX, y: TOWER.mid, z: TOWER.z }, [def.mission.partSpots[fi]])[0], 'flashlight reachable from the mid-floor elevator stop');
+    // Five parts build a rideable bike, but the gate stays locked until the headlight is fitted.
+    const g = s.garages[0], p = s.players[0];
+    s.pickups.forEach((pk, i) => { if (i !== fi) { pk.status = 'carried'; pk.carrier = p.id; } });
+    p.pos = { x: g.x, y: 0, z: g.z }; step(s, {}, DT);
+    assert.ok(g.built && s.vehicles.length === 1, 'bike assembles without the flashlight');
+    const bike = s.vehicles[0]; bike.rider = p.id; p.riding = bike.id;
+    const t = def.race.trigger; bike.pos = { x: (t.minX + t.maxX) / 2, y: 0, z: t.maxZ + 3 };
+    for (let i = 0; i < 30; i++) step(s, {}, DT);
+    assert.equal(s.race.phase, 'locked', 'gate stays locked without the headlight');
+    s.pickups[fi].status = 'carried'; s.pickups[fi].carrier = p.id;
+    bike.pos = { x: g.x, y: 0, z: g.z }; step(s, {}, DT);
+    assert.ok(g.delivered.includes('flashlight'), 'flashlight fitted at the garage');
+    assert.equal(s.race.phase, 'open', 'gate opens once the headlight is on');
+    // The lobby pyshka gossips about the lost flashlight when you come close.
+    const hs = createGame(5, [0, 0, 0, 0]), hinter = hs.creatures.find(c => c.hinter);
+    assert.ok(hinter, 'level 1 has a hint pyshka');
+    hs.players[0].pos = { x: hinter.pos.x - 4, y: 0, z: hinter.pos.z };
+    let said = false;
+    for (let i = 0; i < 60 * 12 && !said; i++) { step(hs, {}, DT); said = hinter.phrase === HINT_PHRASE && hinter.talk > 0; }
+    assert.ok(said, 'hint pyshka says the flashlight line');
+    console.log('ok flashlight: elevator-only, bike builds with 5/6, gate locked until headlight, hint pyshka talks');
+  }
 
   // Try a few hero builds, including the slowest / lowest-jumping legs, on both levels.
   for (const [level, look] of [
@@ -130,9 +168,10 @@ try {
     const player = state.players[0];
     const pid = player.id;
 
-    // 1) Static path check from the spawn.
+    // 1) Static path check from the spawn (elevator-only parts are checked separately above).
+    const lift = MISSION.liftOnly ?? [];
     const paths = findWalkPaths(makeCollider(state), state.world.half, PLAYER_SPAWN, MISSION.partSpots);
-    paths.forEach((p, i) => assert.ok(p, `part ${i} (${JSON.stringify(MISSION.partSpots[i])}) is not reachable on foot`));
+    paths.forEach((p, i) => lift.includes(i) || assert.ok(p, `part ${i} (${JSON.stringify(MISSION.partSpots[i])}) is not reachable on foot`));
 
     // 2) Scripted walk using the real simulation.
     const walkTo = (goal, done, label) => {
@@ -162,6 +201,17 @@ try {
     };
 
     state.pickups.forEach((pk, i) => {
+      if (lift.includes(i)) {
+        // walk onto the elevator platform, ride it up to the mid floor, then walk over
+        const toLift = () => Math.hypot(player.pos.x - TOWER.liftX, player.pos.z - TOWER.z);
+        walkTo({ x: TOWER.liftX, y: state.elevator.y + 0.9, z: TOWER.z }, () => toLift() < 1.4, `look ${look} elevator`);
+        for (let t = 0; t < 120 && toLift() > 0.2; t++) {
+          const d = toLift();
+          step(state, { [pid]: { ...emptyInput(0), mx: (TOWER.liftX - player.pos.x) / d * Math.min(0.6, d * 2), mz: (TOWER.z - player.pos.z) / d * Math.min(0.6, d * 2) } }, DT);
+        }
+        for (let t = 0; t < 60 * 20 && Math.abs(player.pos.y - TOWER.mid) > 0.05; t++) step(state, { [pid]: emptyInput(0) }, DT);
+        assert.ok(Math.abs(player.pos.y - TOWER.mid) < 0.05, 'elevator carries the walker to the mid floor');
+      }
       walkTo({ ...MISSION.partSpots[i] }, () => pk.status !== 'world', `look ${look} part ${pk.part}`);
     });
     const g = state.garages[0];

@@ -12,20 +12,25 @@ try {
   const { trackAt, trackNear, TRACK_LENGTH, courseAt, courseNear } = await load('track');
   const { levelDef } = await load('levels');
   const { spawnVehicle } = await load('mission');
+  const { VEHICLES } = await load('vehicles');
   const { openGates, startRace, RACE } = await load('race');
   const { STOPS, TOWER } = await load('tower');
   // Flood fill each elevator-connected floor separately: the lift is a dynamic graph edge.
   for (const level of [1, 2]) {
     const s = createGame(42, [0,0,0,0], level), col = makeCollider(s);
-    const targets = [...s.pickups.map(p => ({name:p.part, pos:p.pos})),
+    const lift = levelDef(level).mission.liftOnly ?? [];
+    const targets = [...s.pickups.filter((_,i)=>!lift.includes(i)).map(p => ({name:p.part, pos:p.pos})),
       {name:'garage',pos:{x:s.garages[0].x,y:0.9,z:s.garages[0].z}},
       {name:'gate approach',pos:{x:levelDef(level).race.gateAt.x,y:0.9,z:levelDef(level).race.gateAt.z+1}}];
     const paths = findWalkPaths(col, 45, s.players[0].pos, targets.map(t=>t.pos));
     assert.deepEqual(targets.filter((_,i)=>!paths[i]).map(t=>t.name), [], `level ${level} unreachable targets`);
+    // Elevator-only parts must stay off the walking graph.
+    for (const i of lift) assert.equal(findWalkPaths(col,45,s.players[0].pos,[s.pickups[i].pos])[0], null, `${s.pickups[i].part} must need the elevator`);
     if (level === 1) for (const y of STOPS) {
       s.elevator.y = y;
       const floorTargets = [{x:26,y:y+0.9,z:-26}];
       if (y === TOWER.roof) floorTargets.push({x:24.5,y:y+0.9,z:-28.1},{x:27.755,y:y+0.9,z:-28.21});
+      if (y === TOWER.mid) floorTargets.push(...lift.map(i=>s.pickups[i].pos));
       assert.ok(findWalkPaths(makeCollider(s),35,{x:TOWER.liftX,y,z:-26},floorTargets).every(Boolean), `floor ${y}, pool/spa`);
     }
     {
@@ -67,7 +72,7 @@ try {
       const trackAt=d=>courseAt(course,d);
       const race=createGame(seed,[0,0,0,0],level), p=race.players[0];
       const v=spawnVehicle(race,kind,def.mission.garage.x,0,def.mission.garage.z,0);
-      v.rider=p.id;p.riding=v.id;race.garages[0].built=true;openGates(race);startRace(race);
+      v.rider=p.id;p.riding=v.id;race.garages[0].built=true;race.garages[0].delivered=VEHICLES[kind].parts.map(q=>q.id);openGates(race);startRace(race);
       let stuck=0, previous=0;
       const trackNear=(x,z)=>courseNear(course,x,z), top=def===levelDef(1)?9.75:14*0.75;
       for(let frame=0;frame<(def.race.duration+1)*60&&race.race.phase==='racing';frame++) {

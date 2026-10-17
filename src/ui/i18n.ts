@@ -53,7 +53,7 @@ const STRINGS = {
     } as Record<string, string>,
     random: 'Random',
     play: 'Play',
-    mission: 'Find 5 pit bike parts, build the bike and ride!',
+    mission: 'Find 6 pit bike parts, build the bike and ride!',
     desktopHelp: 'WASD move · drag to look · Space jump · Click/J sticky · Right-click/K bouncy · E block · Q cube/ramp · F ride',
     sticky: 'Sticky',
     bouncy: 'Bouncy',
@@ -62,7 +62,7 @@ const STRINGS = {
     cube: 'Cube',
     ramp: 'Ramp',
     blocks: 'Blocks',
-    partNames: { frontWheel: 'Front wheel', rearWheel: 'Rear wheel', frame: 'Frame', handlebar: 'Handlebar', engine: 'Engine' } as Record<
+    partNames: { frontWheel: 'Front wheel', rearWheel: 'Rear wheel', frame: 'Frame', handlebar: 'Handlebar', engine: 'Engine', flashlight: 'Flashlight' } as Record<
       string,
       string
     >,
@@ -78,6 +78,9 @@ const STRINGS = {
     hintMount: 'Hop on your pit bike!',
     hintGate: 'Ride through the green gate!',
     hintRide: 'Ride! Bounce off a pink slime pad for a trick!',
+    hintLight: 'Gate locked: too dark to race! Find the flashlight (tower elevator?)',
+    headlightOn: 'Headlight on! The gate is open',
+    hintPhrase: 'They say someone lost a flashlight upstairs…',
     glued: 'Glued!',
     bonk: 'Oof!',
     noRoom: 'No room here',
@@ -163,7 +166,7 @@ const STRINGS = {
     } as Record<string, string>,
     random: 'Случайно',
     play: 'Играть',
-    mission: 'Найди 5 деталей питбайка, собери его и катайся!',
+    mission: 'Найди 6 деталей питбайка, собери его и катайся!',
     desktopHelp:
       'WASD — ходить · тяни мышью — смотреть · Пробел — прыжок · Клик/J — липкая · ПКМ/K — прыгучая · E — блок · Q — куб/рампа · F — сесть',
     sticky: 'Липкая',
@@ -173,7 +176,7 @@ const STRINGS = {
     cube: 'Куб',
     ramp: 'Рампа',
     blocks: 'Блоки',
-    partNames: { frontWheel: 'Переднее колесо', rearWheel: 'Заднее колесо', frame: 'Рама', handlebar: 'Руль', engine: 'Мотор' } as Record<
+    partNames: { frontWheel: 'Переднее колесо', rearWheel: 'Заднее колесо', frame: 'Рама', handlebar: 'Руль', engine: 'Мотор', flashlight: 'Фонарик' } as Record<
       string,
       string
     >,
@@ -189,6 +192,9 @@ const STRINGS = {
     hintMount: 'Садись на питбайк!',
     hintGate: 'Езжай через зелёные ворота!',
     hintRide: 'Катайся! Прыгни с розовой слизи — будет трюк!',
+    hintLight: 'Ворота закрыты: без фары темно! Найди фонарик (лифт в башне?)',
+    headlightOn: 'Фара горит! Ворота открыты',
+    hintPhrase: 'Говорят, наверху кто-то фонарик потерял…',
     glued: 'Приклеен!',
     bonk: 'Ой!',
     noRoom: 'Тут нет места',
@@ -257,8 +263,42 @@ export function onLangChange(f: () => void) {
 }
 
 export function t(): Strings {
-  return { ...STRINGS[lang === 'ru' ? 'ru' : 'en'], phrases: CHAT[lang], hintGate: GATE_HINT[lang] };
+  return { ...STRINGS[lang === 'ru' ? 'ru' : 'en'], ...(lang === 'pl' || lang === 'lt' || lang === 'de' ? LEVEL1[lang] : {}), phrases: CHAT[lang], hintGate: GATE_HINT[lang] };
 }
+
+/** Level-1 mission texts for the languages without a full string table (the rest falls back to English). */
+const LEVEL1: Record<'pl' | 'lt' | 'de', Partial<Strings>> = {
+  pl: {
+    mission: 'Znajdź 6 części motoru, zbuduj go i jedź!',
+    partNames: { frontWheel: 'Przednie koło', rearWheel: 'Tylne koło', frame: 'Rama', handlebar: 'Kierownica', engine: 'Silnik', flashlight: 'Latarka' },
+    got: 'Mam:', delivered: 'Części', built: 'Motor gotowy!', ride: 'Jedź', exit: 'Zsiądź',
+    hintFind: 'Znajdź świecące części motoru!', hintBring: 'Zanieś części do garażu!', hintMount: 'Wskakuj na motor!',
+    hintRide: 'Jedź! Odbij się od różowego glutu i zrób trik!',
+    hintLight: 'Brama zamknięta: za ciemno na wyścig! Znajdź latarkę (winda w wieżowcu?)',
+    headlightOn: 'Reflektor świeci! Brama otwarta',
+    hintPhrase: 'Podobno ktoś na górze zgubił latarkę…',
+  },
+  lt: {
+    mission: 'Surask 6 motociklo dalis, surink jį ir važiuok!',
+    partNames: { frontWheel: 'Priekinis ratas', rearWheel: 'Galinis ratas', frame: 'Rėmas', handlebar: 'Vairas', engine: 'Variklis', flashlight: 'Žibintuvėlis' },
+    got: 'Turiu:', delivered: 'Dalys', built: 'Motociklas paruoštas!', ride: 'Važiuoti', exit: 'Nulipti',
+    hintFind: 'Surask šviečiančias motociklo dalis!', hintBring: 'Nešk dalis į garažą!', hintMount: 'Sėsk ant motociklo!',
+    hintRide: 'Važiuok! Atšok nuo rožinės gleivės ir padaryk triuką!',
+    hintLight: 'Vartai užrakinti: per tamsu lenktynėms! Surask žibintuvėlį (bokšto liftas?)',
+    headlightOn: 'Žibintas dega! Vartai atviri',
+    hintPhrase: 'Sako, viršuje kažkas pametė žibintuvėlį…',
+  },
+  de: {
+    mission: 'Finde 6 Pitbike-Teile, bau das Bike und fahr los!',
+    partNames: { frontWheel: 'Vorderrad', rearWheel: 'Hinterrad', frame: 'Rahmen', handlebar: 'Lenker', engine: 'Motor', flashlight: 'Taschenlampe' },
+    got: 'Hab ich:', delivered: 'Teile', built: 'Pitbike fertig!', ride: 'Fahren', exit: 'Absteigen',
+    hintFind: 'Finde die leuchtenden Bike-Teile!', hintBring: 'Bring die Teile zur Garage!', hintMount: 'Steig auf dein Pitbike!',
+    hintRide: 'Fahr los! Spring von einem rosa Schleimkissen für einen Trick!',
+    hintLight: 'Tor zu: zu dunkel fürs Rennen! Finde die Taschenlampe (Aufzug im Turm?)',
+    headlightOn: 'Scheinwerfer an! Das Tor ist offen',
+    hintPhrase: 'Man sagt, oben hat jemand eine Taschenlampe verloren…',
+  },
+};
 
 export const LANGS: Lang[] = ['en', 'ru', 'pl', 'lt', 'de'];
 export function nextLang() { setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]); }

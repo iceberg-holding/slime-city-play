@@ -221,6 +221,24 @@ export function blobMaterial(): THREE.MeshBasicMaterial {
   });
 }
 
+let glowTex: THREE.Texture | null = null;
+/** Soft white radial falloff for additive light glows (tint with the material color). */
+export function glowTexture(): THREE.Texture {
+  if (glowTex) return glowTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d')!;
+  const grd = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8;
+    grd.addColorStop(t, `rgba(255,255,255,${(Math.exp(-3.5 * t * t) * (1 - t)).toFixed(3)})`);
+  }
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 64, 64);
+  glowTex = new THREE.CanvasTexture(c);
+  return glowTex;
+}
+
 /** Shared clock for animated materials (seconds); the view advances it. */
 export const shaderTime = { value: 0 };
 

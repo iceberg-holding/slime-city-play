@@ -1,6 +1,7 @@
 import { courseAt, courseNear } from './track';
 import { levelDef, raceStart } from './levels';
 import type { GameState } from './types';
+import { VEHICLES } from './vehicles';
 
 // Level 1 values kept for existing callers and tests.
 const L1 = levelDef(1).race!;
@@ -9,8 +10,13 @@ export const GATE = L1.gate;
 
 export const raceOf = (s: GameState) => levelDef(s.level).race;
 
+/** Built and every accessory fitted (the pit bike needs its headlight before the race). */
+export function raceReady(s: GameState) {
+  const g = s.garages[0];
+  return !!g?.built && VEHICLES[g.vehicle].parts.every(p => g.delivered.includes(p.id));
+}
 export function openGates(s: GameState) {
-  if (raceOf(s) && s.garages[0]?.built && s.race.phase === 'locked') s.race.phase = 'open';
+  if (raceOf(s) && raceReady(s) && s.race.phase === 'locked') s.race.phase = 'open';
 }
 export function startRace(s: GameState) {
   const r = raceOf(s), p = s.players[0], v = s.vehicles.find(v => v.id === p.riding);

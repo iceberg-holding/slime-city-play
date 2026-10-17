@@ -25,3 +25,5 @@ export const KNOCKBACK = 6;
 /** number of babble phrases (the UI holds the localized text) */
 export const PHRASE_COUNT = 16;
 export const BUBBLE_TIME = 2.6;
+/** phrase index of the hint pyshka's line about the lost flashlight (localized by the UI) */
+export const HINT_PHRASE = 200;

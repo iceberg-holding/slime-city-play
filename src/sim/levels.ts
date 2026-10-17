@@ -22,6 +22,8 @@ export interface LevelDef {
   createWorld(): World;
   spawn: Vec3;
   creatureSpawns: { x: number; z: number }[];
+  /** a pyshka who hangs around here and hints at the elevator-only part */
+  hintSpawn?: { x: number; z: number };
   mission: MissionDef;
   race: RaceDef | null;
   /** northeast tower with the elevator and rooftop pool */
@@ -38,6 +40,7 @@ const LEVEL1: LevelDef = {
   createWorld,
   spawn: PLAYER_SPAWN,
   creatureSpawns: CREATURE_SPAWNS,
+  hintSpawn: { x: 30.9, z: -22.4 },
   mission: MISSION,
   tower: true,
   race: {
