@@ -254,10 +254,12 @@ export interface RaceState {
   /** trick points and hooligan hits on this run */
   points: number;
   hits: number;
+  /** rider's progress along the course last tick (for ring crossings) */
+  progress: number;
 }
 
 export function newRaceState(phase: RaceState['phase'] = 'locked', remaining = 60): RaceState {
-  return { phase, remaining, elapsed: 0, bonus: 0, stars: [], rings: [], points: 0, hits: 0 };
+  return { phase, remaining, elapsed: 0, bonus: 0, stars: [], rings: [], points: 0, hits: 0, progress: 0 };
 }
 
 export interface GameState {

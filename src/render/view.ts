@@ -1,5 +1,8 @@
 import { raceOf } from '../sim/race';
-import { courseStars, type Star } from '../sim/track';
+import { RING_RADIUS, courseRings, courseStars, type Ring, type Star } from '../sim/track';
+
+/** flame tongues per fire ring */
+const FLAMES = 12;
 import { buildHarbor } from './harbor';
 import { buildRaceRoad } from './raceRoad';
 import { batchStatic } from './art/batch';
@@ -113,6 +116,11 @@ export class GameView {
   private camFrame = 0;
   private meshHit = Infinity;
   private time = 0;
+  /** fire rings over the ramps: one emissive torus InstancedMesh + one additive flame InstancedMesh */
+  private rings: THREE.InstancedMesh | null = null;
+  private flames: THREE.InstancedMesh | null = null;
+  private ringList: Ring[] = [];
+  private tmpE = new THREE.Euler();
   /** red bandanas worn by race hooligans (created on first use) */
   private bandanas = new Map<number, THREE.Object3D>();
   /** race stars: one spinning InstancedMesh for the whole course */
@@ -151,6 +159,16 @@ export class GameView {
       this.stars.name = 'race-stars';
       this.stars.frustumCulled = false; // instances move every frame; the course-wide bounds would go stale
       this.scene.add(this.stars);
+      this.ringList = courseRings(raceOf(state)!.course);
+      const ringMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff5a00, emissiveIntensity: 1.6, roughness: 0.4 });
+      this.rings = new THREE.InstancedMesh(new THREE.TorusGeometry(RING_RADIUS, 0.13, 10, 40), ringMat, this.ringList.length);
+      this.flames = new THREE.InstancedMesh(new THREE.ConeGeometry(0.2, 0.7, 7, 1, true).translate(0, 0.35, 0),
+        new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+        this.ringList.length * FLAMES);
+      for (let i = 0; i < this.flames.count; i++) this.flames.setColorAt(i, new THREE.Color(i % 3 === 0 ? 0xffe066 : i % 3 === 1 ? 0xff8c1a : 0xff4d1a));
+      this.rings.name = 'race-rings';
+      this.flames.name = 'race-ring-flames';
+      for (const m of [this.rings, this.flames]) { m.frustumCulled = false; m.castShadow = false; this.scene.add(m); }
     }
     let blockers: Solid[] = [];
     if (state.world.theme === 'harbor') {
@@ -262,6 +280,9 @@ export class GameView {
         case 'deliver':
           this.burst(e.x, e.y, e.z, 24, [0xffd60a, 0xff6b00, 0xffffff], 6, 0.18);
           break;
+        case 'bonus':
+          if (e.info?.startsWith('ring')) this.burst(e.x, e.y, e.z, 30, [0xffe066, 0xff8c1a, 0xff4d1a], 7, 0.16);
+          break;
         case 'star':
           this.burst(e.x, e.y, e.z, 14, [0xffd23f, 0xffffff, 0xffa400], 4, 0.12);
           break;
@@ -310,6 +331,32 @@ export class GameView {
         size,
       });
     }
+  }
+
+  private syncRings(state: GameState, t: number) {
+    const rings = this.rings, flames = this.flames;
+    if (!rings || !flames) return;
+    rings.visible = flames.visible = this.road.visible;
+    if (!rings.visible) return;
+    (rings.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.5 + Math.sin(t * 17) * 0.25 + Math.sin(t * 7.3) * 0.2;
+    for (let i = 0; i < this.ringList.length; i++) {
+      const g = this.ringList[i], k = state.race.rings.includes(i) ? 0 : 1;
+      this.tmpQ.setFromEuler(this.tmpE.set(0, g.yaw, 0));
+      this.tmpM.compose(this.tmpV.set(g.x, g.y, g.z), this.tmpQ, this.tmpS.set(k, k, k));
+      rings.setMatrixAt(i, this.tmpM);
+      // flames lick up from the upper part of the ring, each flickering on its own beat
+      for (let f = 0; f < FLAMES; f++) {
+        const a = -0.5 + (f / (FLAMES - 1)) * (Math.PI + 1), j = i * FLAMES + f;
+        const cx = Math.cos(a) * RING_RADIUS, cy = Math.sin(a) * RING_RADIUS;
+        const h = k * (0.6 + 0.5 * Math.abs(Math.sin(t * 11 + j * 1.7)) + 0.2 * Math.sin(t * 23 + j));
+        this.tmpQ.setFromEuler(this.tmpE.set(0, g.yaw, (a - Math.PI / 2) * 0.35));
+        this.tmpV.set(cx, cy, 0).applyAxisAngle(this.yAxis, g.yaw).add(this.tmpS.set(g.x, g.y, g.z));
+        this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS.set(k, h, k));
+        flames.setMatrixAt(j, this.tmpM);
+      }
+    }
+    rings.instanceMatrix.needsUpdate = true;
+    flames.instanceMatrix.needsUpdate = true;
   }
 
   /** Replay path for the ghost bike (null = no ghost). */
@@ -377,6 +424,7 @@ export class GameView {
       this.gateArchMaterial.emissiveIntensity = 0.9 + Math.sin(t * 3) * 0.3;
     }
     this.syncGhostBike(state, t);
+    this.syncRings(state, t);
     if (this.stars) {
       this.stars.visible = this.road.visible;
       if (this.stars.visible) {

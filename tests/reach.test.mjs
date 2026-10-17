@@ -52,6 +52,10 @@ try {
     assert.ok(stars.length >= 20 && high.length === COURSE1.jumps.length, `level 1 has ${stars.length} stars, ${high.length} high`);
     const gotHigh = race.race.stars.filter(i => stars[i].high).length;
     assert.ok(race.race.stars.length >= 10 && gotHigh >= 3, `bot collects stars incl. high ones over ramps (${race.race.stars.length}, high ${gotHigh})`);
+    const { courseRings } = await load('/src/sim/track.ts');
+    assert.ok(race.race.rings.length >= COURSE1.jumps.length - 1, `bot flies through the fire rings over every main ramp (${race.race.rings.length}/${courseRings(COURSE1).length})`);
+    assert.ok(race.race.bonus >= race.race.rings.length * 3, 'each ring adds +3 s');
+    console.log(`ok rings: bot flew through ${race.race.rings.length}/${courseRings(COURSE1).length}, bonus ${race.race.bonus.toFixed(0)} s`);
     console.log(`ok stars: bot collected ${race.race.stars.length}/${stars.length}, ${gotHigh}/${high.length} high`);
     // A plain hop on flat road under a high star never reaches it.
     startRace(race);

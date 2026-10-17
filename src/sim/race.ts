@@ -1,4 +1,4 @@
-import { STAR_RADIUS, courseAt, courseNear, courseStars } from './track';
+import { RING_RADIUS, STAR_RADIUS, courseAt, courseNear, courseRings, courseStars } from './track';
 import { levelDef, raceStart } from './levels';
 import { newRaceState, type Creature, type GameState } from './types';
 import { VEHICLES } from './vehicles';
@@ -64,7 +64,21 @@ export function updateRace(s: GameState, dt: number) {
   if (!v) return;
   collectStars(s, v.pos.x, v.pos.y + 0.5, v.pos.z);
   const near = courseNear(r.course, v.pos.x, v.pos.z);
+  passRings(s, near.progress, v.pos.x, v.pos.y + 0.6, v.pos.z);
+  s.race.progress = near.progress;
   if (near.progress >= r.course.length - 0.01 && near.distance < r.course.rail + 0.5) raceFinish(s);
+}
+
+/** +3 s for flying through a ring: crossing its plane this tick, within the ring's radius. */
+function passRings(s: GameState, progress: number, x: number, y: number, z: number) {
+  const rings = courseRings(raceOf(s)!.course), from = s.race.progress;
+  for (let i = 0; i < rings.length; i++) {
+    const g = rings[i];
+    if (from >= g.d || progress < g.d || progress - from > 5 || s.race.rings.includes(i)) continue;
+    if ((g.x - x) ** 2 + (g.y - y) ** 2 + (g.z - z) ** 2 > RING_RADIUS ** 2) continue;
+    s.race.rings.push(i);
+    addBonus(s, 3, g.x, g.y, g.z, 'ring');
+  }
 }
 
 function collectStars(s: GameState, x: number, y: number, z: number) {

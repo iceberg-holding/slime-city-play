@@ -24,9 +24,11 @@ export const MEDAL_RANK: Record<Medal, number> = { bronze: 1, silver: 2, gold: 3
 export function medalFor(r: RaceDef, time: number): Medal {
   return time <= r.medals.gold ? 'gold' : time <= r.medals.silver ? 'silver' : 'bronze';
 }
-/** Gold needs ~85% of stock top speed over the whole course, silver ~78%; bonuses help. */
+/** Gold: ~85% of stock top speed over the course and every main-ramp fire ring (+3 s each);
+ *  silver: ~75% of top speed and half the ring bonus. Any finish is bronze. */
 function medals(course: Course, topSpeed: number) {
-  return { gold: Math.ceil(course.length / (topSpeed * 0.85)), silver: Math.ceil(course.length / (topSpeed * 0.78)) };
+  const rings = 3 * (course.jumps.length - (course.optionalJump !== null ? 1 : 0));
+  return { gold: Math.ceil(course.length / (topSpeed * 0.85) - rings), silver: Math.ceil(course.length / (topSpeed * 0.75) - rings / 2) };
 }
 
 export interface LevelDef {

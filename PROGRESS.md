@@ -146,3 +146,10 @@ Tests:
   - The purple TRICK button replaces the hidden block button while riding and pulses while airborne.
   - Sim test: TRICK is ignored on the ground, jumping in the air no longer flips, a landed backflip gives 100 pts and +2 s, and a late press bails.
   - Build, sim and sweep pass (TRICK button included in the layout overlap check).
+- R13.8 (item 8): Flaming rings over every ramp (`courseRings`, `Course.ringLift`).
+  - Each ring hangs just past the ramp lip, framing that ramp's high star.
+  - Heights were tuned by driving bots at 60/75/90/105% of top speed on both levels: every main-ramp ring is flown through at every speed. The optional left-lane ring needs the narrow ramp. A grounded ride or hop can't reach any of them.
+  - Crossing a ring's plane within 1.6 m of its centre gives +3 s, an orange "+3s Fire ring!" popup and a fire burst.
+  - Rendering is one emissive torus InstancedMesh with a flickering emissive intensity, plus one additive InstancedMesh of 12 flame tongues per ring, each flickering on its own beat. That is 2 draw calls, with reused matrices. Passed rings vanish.
+  - Medals now count the expected ring bonus: gold = length / (0.85 · top) − 3 s per main ring, silver = length / (0.75 · top) − half that. L1 is 59/80 s, L2 44/63 s. The 75% bot gets bronze on L1 (94.8 s) and silver on L2 (53 s).
+  - Build, sim and sweep pass.
