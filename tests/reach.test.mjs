@@ -131,6 +131,31 @@ try {
     assert.equal(h.race.bonus - before, 2, 'each hooligan pays only once per spot');
     console.log('ok hooligans: dash onto the road, +2 s bouncy hit, paid once');
   }
+  // TRICK button: only in the air; a landed trick scores points + seconds; landing mid-trick is a bail.
+  {
+    const k = createGame(9, [0, 0, 0, 0]), kp = k.players[0];
+    k.creatures = [];
+    const kv = spawnVehicle(k, 'pitbike', 5.5, 0, 15.5, 0);
+    kp.riding = kv.id; kv.rider = kp.id; ready(k); openGates(k); startRace(k);
+    const run = (n, cmd = {}) => { const ev = []; for (let i = 0; i < n; i++) { step(k, { [kp.id]: { ...emptyInput(), ...cmd } }, DT); ev.push(...k.events); } return ev; };
+    run(1, { trick: true });
+    assert.equal(kv.trick, null, 'TRICK does nothing on the ground');
+    run(1, { jump: true }); run(3);
+    run(1, { jump: true });
+    assert.equal(kv.trick, null, 'jump in the air no longer flips');
+    const before = k.race.bonus;
+    let ev = run(1, { trick: true });
+    assert.equal(kv.trick, 'flip', 'TRICK in the air starts a backflip');
+    ev = ev.concat(run(90));
+    const landed = ev.find(e => e.type === 'trick');
+    assert.ok(landed && landed.info.startsWith('flip|100|'), `landed flip scores (${landed?.info})`);
+    assert.equal(k.race.points, 100); assert.equal(k.race.bonus - before, 2, 'landed trick: +2 s');
+    // a late press on a small hop lands mid-roll
+    run(1, { jump: true }); run(25);
+    ev = run(1, { trick: true }).concat(run(60));
+    assert.ok(ev.some(e => e.type === 'bail') && !ev.some(e => e.type === 'trick'), 'landing mid-trick is a bail');
+    console.log('ok trick button: air-only, backflip +100 pts +2 s, late press bails');
+  }
   const level2 = createGame(42, racer.look, 2);
   assert.equal(level2.garages[0].vehicle, 'scooter');
   assert.equal(level2.pickups.length, 4, 'next level has scooter parts');

@@ -500,8 +500,8 @@ export class GameView {
       const turn = dt > 0 ? (v.yaw - prev) / dt : 0;
       m.root.rotation.y = v.yaw;
       const lean = v.grounded ? Math.max(-0.45, Math.min(0.45, turn * 0.12 * Math.min(1, Math.abs(v.speed) / 5))) : 0;
-      m.pivot.rotation.z += (lean - m.pivot.rotation.z) * Math.min(1, dt * 10);
-      m.pivot.rotation.x = v.flip;
+      m.lean += (lean - m.lean) * Math.min(1, dt * 10);
+      m.pivot.rotation.set(v.flip, v.twist, m.lean + v.roll);
       for (const w of m.wheels) w.rotation.x -= (v.speed * dt) / 0.4;
       shadow(v.pos.x, v.pos.y, v.pos.z, 2.2);
     }

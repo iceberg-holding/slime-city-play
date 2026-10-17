@@ -178,6 +178,8 @@ export interface VehicleModel {
   seat: THREE.Group;
   parts: Map<string, THREE.Group>;
   wheels: THREE.Object3D[];
+  /** smoothed cornering lean (radians) */
+  lean: number;
 }
 
 export function buildVehicle(kind: VehicleKind, partIds: string[]): VehicleModel {
@@ -201,5 +203,5 @@ export function buildVehicle(kind: VehicleKind, partIds: string[]): VehicleModel
   if (STANDING[kind]) seat.position.set(0, 0.31, 0.12);
   else seat.position.set(0, 0.25, 0.15);
   body.add(seat);
-  return { root, pivot, seat, parts, wheels };
+  return { root, pivot, seat, parts, wheels, lean: 0 };
 }

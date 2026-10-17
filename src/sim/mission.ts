@@ -1,16 +1,22 @@
 import { courseAt, courseNear } from './track';
-import { raceOf } from './race';
+import { addBonus, raceOf } from './race';
+import { rand } from './rng';
 import { wet } from './harbor';
 import { GRAVITY, PAD_LAUNCH } from './constants';
 import { Collider, moveBody } from './physics';
-import type { GameEvent, GameState, InputCommand, Player, Vehicle } from './types';
+import type { GameEvent, GameState, InputCommand, Player, TrickName, Vehicle } from './types';
 import { levelDef } from './levels';
 import { VEHICLES, type VehicleKind } from './vehicles';
 
 const TAU = Math.PI * 2;
 const MOUNT_RANGE = 2.6;
 const AIR_SPIN_RATE = 7;
-const FLIP_TIME = 0.65;
+/** seconds per TRICK-button trick (a plain bike hop is just long enough for one) */
+const TRICK_TIME = 0.45;
+const BUTTON_TRICKS: TrickName[] = ['flip', 'roll', 'twist'];
+const TRICK_POINTS: Record<TrickName, number> = { flip: 100, roll: 120, twist: 80, spin: 60 };
+/** number of funny landing phrases (localized by the UI) */
+export const TRICK_PHRASES = 6;
 
 function emit(state: GameState, type: GameEvent['type'], x: number, y: number, z: number, who?: number, info?: string) {
   state.events.push({ type, x, y, z, who, info });
@@ -57,9 +63,13 @@ export function spawnVehicle(state: GameState, kind: VehicleKind, x: number, y: 
     airTime: 0,
     spin: 0,
     flip: 0,
-    flipVel: 0,
+    roll: 0,
+    twist: 0,
     spinDone: 0,
-    flipDone: 0,
+    trick: null,
+    trickT: 0,
+    combo: [],
+    nextTrick: 0,
     lastClimb: 0,
   };
   state.vehicles.push(v);
@@ -165,14 +175,15 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
     const rz = -Math.sin(v.yaw);
     throttle = inp.mx * fx + inp.mz * fz;
     steer = inp.mx * rx + inp.mz * rz;
-    if (inp.jump) {
-      if (v.grounded) {
-        v.vel.y = def.hopVel;
-        v.grounded = false;
-        emit(state, 'jump', v.pos.x, v.pos.y, v.pos.z, v.rider);
-      } else if (v.flipVel === 0) {
-        v.flipVel = TAU / FLIP_TIME;
-      }
+    if (inp.jump && v.grounded) {
+      v.vel.y = def.hopVel;
+      v.grounded = false;
+      emit(state, 'jump', v.pos.x, v.pos.y, v.pos.z, v.rider);
+    }
+    // the TRICK button only works in the air; one trick at a time, cycling flip → roll → twist
+    if (inp.trick && !v.grounded && v.trick === null) {
+      v.trick = BUTTON_TRICKS[v.nextTrick++ % BUTTON_TRICKS.length];
+      v.trickT = 0;
     }
   }
 
@@ -244,33 +255,40 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
       v.grounded = false;
       v.padCd = 0.4;
       pad.squish = 1;
-      if (v.rider !== null && v.flipVel === 0) v.flipVel = TAU / FLIP_TIME; // automatic backflip off pads
+      if (v.rider !== null && v.trick === null) { v.trick = 'flip'; v.trickT = 0; } // automatic backflip off pads
       emit(state, 'bounce', pad.pos.x, pad.pos.y, pad.pos.z, v.id);
       break;
     }
   }
 
-  // tricks
+  // tricks: rotate while in the air, score the whole combo on landing
   if (!v.grounded) {
     v.airTime += dt;
-    if (v.flipVel > 0) {
-      v.flip += v.flipVel * dt;
-      if (v.flip >= TAU) {
-        v.flip = 0;
-        v.flipVel = 0;
-        trick(state, v, 'flip');
+    if (v.trick) {
+      v.trickT = Math.min(1, v.trickT + dt / TRICK_TIME);
+      const a = TAU * (1 - (1 - v.trickT) ** 2); // fast start, eases into the catch
+      v.flip = v.trick === 'flip' ? a : 0;
+      v.roll = v.trick === 'roll' ? a : 0;
+      v.twist = v.trick === 'twist' ? a : 0;
+      if (v.trickT >= 1) {
+        v.combo.push(v.trick);
+        v.trick = null;
+        v.flip = v.roll = v.twist = 0;
       }
     }
     if (Math.abs(v.spin) >= TAU * (v.spinDone + 1) - 0.3) {
       v.spinDone++;
-      trick(state, v, 'spin');
+      v.combo.push('spin');
     }
   } else {
+    if (v.trick) bail(state, v);
+    else if (v.combo.length) land(state, v);
     v.airTime = 0;
     v.spin = 0;
     v.spinDone = 0;
-    v.flip = 0;
-    v.flipVel = 0;
+    v.flip = v.roll = v.twist = 0;
+    v.trick = null;
+    v.combo = [];
   }
 
   if (v.rider !== null && Math.abs(v.speed) > 1.5) state.rideTime += dt;
@@ -283,10 +301,21 @@ export function updateVehicle(state: GameState, v: Vehicle, inp: InputCommand | 
   }
 }
 
-function trick(state: GameState, v: Vehicle, name: 'flip' | 'spin') {
+/** Clean landing: points for every trick (doubled per extra trick in the combo), +2 s per trick in a race (max 6). */
+function land(state: GameState, v: Vehicle) {
   if (v.rider === null) return;
+  const points = v.combo.reduce((n, t) => n + TRICK_POINTS[t], 0) * v.combo.length;
+  const phrase = Math.floor(rand(state) * TRICK_PHRASES);
   state.tricks++;
-  emit(state, 'trick', v.pos.x, v.pos.y + 1, v.pos.z, v.rider, name);
+  state.race.points += state.race.phase === 'racing' ? points : 0;
+  emit(state, 'trick', v.pos.x, v.pos.y + 1, v.pos.z, v.rider, `${v.combo.join('+')}|${points}|${phrase}`);
+  addBonus(state, Math.min(6, 2 * v.combo.length), v.pos.x, v.pos.y + 1.5, v.pos.z, 'trick');
+}
+
+/** Landed mid-trick: a wobble and a lost bit of speed, nothing worse. */
+function bail(state: GameState, v: Vehicle) {
+  v.speed *= 0.5;
+  emit(state, 'bail', v.pos.x, v.pos.y + 1, v.pos.z, v.rider ?? undefined);
 }
 
 /** Players riding a vehicle are carried by it. */

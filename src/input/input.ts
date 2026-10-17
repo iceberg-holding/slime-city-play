@@ -1,6 +1,6 @@
 import type { InputCommand } from '../sim/types';
 
-export type ActionName = 'sticky' | 'bouncy' | 'jump' | 'place' | 'toggleShape' | 'interact';
+export type ActionName = 'sticky' | 'bouncy' | 'jump' | 'place' | 'toggleShape' | 'interact' | 'trick';
 
 /**
  * Turns keyboard / mouse / touch into InputCommands.
@@ -91,6 +91,8 @@ export class InputController {
       KeyE: 'place',
       KeyQ: 'toggleShape',
       KeyF: 'interact',
+      KeyT: 'trick',
+      KeyR: 'trick',
       Enter: 'interact',
     };
     const a = map[k];
@@ -233,6 +235,7 @@ export class InputController {
       place: has('place'),
       toggleShape: has('toggleShape'),
       interact: has('interact'),
+      trick: has('trick'),
     };
     this.edges.clear();
     return cmd;

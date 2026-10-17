@@ -135,6 +135,8 @@ export interface Garage {
   built: boolean;
 }
 
+export type TrickName = 'flip' | 'roll' | 'twist' | 'spin';
+
 export interface Vehicle extends Body {
   id: number;
   kind: VehicleKind;
@@ -142,12 +144,19 @@ export interface Vehicle extends Body {
   speed: number;
   rider: number | null;
   airTime: number;
-  /** visual trick rotations (radians) */
+  /** visual trick rotations (radians): steering spin in the air, and the TRICK button's flip / roll / twist */
   spin: number;
   flip: number;
-  flipVel: number;
+  roll: number;
+  twist: number;
   spinDone: number;
-  flipDone: number;
+  /** trick in progress (TRICK button or pad backflip) and its progress 0..1 */
+  trick: TrickName | null;
+  trickT: number;
+  /** tricks completed during this jump; scored on landing */
+  combo: TrickName[];
+  /** next trick the TRICK button starts (cycles) */
+  nextTrick: number;
   lastClimb: number;
 }
 
@@ -289,8 +298,10 @@ export interface InputCommand {
   place: boolean;
   toggleShape: boolean;
   interact: boolean;
+  /** riding and airborne: start a flip / roll / twist */
+  trick?: boolean;
 }
 
 export function emptyInput(aimYaw = 0): InputCommand {
-  return { mx: 0, mz: 0, aimYaw, jump: false, sticky: false, bouncy: false, place: false, toggleShape: false, interact: false };
+  return { mx: 0, mz: 0, aimYaw, jump: false, sticky: false, bouncy: false, place: false, toggleShape: false, interact: false, trick: false };
 }

@@ -138,3 +138,11 @@ Tests:
   - Sim test: a hooligan runs onto the road as the rider approaches, a bouncy hit pays +2 s, and a second hit pays nothing.
   - Bots still finish: L1 in 115.8 s of 130 s, L2 in 74–76 s of 106 s, and all 7 sweep bots.
   - Build, sim and sweep pass.
+- R13.7 (item 7): Flip tricks with a dedicated TRICK button.
+  - The old double-tap-jump flip is gone. TRICK (`InputCommand.trick`; T/R on desktop) works only in the air. It starts one 0.45 s trick, cycling backflip → barrel roll → table twist. Pad bounces still do an automatic backflip.
+  - The vehicle carries `trick`/`trickT`/`combo`. The rotation eases into the catch on the pivot's x/z/y. Steering spins add "spin" to the combo.
+  - On landing the whole combo scores: base points × combo length, plus +2 s per trick in a race (max 6). A big "TRICK! 240" popup shows the localized trick names and a random funny phrase (6 per language in EN/RU/PL/LT/DE, e.g. "Grandma saw that!" / «Бабушка бы ахнула!»).
+  - Landing mid-trick is a harmless "Wobbly landing!" bail that halves speed.
+  - The purple TRICK button replaces the hidden block button while riding and pulses while airborne.
+  - Sim test: TRICK is ignored on the ground, jumping in the air no longer flips, a landed backflip gives 100 pts and +2 s, and a late press bails.
+  - Build, sim and sweep pass (TRICK button included in the layout overlap check).

@@ -3,7 +3,7 @@ import type { InputController, ActionName } from '../input/input';
 import { mountable } from '../sim/mission';
 import type { GameEvent, GameState } from '../sim/types';
 import { VEHICLES } from '../sim/vehicles';
-import { levelText, onLangChange, raceText, t } from './i18n';
+import { levelText, onLangChange, raceText, t, type RaceText } from './i18n';
 import { levelDef } from '../sim/levels';
 import { raceReady } from '../sim/race';
 import { courseStars } from '../sim/track';
@@ -31,6 +31,7 @@ export class Hud {
   private bonusEl: HTMLDivElement;
   private bonusTimer = 0;
   private iconEl: HTMLElement;
+  private trickLabel: HTMLElement;
   private toastTimer = 0;
   private trickTimer = 0;
   private labels: { el: HTMLElement; key: 'sticky' | 'bouncy' | 'jump' | 'block' }[] = [];
@@ -61,6 +62,7 @@ export class Hud {
         <button class="act act-sticky" data-a="sticky"><span class="ic"></span><span class="lb"></span></button>
         <button class="act act-bouncy" data-a="bouncy"><span class="ic"></span><span class="lb"></span></button>
         <button class="act act-jump" data-a="jump"><span class="ic">⤒</span><span class="lb"></span></button>
+        <button class="act act-trick" data-a="trick"><span class="ic">🤸</span><span class="lb">TRICK</span></button>
         <div class="block-group">
           <button class="act act-block" data-a="place"><span class="ic"></span><span class="lb"></span><span class="count"></span></button>
           <button class="shape-btn" data-a="toggleShape"></button>
@@ -81,6 +83,7 @@ export class Hud {
     this.trickEl = q('.trick');
     this.bonusEl = q('.bonus-pop');
     this.iconEl = q('.wrench-icon');
+    this.trickLabel = q('.act-trick .lb');
     this.tapHintEl = q('.tap-hint');
     q('.hud-right').prepend(settings.gearButton());
     const applyClassic = (v: boolean) => {
@@ -178,7 +181,6 @@ export class Hud {
     if (state.race.phase === 'racing') hint = harbor ? L2.race : raceText().race;
     if (state.race.phase === 'racing') {
       this.toastTimer = 0; this.toastEl.classList.remove('on');
-      this.trickTimer = 0; this.trickEl.classList.remove('on');
       this.tapHintEl.classList.remove('on');
     }
     const clock = state.race.phase === 'racing' ? state.race.remaining : state.time;
@@ -197,11 +199,14 @@ export class Hud {
       this.rideBtn.style.display = canMount || riding || nearLift ? '' : 'none';
       this.rideBtn.textContent = nearLift && !riding ? (document.documentElement.lang === 'ru' ? '↕ Лифт' : '↕ Elevator') : riding ? `${s.exit}` : garage?.vehicle === 'scooter' ? `🛴 ${L2.ride}` : `🏍 ${s.ride}`;
       this.el.classList.toggle('riding', riding);
+      this.trickLabel.textContent = raceText().trick;
       if (p.shape !== this.shape) {
         this.shape = p.shape;
         this.refreshText();
       }
     }
+    const ride = riding ? state.vehicles.find((v) => v.id === p.riding) : undefined;
+    this.el.classList.toggle('airborne', !!ride && !ride.grounded);
     if (this.tapHintTimer > 0) {
       this.tapHintTimer -= dt;
       if (this.tapHintTimer <= 0) this.tapHintEl.classList.remove('on');
@@ -228,15 +233,20 @@ export class Hud {
     this.toastTimer = time;
   }
 
-  private trick(name: string) {
-    const s = t();
+  /** Landed trick: "TRICK! 240", the combo's names and a funny phrase. `info` is "flip+roll|points|phrase". */
+  private trick(info: string) {
+    const s = t(), R = raceText();
+    const [combo, points, phrase] = info.split('|');
     this.trickEl.innerHTML = '';
     const big = document.createElement('div');
-    big.textContent = s.trick;
+    big.textContent = points ? `${s.trick} ${points}` : s.trick;
     const small = document.createElement('div');
     small.className = 'trick-name';
-    small.textContent = s.tricks[name] ?? name;
-    this.trickEl.append(big, small);
+    small.textContent = combo.split('+').map((n) => R.trickNames[n as keyof RaceText['trickNames']] ?? n).join(' + ');
+    const quip = document.createElement('div');
+    quip.className = 'trick-quip';
+    quip.textContent = R.trickPhrases[+phrase % R.trickPhrases.length] ?? '';
+    this.trickEl.append(big, small, quip);
     this.trickEl.classList.remove('on');
     void this.trickEl.offsetWidth;
     this.trickEl.classList.add('on');
@@ -263,6 +273,8 @@ export class Hud {
           const label = kind === 'ring' ? R.ring : kind === 'hit' ? R.hit : kind === 'trick' ? R.trick : R.bonus;
           this.bonus(`+${sec}s ${label}`, kind);
         } else if (e.type === 'star') this.bonus(`⭐ ${R.star}!`, 'star');
+        else if (e.type === 'trick' && e.who === playerId) this.trick(e.info ?? '');
+        else if (e.type === 'bail' && e.who === playerId) this.bonus(R.bail, 'bail');
       }
       return;
     }
@@ -276,6 +288,7 @@ export class Hud {
         else this.toast(`${s.delivered} ${g.delivered.length}/${VEHICLES[g.vehicle].parts.length}`, 1.4);
       } else if (e.type === 'built') this.toast(e.info === 'scooter' ? levelText().built : s.built, 2.2);
       else if (e.type === 'trick' && mine) this.trick(e.info ?? '');
+      else if (e.type === 'bail' && mine) this.bonus(raceText().bail, 'bail');
       else if (e.type === 'glue') this.toast(s.glued, 0.9);
       else if (e.type === 'bonk' && mine) this.toast(s.bonk, 0.7);
       else if (e.type === 'noroom' && mine) this.toast(s.noRoom, 0.9);
